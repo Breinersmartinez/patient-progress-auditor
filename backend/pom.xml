@@ -11,11 +11,11 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.agrocortex</groupId>
-    <artifactId>agrocortex-api</artifactId>
+    <groupId>com.patientprogressauditor</groupId>
+    <artifactId>patient-progress-auditor-api</artifactId>
     <version>0.1.0-SNAPSHOT</version>
-    <name>AgroCortex API</name>
-    <description>API de diagnostico agronomico conversacional para pequenos agricultores</description>
+    <name>Patient Progress Auditor API</name>
+    <description>API de auditoria de la evolucion de pacientes con agente de IA</description>
 
     <properties>
         <java.version>17</java.version>

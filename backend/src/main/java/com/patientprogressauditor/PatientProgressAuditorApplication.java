@@ -1,12 +1,12 @@
-package com.agrocortex;
+package com.patientprogressauditor;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class AgroCortexApplication {
+public class PatientProgressAuditorApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(AgroCortexApplication.class, args);
+        SpringApplication.run(PatientProgressAuditorApplication.class, args);
     }
 }
