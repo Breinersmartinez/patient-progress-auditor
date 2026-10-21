@@ -1,8 +1,8 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/agrocortex
-    username: agrocortex
-    password: agrocortex
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:patient_auditor}
+    username: ${DB_USERNAME:patient_auditor}
+    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -12,5 +12,5 @@ spring:
 
 logging:
   level:
-    com.agrocortex: DEBUG
+    com.patientprogressauditor: DEBUG
     org.hibernate.SQL: DEBUG

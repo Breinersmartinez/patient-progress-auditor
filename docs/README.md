@@ -1,26 +1,19 @@
-# Documentación — AgroCortex
+# Documentación — Patient Progress Auditor
 
-Portal de documentación técnica del proyecto. Organizada por categorías funcionales (estándar enterprise). Cada documento describe un problema, una decisión o un procedimiento, y referencia a sus dependientes.
+Portal de documentación técnica del proyecto. Cada documento describe un problema, una decisión o un procedimiento, y referencia a sus dependientes.
 
 ## Índice
 
-### 01 — Architecture
+### Especificación y plan (curso)
 
-| Documento | Qué es | Relacionado con |
+| Documento | Qué es | Estado |
 |---|---|---|
-| [clean-architecture.md](01-architecture/clean-architecture.md) | Fuente única de arquitectura: regla de dependencias, capabilities de negocio, RBAC/JWT e IA como puertos y adaptadores | Modelo de datos (02) |
-| [agricultural-analysis.md](01-architecture/agricultural-analysis.md) | Restricciones de diseño del dominio: entrada multimodal, reglas plaga-cultivo-clima-región, tolerancia al error | Modelo de datos (02) |
-| [architecture-flow.drawio](01-architecture/architecture-flow.drawio) | Diagrama de flujo de entidades del dominio (abrir en draw.io) | Modelo de datos (02) |
-
-### 02 — Data
-
-| Documento | Qué es | Relacionado con |
-|---|---|---|
-| [data-model-mvp.md](02-data/data-model-mvp.md) | Modelo de entidades MVP: espina dorsal relacional **Agricultor → Sembradio → Cultivo → Consulta → Sesión → Mensaje** + diagnóstico/recomendación | Análisis agrícola (01) |
-| [data-model-er.drawio](02-data/data-model-er.drawio) | Diagrama entidad-relación del MVP (editar en draw.io) | Modelo de datos MVP (02) |
-| [possible-design-patterns.md](02-data/possible-design-patterns.md) | Borrador de patrones de diseño candidatos como evidencia por capability (documento vivo, no una decisión cerrada) | Arquitectura (01) |
-
-> El esquema operativo de la base de datos son las migraciones Flyway en `backend/src/main/resources/db/migration/`, no un diagrama ni un script suelto.
+| [SPEC.md](SPEC.md) | Especificación del incremento: resumen, objetivos medibles, fuera de alcance, diseño, casos borde, criterios de aceptación y decisiones | `PENDIENTE` |
+| [PLAN.md](PLAN.md) | Plan derivado de la spec, con tareas verificables | `PENDIENTE` |
+| [decisiones/](decisiones/) | Decisiones con fecha y método (semana08: datos; semana10: línea base de medición) | Esqueleto vacío |
+| [seguridad.md](seguridad.md) | Modelo de amenazas, tríada, ataque propio y hardening (M3) | Pendiente de crear |
+| [gobernanza.md](gobernanza.md) | Ficha de 5 preguntas sobre datos que salen a terceros (M3) | Pendiente de crear |
+| [respuesta_auditoria.md](respuesta_auditoria.md) | Respuesta a la auditoría cruzada (M3) | Pendiente de crear |
 
 ### 03 — Engineering
 
@@ -49,7 +42,7 @@ Portal de documentación técnica del proyecto. Organizada por categorías funci
 
 ## Convenciones del portal
 
-- **Nombres de archivo**: inglés, `kebab-case`, una palabra de dominio por documento (no `despliegue-heroku.pdf`).
+- **Nombres de archivo**: inglés, `kebab-case`, una palabra de dominio por documento.
 - **Prefijo numérico** por categoría: establece el orden de lectura y evita que GitHub ordene alfabéticamente rompiendo la cronología conceptual.
 - **Cada documento referencia a sus dependientes** (tabla "Relacionado con") y no duplica contenido que ya vive en otro.
-- **Assets** compartidos en [`assets/`](assets/), fuera de cualquier categoría.
+- **Los nombres que exige el curso mandan** sobre la convención anterior: `docs/SPEC.md`, `docs/PLAN.md` y `docs/decisiones/` son los nombres oficiales (ver la sección "Estructura de entrega" de `AGENTS.md`).

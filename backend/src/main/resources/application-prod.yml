@@ -11,5 +11,5 @@ spring:
 
 logging:
   level:
-    com.agrocortex: INFO
+    com.patientprogressauditor: INFO
     root: WARN

@@ -1,4 +1,4 @@
-# CI/CD — AgroCortex (GitHub Actions)
+# CI/CD — Patient Progress Auditor (GitHub Actions)
 
 Pipeline de integración y despliegue continuo del monorepo. Complementa `deployment.md` (que describe el despliegue manual) con la versión automatizada.
 
@@ -26,7 +26,7 @@ Configurar en Settings → Secrets and variables → Actions (nivel repositorio)
 | Secreto | Uso |
 |---|---|
 | `HEROKU_API_KEY` | Autenticación del `git push` a Heroku (usuario `heroku`, password = API key) |
-| `HEROKU_APP_NAME` | Nombre de la app Heroku (ej. `agro-cortex`) |
+| `HEROKU_APP_NAME` | Nombre de la app Heroku (ej. `patient-progress-auditor`) |
 | `APP_URL` | Smoke test del backend |
 | `API_URL` | Variable de build del frontend (URL base de la API) |
 | `VERCEL_TOKEN` | Deploy CLI de Vercel |
