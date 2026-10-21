@@ -1,10 +1,10 @@
-package com.agrocortex;
+package com.patientprogressauditor;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class AgroCortexApplicationTests {
+class PatientProgressAuditorApplicationTests {
 
     @Test
     void contextLoads() {

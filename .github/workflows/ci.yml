@@ -33,13 +33,13 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_DB: agrocortex
-          POSTGRES_USER: agrocortex
-          POSTGRES_PASSWORD: agrocortex
+          POSTGRES_DB: patient_auditor
+          POSTGRES_USER: patient_auditor
+          POSTGRES_PASSWORD: ci-only-ephemeral-password
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U agrocortex -d agrocortex"
+          --health-cmd "pg_isready -U patient_auditor -d patient_auditor"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -60,9 +60,9 @@ jobs:
       - name: Compile and run tests
         run: mvn -B verify --no-transfer-progress
         env:
-          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/agrocortex
-          SPRING_DATASOURCE_USERNAME: agrocortex
-          SPRING_DATASOURCE_PASSWORD: agrocortex
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/patient_auditor
+          SPRING_DATASOURCE_USERNAME: patient_auditor
+          SPRING_DATASOURCE_PASSWORD: ci-only-ephemeral-password
 
       - name: Upload test reports
         if: ${{ !cancelled() }}
@@ -106,6 +106,6 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: frontend-coverage
-          path: frontend/coverage/agrocortex-frontend/
+          path: frontend/coverage/patient-progress-auditor-frontend/
           if-no-files-found: ignore
           retention-days: 14

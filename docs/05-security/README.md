@@ -1,4 +1,4 @@
-# Seguridad — AgroCortex
+# Seguridad — Patient Progress Auditor
 
 Postura de seguridad del proyecto. Este documento no repite contenido de `04-operations/ci-cd.md` ni de `03-engineering/github-actions-workflows.md`: resume qué está automatizado, qué depende de configuración humana, y qué aún no se cubre.
 
