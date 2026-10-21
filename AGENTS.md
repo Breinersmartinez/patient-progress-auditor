@@ -39,7 +39,7 @@ Objetivo de entrega (por crear): `./run.sh` o `docker compose up --build` levant
 - **Dudas vs decisiones:** si algo de producto no está decidido en `docs/SPEC.md`, para y pregunta; no lo resuelvas en silencio. Al terminar cada tarea, lista las decisiones que tomaste y que nadie te pidió.
 - **Spec primero:** `docs/SPEC.md` con siete secciones: resumen, objetivos medibles, fuera de alcance (nunca vacío), diseño, casos borde, criterios de aceptación (cada línea se responde con sí o no) y decisiones. Spec, plan (`docs/PLAN.md`) y tareas son documentos distintos; ninguna tarea de más de medio día.
 - **Revisión con contexto fresco:** quien revisa no es quien escribió. Sesión nueva para revisar; una tarea, una sesión.
-- **Skills:** `skills/` en la raíz con la cadena `escribir-spec` → `escribir-plan` → `ejecutar-plan`. Úsalos cuando la tarea coincida; si uno falla, reporta cuál y qué se corrigió.
+- **Skills:** `.opencode/skills` en la raíz con la cadena `escribir-spec` → `escribir-plan` → `ejecutar-plan`. Úsalos cuando la tarea coincida; si uno falla, reporta cuál y qué se corrigió.
 - **Permisos.** Sin preguntar: leer, editar en rama, correr tests. Siempre preguntar: borrar, push, comandos destructivos, instalar dependencias, tocar `.env` o credenciales.
 - **Código explicable:** se puede usar toda la IA, pero cada integrante responde por cada línea y debe poder explicar cualquier función que se le señale. No generes lo que el equipo no pueda explicar.
 
