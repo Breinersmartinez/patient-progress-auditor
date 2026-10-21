@@ -25,7 +25,7 @@ springdoc:
 security:
   jwt:
     secret: ${JWT_SECRET}
-    issuer: ${JWT_ISSUER:agrocortex-api}
+    issuer: ${JWT_ISSUER:patient-progress-auditor-api}
     access-token-expiration-seconds: ${JWT_ACCESS_TOKEN_EXPIRATION_SECONDS:900}
 
 app:
