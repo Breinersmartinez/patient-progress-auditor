@@ -1,4 +1,4 @@
-# Despliegue — AgroCortex
+# Despliegue — Patient Progress Auditor
 
 Repositorio monorepo con dos aplicaciones independientes:
 
@@ -36,20 +36,20 @@ La app debe estar en stack `container` (ver requisitos). Alternativas descartada
 
 ```bash
 # Stack container (Docker, no buildpacks)
-heroku stack:set container -a agro-cortex
+heroku stack:set container -a patient-progress-auditor
 
 # `heroku.yml` commiteado en la raíz (definido en §1.1)
 
 # No hay buildpacks configurados (verificable con `heroku buildpacks`)
 
 # Profile de Spring en producción
-heroku config:set SPRING_PROFILES_ACTIVE=prod -a agro-cortex
+heroku config:set SPRING_PROFILES_ACTIVE=prod -a patient-progress-auditor
 
 # PostgreSQL (el addon setea PGHOST, PGPORT, PGDATABASE, PGUSER, PGPASSWORD)
-heroku addons:create heroku-postgresql:essential-0 -a agro-cortex
+heroku addons:create heroku-postgresql:essential-0 -a patient-progress-auditor
 ```
 
-Verificación de stack: `heroku apps:info -a agro-cortex` debe mostrar `Stack: container`.
+Verificación de stack: `heroku apps:info -a patient-progress-auditor` debe mostrar `Stack: container`.
 
 ### 1.3. Desplegar
 
@@ -62,10 +62,10 @@ Fallback manual (solo emergencias; el push a Heroku no pasa por la protección d
 
 ```bash
 # 1. Verificar el build local (contexto = backend/)
-docker build -f backend/Dockerfile -t agrocortex:test .
+docker build -f backend/Dockerfile -t patient-progress-auditor:test .
 
 # 2. Preparar el remote (una sola vez)
-heroku git:remote -a agro-cortex
+heroku git:remote -a patient-progress-auditor
 
 # 3. Desplegar (el build de Docker ocurre en Heroku)
 git push heroku main
@@ -76,9 +76,9 @@ git push heroku main
 ### 1.4. Verificación
 
 ```bash
-heroku ps -a agro-cortex        # → web.1: up
-heroku logs --num 50 -a agro-cortex
-curl -s -o /dev/null -w "%{http_code}\n" https://agro-cortex-e8efa9bac1c8.herokuapp.com/
+heroku ps -a patient-progress-auditor        # → web.1: up
+heroku logs --num 50 -a patient-progress-auditor
+curl -s -o /dev/null -w "%{http_code}\n" https://patient-progress-auditor.herokuapp.com/
 ```
 
 **Nota sobre el `401`:** con el scaffold actual (sin `SecurityConfig` todavía) la API responde `401` en `/` y `/swagger-ui.html` porque Spring Security genera una password aleatoria por defecto. Es esperado hasta que exista configuración de seguridad real.
@@ -95,15 +95,16 @@ El job `Frontend → Vercel` del workflow `Deploy` construye en el runner (`npm 
 
 - **Root directory:** `frontend`
 - **Build command:** `npm run build`
-- **Output directory:** `dist/agrocortex-frontend/browser`
+- **Output directory:** `dist/patient-progress-auditor-frontend/browser`
 - **Base framework preset:** Angular
+- **Proyecto de Vercel:** `patient-progress-auditor-frontend` (el id viaja en el secreto `VERCEL_PROJECT_ID`)
 
 `frontend/vercel.json` aplica los rewrites SPA (toda ruta → `index.html`) y el cacheo de assets:
 
 ```json
 {
   "buildCommand": "npm run build",
-  "outputDirectory": "dist/agrocortex-frontend/browser",
+  "outputDirectory": "dist/patient-progress-auditor-frontend/browser",
   "framework": "angular",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
@@ -113,7 +114,7 @@ El job `Frontend → Vercel` del workflow `Deploy` construye en el runner (`npm 
 
 | Variable | Uso |
 |---|---|
-| `API_URL` | URL base de la API (ej: `https://agro-cortex-*.herokuapp.com`) |
+| `API_URL` | URL base de la API (ej: `https://patient-progress-auditor.herokuapp.com`) |
 
 > A diferencia del backend, en Angular las variables de entorno no se inyectan en tiempo de construcción desde `process.env`: se definen en `src/environments/` (aún no creados) o se leen en runtime. `API_URL` en Vercel se usa para generar los artefactos en el build.
 

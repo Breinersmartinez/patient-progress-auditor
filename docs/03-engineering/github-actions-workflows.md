@@ -6,7 +6,7 @@ En este documento se explica **cómo** se construyeron y por qué se tomaron las
 
 ## El problema de fondo
 
-El repo es un monorepo: una API Spring Boot en `backend/` y una SPA Angular en `frontend/`, cada una con su propio destino (`Heroku` y `Vercel`). El flujo manual estaba documentado en `docs/04-operations/deployment.md`, pero dependía de comandos a mano, y no había una puerta de calidad entre "se ve bien en mi máquina" y "está en producción".
+El repo es un monorepo: una API Spring Boot en `backend/` y una SPA Angular en `frontend/`, cada una con su propio destino (`Heroku` — app `patient-progress-auditor` — y `Vercel` — proyecto `patient-progress-auditor-frontend`). El flujo manual está documentado en `docs/04-operations/deployment.md`, pero depende de comandos a mano, y no hay una puerta de calidad entre "se ve bien en mi máquina" y "está en producción".
 
 La construcción buscó tres cosas concretas:
 1. **Un CI que falle antes de llegar a `main`**: compilar y correr tests de las dos aplicaciones en cada PR.
@@ -30,7 +30,7 @@ La construcción buscó tres cosas concretas:
 
 **Decisiones de construcción**:
 - Los artefactos (reports de tests, coverage) se suben con `upload-artifact` solo si el run no fue cancelado, y con `retention-days: 14`: están para diagnosticar un fallo, no para guardarse para siempre.
-- El coverage lcov se genera en Karma (en `coverageReporter`) para que más adelante se pueda conectar a un servicio de reportes o al propio PR sin tocar el workflow.
+- El coverage lcov se genera en Karma (en `coverageReporter`, directorio `frontend/coverage/patient-progress-auditor-frontend/`) para que más adelante se pueda conectar a un servicio de reportes o al propio PR sin tocar el workflow.
 
 ### 2. `deploy.yml` — el flujo de liberación
 
@@ -40,7 +40,7 @@ La construcción buscó tres cosas concretas:
 
 **Cómo se despliega el backend** (y por qué así): el flujo manual de `docs/04-operations/deployment.md` usa `heroku.yml` + `git push`. El workflow hace exactamente eso — un único paso sincroniza la URL de git de Heroku con el API key como password:
 
-1. `git push https://heroku:${HEROKU_API_KEY}@git.heroku.com/<app>.git HEAD:main`.
+1. `git push https://heroku:${HEROKU_API_KEY}@git.heroku.com/${HEROKU_APP_NAME}.git HEAD:main`, con `HEROKU_APP_NAME` = `patient-progress-auditor` (app configurada como remoto en GitHub → Settings → Secrets).
 2. Heroku construye la imagen con `heroku.yml` (`build.docker.web: backend/Dockerfile`) y libera el release.
 
 Se eligió git push (y no container registry) porque la imagen la construye Heroku y el `run.web` de `heroku.yml` define el proceso; el runner no necesita Docker ni el CLI de Heroku.
@@ -90,7 +90,7 @@ La regla es: cada job declara lo que usa y nada más. Por defecto `permissions: 
 ## Cómo se verificó la construcción
 
 1. **actionlint local**: se descargó el binario y se corrieron los tres workflows. Es el mismo chequeo que hace el job `lint-workflows` en CI.
-2. **Ejecución real de los comandos**: `mvn -B verify` en `backend/` (`BUILD SUCCESS`, 1 test) y `ng test --watch=false --code-coverage --browsers=ChromeHeadless` en `frontend/` (3 tests SUCCESS, coverage 100% sobre código actual). Ambos son exactamente los comandos que corren en los jobs; verificar localmente elimina la clase de errores que solo aparecen cuando el workflow ya está pusheado.
+2. **Ejecución real de los comandos**: `mvn -B verify` en `backend/` (1 test; **requiere un PostgreSQL alcanzable** con las credenciales del perfil `dev` — en CI lo provee el servicio `postgres` del workflow) y `ng test --watch=false --code-coverage --browsers=ChromeHeadless` en `frontend/` (3 tests SUCCESS, coverage 100% sobre el código actual). Ambos son exactamente los comandos que corren en los jobs; verificar localmente elimina la clase de errores que solo aparecen cuando el workflow ya está pusheado.
 
 ---
 
