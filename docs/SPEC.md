@@ -1,11 +1,11 @@
 # SPEC — Patient Progress Auditor
 
-> **Estado:** borrador v0.3 para aprobación · **Fase del ciclo de vida:** 1 — Planificación · **Fecha:** 2026-10-21
+> **Estado:** borrador v0.4 para aprobación · **Fase del ciclo de vida:** 1 — Planificación (cerrada, línea base) · en curso: 2 — Análisis de requisitos · **Fecha:** 2026-10-23
 > **Equipo:** Breiner Martinez Muñoz y Andres Felipe Lopez Vivas · **Curso:** Ingeniería de Aplicaciones con IA (UCC)
 >
-> **Cambios de la v0.3:** el sistema es una aplicación con un agente integrado (D7 decidida) y se siembran las decisiones que toma el agente. La v0.2 incorporó la semana 6 (autonomía por acción, criterio de parada, plan B sin internet) y las decisiones sobre permisos por rol, PDF y voz.
+> **Cambios de la v0.4:** se cierra la planificación; las fases se separan en análisis de requisitos (`docs/REQUISITOS.md`) y diseño; se registra la aprobación del profesor sobre la necesidad de IA (D17); los supuestos de trabajo del análisis quedan reflejados en D5, D6, D10 y D12, y se abren D18 a D20. La v0.3 fijó que el sistema es una aplicación con un agente integrado (D7) y sembró las decisiones que toma el agente. La v0.2 incorporó la semana 6 (autonomía por acción, criterio de parada, plan B sin internet) y las decisiones sobre permisos por rol, PDF y voz.
 >
-> Este documento desarrolla las secciones §1 a §3 de la spec (resumen, objetivos, alcance) y deja sembradas §4, §5 y §7. La §6 se completa en la fase de diseño.
+> Este documento desarrolla las secciones §1 a §3 de la spec (resumen, objetivos, alcance) y deja sembradas §4, §5 y §7. Los criterios de aceptación por requisito están en `docs/REQUISITOS.md`; la §6 los consolida en la fase de diseño.
 >
 > **Etiquetas de origen:** **[Curso]** lo exige o lo recomienda el curso · **[Equipo]** ya lo definió el equipo (presentación del proyecto y `AGENTS.md`) · **[Propuesta]** lo propone este borrador y hay que confirmarlo. Ninguna meta numérica va sin etiqueta.
 
@@ -102,7 +102,7 @@ No se fija un umbral de éxito del agente antes de medir la línea base. El curs
 | Exportación a PDF de informes aprobados | | Opcional |
 | Dictado por voz con transcripción editable | | Opcional |
 
-Los hitos son **[Propuesta]**: separar semanal (M2) y mensual (M3) responde a que quedan 10 días hasta el Momento 2. PDF y voz solo entran si todo lo demás está cerrado.
+Los hitos son **[Propuesta]**: separar semanal (M2) y mensual (M3) responde a que quedan 8 días hasta el Momento 2 (a 2026-10-23). PDF y voz solo entran si todo lo demás está cerrado.
 
 ### 3.2 Fuera de alcance
 
@@ -134,18 +134,19 @@ Los hitos son **[Propuesta]**: separar semanal (M2) y mensual (M3) responde a qu
 
 | Fase | Qué produce | Entregable del curso | Estado |
 |---|---|---|---|
-| 1. Planificación | Objetivos, alcance, restricciones | `docs/SPEC.md` §1–§3 | **Este documento** |
-| 2. Análisis y diseño | Diseño, casos borde, criterios de aceptación, decisiones (forma del sistema, datos, proveedor, patrón de integración) | `docs/SPEC.md` §4–§7, `docs/PLAN.md`, `docs/decisiones/semana06.md` (autonomía), `docs/decisiones/semana08.md` (datos) | Siguiente |
-| 3. Implementación | Agente, herramientas, app, flujo de aprobación, permisos | Código; `skills/` (`escribir-spec`, `escribir-plan`, `ejecutar-plan`) | Pendiente |
-| 4. Pruebas y evaluación | Suite dorada, cuatro cifras, trazas | `eval/`, `docs/decisiones/semana10.md` | Pendiente |
-| 5. Entrega | ZIP reproducible y demo | README, `docker-compose.yml`, `run.sh`, `.env.example` | Momento 2 |
-| 6. Seguridad, gobernanza y cierre | Amenazas, hardening, ficha, auditoría | `docs/seguridad.md`, `docs/gobernanza.md`, `docs/respuesta_auditoria.md` | Momento 3 |
+| 1. Planificación | Objetivos, alcance, restricciones | `docs/SPEC.md` §1–§3 | **Cerrada** (línea base v0.4) |
+| 2. Análisis de requisitos | Necesidades por actor, casos de uso, requisitos funcionales y no funcionales, reglas de negocio, criterios de aceptación | `docs/REQUISITOS.md` | **En curso** |
+| 3. Diseño | Arquitectura, modelo de datos, herramientas del agente, flujo de estados y decisiones (forma del sistema, datos, proveedor, patrón de integración) | `docs/SPEC.md` §4–§7, `docs/PLAN.md`, `docs/decisiones/semana06.md` (autonomía), `docs/decisiones/semana08.md` (datos) | Siguiente |
+| 4. Implementación | Agente, herramientas, app, flujo de aprobación, permisos | Código; `skills/` (`escribir-spec`, `escribir-plan`, `ejecutar-plan`) | Pendiente |
+| 5. Pruebas y evaluación | Suite dorada, cuatro cifras, trazas | `eval/`, `docs/decisiones/semana10.md` | Pendiente |
+| 6. Entrega | ZIP reproducible y demo | README, `docker-compose.yml`, `run.sh`, `.env.example` | Momento 2 |
+| 7. Seguridad, gobernanza y cierre | Amenazas, hardening, ficha, auditoría | `docs/seguridad.md`, `docs/gobernanza.md`, `docs/respuesta_auditoria.md` | Momento 3 |
 
 ---
 
 ## §4. Diseño (semillas)
 
-El diseño completo es de la fase 2. Estas semillas ya salen de la semana 6 y de lo acordado; todas son **[Propuesta]** salvo lo que dice el curso.
+El diseño completo es de la fase 3. Estas semillas ya salen de la semana 6 y de lo acordado; todas son **[Propuesta]** salvo lo que dice el curso.
 
 ### Las cinco piezas del agente
 
@@ -217,7 +218,7 @@ Se identifican ahora y se resuelven en el diseño. Solo tienen comportamiento es
 
 ## §6. Criterios de aceptación
 
-PENDIENTE — fase 2. Se derivan de la columna "Verificación" de §2.2, y cada línea debe responderse con sí o no.
+Los criterios por requisito están en `docs/REQUISITOS.md` (columna "Criterio de aceptación"), cada uno con respuesta sí o no. Esta sección los consolida en la fase de diseño.
 
 ## §7. Decisiones
 
@@ -227,15 +228,19 @@ PENDIENTE — fase 2. Se derivan de la columna "Verificación" de §2.2, y cada 
 | D2 | Reparto código / LLM / humano | Decidida **[Equipo]** | Ver §1 |
 | D3 | El sistema no diagnostica | Decidida **[Equipo]** | Ver §3.2 |
 | D4 | Informe semanal en el Momento 2, mensual en el Momento 3 | Propuesta | Por el tiempo disponible |
-| D5 | Origen de los registros | Por confirmar | Captura mínima propia + semilla sintética (propuesto) vs. solo carga por script |
-| D6 | ¿El médico puede ver borradores? | Por confirmar | La presentación dice que solo tras la aprobación; la descripción inicial dice que podría revisarlos directamente. Mientras se decide, solo ve `APROBADO` |
+| D5 | Origen de los registros | Supuesto de trabajo | Captura mínima propia + semilla sintética (propuesto) vs. solo carga por script |
+| D6 | ¿El médico puede ver borradores? | Supuesto de trabajo: no | La presentación dice que solo tras la aprobación; la descripción inicial dice que podría revisarlos directamente. Mientras se decide, solo ve `APROBADO` |
 | D7 | Forma del sistema | Decidida **[Equipo]** | Aplicación con un agente integrado (ver §1), como exige la rúbrica del Momento 2. La defensa frente a "¿por qué agente y no workflow?" se hace con las decisiones reales del agente (§4) y se mide: la misma suite contra una plantilla sin LLM (obligatoria, OBJ-12) y, opcionalmente, contra un workflow con LLM sin bucle |
 | D8 | Estrategia de datos | Por decidir | Por defecto, consulta directa a la BD y el LLM lee las notas; RAG solo si se mide que hace falta. Se documenta en `docs/decisiones/semana08.md` |
 | D9 | Stack | Por decidir | El código de los talleres (bucle, FastMCP, FastAPI) es Python; el scaffold es Java con RBAC/JWT. En Java hay que escribir el bucle a mano (el taller lo resuelve en unas 80 líneas); en Python se reescribe lo existente. Pendiente en `AGENTS.md` |
-| D10 | Qué es "una semana" y contra cuántas semanas anteriores se compara | Por decidir | ¿Lunes a domingo o 7 días móviles? ¿La anterior o una tendencia de varias? |
+| D10 | Qué es "una semana" y contra cuántas semanas anteriores se compara | Supuesto de trabajo | Lunes a domingo; se compara con la anterior y el agente decide cuántas más atrás revisar, con tope (RN-06) |
 | D11 | Tamaño del conjunto sintético | Por decidir | Cuántos pacientes y cuántas semanas; condiciona la suite de evaluación |
-| D12 | ¿El médico también registra? | Por confirmar | La matriz de §4 lo asume sí; amplía el papel del médico |
+| D12 | ¿El médico también registra? | Supuesto de trabajo: sí | La matriz de §4 lo asume sí; amplía el papel del médico |
 | D13 | Motor de PDF (opcional M3) | Propuesta | Thymeleaf + HTML→PDF (una sola plantilla para pantalla y PDF). Jasper solo si ya existen plantillas `.jrxml`; si se usa, versión 7.0.7 o superior. Solo informes `APROBADO` |
 | D14 | Dictado por voz (opcional M3) | Propuesta | Whisper detrás de un puerto, con Groq como adaptador y uno local por perfil de compose. Transcripción siempre editable, sin guardar audio, origen `VOZ`. Es una comodidad de entrada, no parte de la justificación de IA |
 | D15 | Proveedor del LLM | Propuesta | Google AI Studio como principal y Groq como respaldo o alternativa, los dos del taller de la semana 6. Tener ambos permite demostrar la capa del proveedor cambiando en vivo. Verificar los modelos vigentes antes de fijarlos |
 | D16 | Modo simulado del proveedor | Propuesta | Adaptador de replay con respuestas grabadas: plan B sin internet y base de las pruebas |
+| D17 | La aplicación necesita IA (prueba de necesidad) | Decidida: aprobada por el profesor | Registrar la fecha y el medio (clase o correo) en `docs/decisiones/` como evidencia |
+| D18 | Catálogo de métricas semanales | Por confirmar | El de RF-07 es una propuesta; validar con una persona de enfermería |
+| D19 | Disparo de la generación del informe | Supuesto de trabajo | Manual (botón) en M2; programado al cierre de semana, M3 |
+| D20 | Campo de consulta libre al pedir el informe | Supuesto de trabajo: no en M2 | Sin campo, el caso de rechazo (OBJ-08) se construye con una entrada que pide un diagnóstico |
