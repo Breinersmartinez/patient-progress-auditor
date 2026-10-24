@@ -143,7 +143,7 @@
 | RNF-05 | Rendimiento | La generación no bloquea la interfaz: estados honestos o streaming. La latencia se mide como mediana y se reporta, sin umbral previo | ¿La UI muestra estados durante la generación y la mediana está en `docs/decisiones/semana10.md`? |
 | RNF-06 | Costo | Costo cero: capa gratuita de los proveedores. El costo por tarea se mide | ¿La demo corre sin pagos y se reporta el costo por tarea? |
 | RNF-07 | Observabilidad | Trazas y auditoría consultables; los fallos se explican con la traza | ¿Un fallo forzado se explica con su traza? |
-| RNF-08 | Reproducibilidad | `./run.sh` o `docker compose up --build`; ZIP limpio; variables en `.env.example` | ¿Otra persona lo levanta en menos de 5 minutos siguiendo el README? |
+| RNF-08 | Reproducibilidad | `./run.sh` o `docker compose --profile monitor up -d`; ZIP limpio; variables en `.env.example` | ¿Otra persona lo levanta en menos de 5 minutos siguiendo el README? |
 | RNF-09 | Usabilidad | UI en español; lenguaje claro primero y evidencia a un clic; estados honestos | ¿Una persona de enfermería llega del informe a la evidencia en un clic? |
 | RNF-10 | Integridad de datos | Las entradas y los informes no se borran, solo se corrigen con versión; las entradas son de solo lectura para el agente | ¿Existe alguna operación de borrado sobre entradas o informes? (debe ser no) |
 | RNF-11 | Calidad | Pruebas automatizadas de las reglas críticas: aprobación, permisos, validador de cifras y citas, esquema. Commits convencionales. Cada integrante explica el código | ¿La verificación del proyecto pasa y cubre esas reglas? |
