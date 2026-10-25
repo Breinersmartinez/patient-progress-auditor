@@ -14,19 +14,15 @@ Si se quita el modelo, los registros siguen existiendo pero el informe no. La fr
 - No poner el LLM en lo que el código resuelve exacto. La utilidad del LLM y del agente se mide contra una solución convencional (sin modelo).
 
 ## Estado actual
-
-
-Scaffold sin lógica de dominio de pacientes:
-- `backend/`: Spring Boot 3.4.1, Java 17, Maven, PostgreSQL, Flyway, Spring Security + JWT (migraciones RBAC `V1`/`V2`). Solo existe la clase `PatientProgressAuditorApplication` (paquete `com.patientprogressauditor`) y su test; sin controllers ni entidades.
-- `frontend/`: Angular 19 (proyecto `patient-progress-auditor-frontend`), Node 20, sin rutas ni servicios.
+Scaffold heredado de AgroCortex, sin lógica de dominio de pacientes:
+- `backend/`: Spring Boot 3.4.1, Java 17, Maven, PostgreSQL, Flyway, Spring Security + JWT (migraciones RBAC `V1`/`V2`). Solo existe la clase `*Application` y su test; sin controllers ni entidades.
+- `frontend/`: Angular 19, Node 20, sin rutas ni servicios.
 - `.github/workflows/`: CI, Security, Qodana y Deploy (Heroku + Vercel).
-- **Esqueleto creado, sin contenido:** `docs/SPEC.md`, `docs/PLAN.md`, `docs/decisiones/`, `eval/`, `skills/` (todos con `PENDIENTE` o vacíos).
-- **No existen todavía:** agente, herramientas, capa de proveedor, `docker-compose.yml`, `run.sh`, `docs/seguridad.md`, `docs/gobernanza.md`, `docs/respuesta_auditoria.md`, y el contenido real de `docs/SPEC.md` y `docs/PLAN.md`.
+- **No existen todavía:** agente, herramientas, capa de proveedor, `eval/`, `docker-compose.yml`, `run.sh`, `docs/SPEC.md`, `docs/PLAN.md`, `skills/`.
 
 ## Cómo se corre y se prueba
 Hoy (heredado del scaffold):
-- Backend: `cd backend && mvn spring-boot:run`. Perfil `dev`; Postgres en `localhost:5432`, DB/user `patient_auditor` y password por `DB_PASSWORD` (sin valor por defecto, según `application-dev.yml`). Exige `JWT_SECRET` (sin valor por defecto). Swagger en `/swagger-ui.html`. No hay `mvnw`: usa el `mvn` del sistema.
-
+- Backend: `cd backend && mvn spring-boot:run`. Perfil `dev`; Postgres en `localhost:5432`, DB/user/pass `agrocortex` (según `application-dev.yml`). Exige `JWT_SECRET` (sin valor por defecto). Swagger en `/swagger-ui.html`. No hay `mvnw`: usa el `mvn` del sistema.
 - Tests backend: `cd backend && mvn -B verify`.
 - Frontend: `cd frontend && npm start` (URL del API por `API_URL`).
 - Tests frontend: `cd frontend && npx ng test --watch=false --browsers=ChromeHeadless --code-coverage`.
@@ -39,7 +35,7 @@ Objetivo de entrega (por crear): `./run.sh` o `docker compose up --build` levant
 - **Dudas vs decisiones:** si algo de producto no está decidido en `docs/SPEC.md`, para y pregunta; no lo resuelvas en silencio. Al terminar cada tarea, lista las decisiones que tomaste y que nadie te pidió.
 - **Spec primero:** `docs/SPEC.md` con siete secciones: resumen, objetivos medibles, fuera de alcance (nunca vacío), diseño, casos borde, criterios de aceptación (cada línea se responde con sí o no) y decisiones. Spec, plan (`docs/PLAN.md`) y tareas son documentos distintos; ninguna tarea de más de medio día.
 - **Revisión con contexto fresco:** quien revisa no es quien escribió. Sesión nueva para revisar; una tarea, una sesión.
-- **Skills:** `.opencode/skills` en la raíz con la cadena `escribir-spec` → `escribir-plan` → `ejecutar-plan`. Úsalos cuando la tarea coincida; si uno falla, reporta cuál y qué se corrigió.
+- **Skills:** `skills/` en la raíz con la cadena `escribir-spec` → `escribir-plan` → `ejecutar-plan`. Úsalos cuando la tarea coincida; si uno falla, reporta cuál y qué se corrigió.
 - **Permisos.** Sin preguntar: leer, editar en rama, correr tests. Siempre preguntar: borrar, push, comandos destructivos, instalar dependencias, tocar `.env` o credenciales.
 - **Código explicable:** se puede usar toda la IA, pero cada integrante responde por cada línea y debe poder explicar cualquier función que se le señale. No generes lo que el equipo no pueda explicar.
 
@@ -106,10 +102,9 @@ skills/               # escribir-spec, escribir-plan, ejecutar-plan
 - **Estrategia de datos:** consulta directa a la BD o RAG (`docs/decisiones/semana08.md`). Por defecto, consulta directa; RAG solo si se justifica y se mide.
 - **Visibilidad al médico:** el deck dice que solo ve informes aprobados; la descripción inicial dice que también puede revisarlos directamente. Decidir si ve borradores (ver reglas del producto).
 - **Patrón de integración** para generar informes: streaming SSE o cola con workers.
-
-
+- **Residuos de AgroCortex por limpiar:** paquete `com.agrocortex`, artifact `agrocortex-api`, DB `agrocortex` (`.env.example`, CI, `application-dev.yml`), `README.md`, `docs/01`–`docs/06` (análisis agrícola, modelo de datos MVP, etc.) y el deploy a Heroku/Vercel, que el curso no exige (entregable: ZIP + docker compose).
 - **Nombre del archivo de decisiones:** la lámina de entrega dice `docs/decisiones.md`; las rúbricas dicen `docs/decisiones/semana08.md` y `semana10.md`. Confirmar con el profesor antes del 31 de octubre.
 - **Idioma de los identificadores del dominio** (Paciente/Patient, Registro/Entry, Informe/Report) y nombre canónico de cada entidad.
 
-
+---
 Reglas del curso verificadas contra ingenieria-aplicaciones-ia.netlify.app el 21-oct-2026 (rúbricas de los Momentos 1 a 3; slides de las semanas 2, 3, 4, 7, 8, 9, 10, 12 y 13). Si el sitio cambia, este archivo envejece.
