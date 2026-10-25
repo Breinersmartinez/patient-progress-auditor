@@ -3,7 +3,7 @@
 > **Estado:** borrador v0.2 para aprobación · **Fase del ciclo de vida:** 2 — Análisis de requisitos · **Fecha:** 2026-10-25
 > **Base:** `docs/SPEC.md` v0.5 (§1–§3, objetivos OBJ-01 a OBJ-16), `AGENTS.md`, las rúbricas del curso *Ingeniería de Aplicaciones con IA* y lo dicho por el profesor en la clase del 24 de octubre de 2026.
 >
-> **Cambios de la v0.2:** RF-25 (editar el borrador) sube a núcleo, porque la rúbrica del Momento 2 pide que el usuario pueda corregir la fuente y el criterio. Se agregan RF-39 (usuarios de demostración), RF-40 (adaptador simulado del proveedor, opcional), RNF-13 (arranque en frío sin pasos manuales), RNF-14 (decisiones técnicas justificadas), CU-10 y OBJ-16. Se endurecen RNF-01 (el repositorio es público), RNF-08 (el README lo ejecuta una IA), RNF-11 y RNF-12, y RF-20 se limita al cambio de proveedor por configuración, porque el curso no pide un modo simulado en el proyecto. El núcleo del Momento 2 pasa de 27 a 29 RF (RF-25 y RF-39); los M2-S se mantienen en 8 (sale RF-25 y entra RF-40); en total son 40 RF.
+> **Cambios de la v0.2:** RF-25 (editar el borrador) sube a núcleo, porque la rúbrica del Momento 2 pide que el usuario pueda corregir la fuente y el criterio. Se agregan RF-39 (usuarios de demostración), RNF-13 (arranque en frío sin pasos manuales), RNF-14 (decisiones técnicas justificadas), CU-10 y OBJ-16. Se endurecen RNF-01 (el repositorio es público), RNF-08 (el README lo ejecuta una IA), RNF-11 y RNF-12, y RF-20 se limita al cambio de proveedor por configuración, porque el curso no pide un modo simulado en el proyecto (D16, descartada). El núcleo del Momento 2 pasa de 27 a 29 RF (RF-25 y RF-39); los M2-S bajan de 8 a 7; en total son 39 RF.
 >
 > **Convenciones:** RF = requisito funcional · RNF = no funcional · RN = regla de negocio · CU = caso de uso. Cada requisito tiene una traza hacia los objetivos de la SPEC y un criterio de aceptación que se responde con sí o no.
 >
@@ -105,7 +105,6 @@
 | RF-18 | Validar la salida del modelo contra el esquema; si falla, reintentar una vez con el error; si vuelve a fallar, degradar a texto plano y registrar | M2-N | OBJ-10 | Una salida inválida forzada, ¿produce reintento y luego degradación sin error visible al usuario? |
 | RF-19 | Ante timeout, 429 o caída del proveedor, reintentar con espera creciente, usar el proveedor de respaldo y mostrar un mensaje honesto, sin stack trace | M2-N | OBJ-10 | Cada uno de los tres fallos forzados, ¿muestra un mensaje claro y no un stack trace? |
 | RF-20 | Permitir cambiar el proveedor del LLM por configuración y mostrarlo en vivo | M2-N | OBJ-10 | ¿Cambiar la variable de configuración cambia de proveedor sin tocar código y se puede mostrar en vivo? |
-| RF-40 | Contar con un adaptador simulado (replay) del proveedor para pruebas y casos dorados sin llave, activado solo por configuración y rotulado como simulado en la interfaz y en la traza | M2-S | OBJ-10, OBJ-11 | Con el simulado activado por configuración, ¿la suite de casos dorados corre sin llave ni internet, y la interfaz deja claro que la respuesta es simulada? |
 | RF-21 | Tratar el texto de las entradas como dato y no como instrucción, y no dar al agente herramientas de salida (internet, correo, mensajes) | M2-N | OBJ-14, RNF-03 | ¿Una entrada con instrucciones maliciosas no altera el comportamiento del agente, y su inventario no incluye ninguna salida? |
 | RF-22 | Registrar la traza de cada ejecución (herramienta, parámetros, resultado, ms, tokens) y mostrarla en la app | M2-N | OBJ-11 | ¿Se ve en vivo la traza de una ejecución con esos cinco datos? |
 
@@ -215,7 +214,7 @@ Solo entidades y relaciones. Atributos, tipos y tablas se definen en el diseño.
 | OBJ-07 Datos insuficientes | RF-14 |
 | OBJ-08 No diagnosticar | RF-15 |
 | OBJ-09 Límites y parada | RF-09, RF-16, RF-17 |
-| OBJ-10 Resiliencia y proveedor | RF-18, RF-19, RF-20, RF-40 |
+| OBJ-10 Resiliencia y proveedor | RF-18, RF-19, RF-20 |
 | OBJ-11 Medición y trazas | RF-22, RNF-05 a RNF-07; entregables `eval/` y `docs/decisiones.md` (cifras; detalle en `docs/decisiones/semana10.md`) |
 | OBJ-12 Necesidad del LLM y del agente | RF-10; entregable: decisiones del agente y comparación contra la plantilla sin LLM |
 | OBJ-13 Entrega autosuficiente y plan B | RF-05, RF-19, RF-39, RNF-08, RNF-13 |
