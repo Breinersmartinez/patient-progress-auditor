@@ -4,7 +4,7 @@
 - Auditor de la evolución de pacientes: enfermería registra cada día, en texto libre, cómo está un paciente. Un agente de IA analiza los registros de cada semana, los compara con semanas anteriores y redacta un informe semanal o mensual. Enfermería lo revisa y aprueba antes de que llegue al médico.
 - Es apoyo al seguimiento documental: **no diagnostica, no receta, no sustituye el criterio profesional**.
 - Proyecto del curso *Ingeniería de Aplicaciones con IA* (UCC, Ingeniería de Sistemas). Las reglas del curso mandan sobre cualquier otra convención de este archivo.
-- Reemplaza al proyecto anterior (AgroCortex). Nada de AgroCortex es contexto válido; lo que quede en el repo con ese nombre es residuo (ver PENDIENTE).
+- Reemplaza al proyecto anterior (AgroCortex). Nada de AgroCortex es contexto válido. La limpieza se ejecutó (rama `chore/limpiar-agrocortex`, ya fusionada); si aparece algún residuo con ese nombre, es un error de limpieza y se corrige.
 
 ## Dónde va el LLM y dónde no
 Si se quita el modelo, los registros siguen existiendo pero el informe no. La frontera es esta:
@@ -14,21 +14,34 @@ Si se quita el modelo, los registros siguen existiendo pero el informe no. La fr
 - No poner el LLM en lo que el código resuelve exacto. La utilidad del LLM y del agente se mide contra una solución convencional (sin modelo).
 
 ## Estado actual
-Scaffold heredado de AgroCortex, sin lógica de dominio de pacientes:
-- `backend/`: Spring Boot 3.4.1, Java 17, Maven, PostgreSQL, Flyway, Spring Security + JWT (migraciones RBAC `V1`/`V2`). Solo existe la clase `*Application` y su test; sin controllers ni entidades.
+Scaffold ya limpio de AgroCortex (al 2026-10-25), sin lógica de dominio de pacientes:
+- `backend/`: Spring Boot 3.4.1, Java 17, Maven, PostgreSQL, Flyway, Spring Security + JWT. Paquete `com.patientprogressauditor`. Migraciones `V1` (esquema RBAC) y `V2` (permisos genéricos y solo el rol `ADMIN`: faltan los roles del dominio y no hay usuarios sembrados). Solo existe la clase `*Application` y su test; sin controllers ni entidades. `backend/Dockerfile` compila y copia el jar pero no tiene `CMD`, así que hoy no arranca solo con `docker compose`.
 - `frontend/`: Angular 19, Node 20, sin rutas ni servicios.
-- `.github/workflows/`: CI, Security, Qodana y Deploy (Heroku + Vercel).
-- **No existen todavía:** agente, herramientas, capa de proveedor, `eval/`, `docker-compose.yml`, `run.sh`, `docs/SPEC.md`, `docs/PLAN.md`, `skills/`.
+- `.github/workflows/`: CI, Security, Qodana y Deploy (Heroku + Vercel; el curso no exige el deploy, la entrega es el repositorio).
+- `docs/`: `SPEC.md`, `REQUISITOS.md` y el resumen ejecutivo; `PLAN.md` es un esqueleto y `decisiones/` está vacío. `docs/03` a `docs/06` son documentación del scaffold (CI/CD, despliegue, seguridad y commits).
+- **No existen todavía:** agente, herramientas, capa de proveedor, casos en `eval/`, `docker-compose.yml`, `run.sh`, `docs/decisiones.md` y `skills/` en la raíz (los cuatro skills del curso están en `.opencode/skills/`: `especifica-encargo`, `planea-trabajo`, `ejecuta-plan`, `valida-resultado`).
 
 ## Cómo se corre y se prueba
 Hoy (heredado del scaffold):
-- Backend: `cd backend && mvn spring-boot:run`. Perfil `dev`; Postgres en `localhost:5432`, DB/user/pass `agrocortex` (según `application-dev.yml`). Exige `JWT_SECRET` (sin valor por defecto). Swagger en `/swagger-ui.html`. No hay `mvnw`: usa el `mvn` del sistema.
+- Backend: `cd backend && mvn spring-boot:run`. Perfil `dev`; Postgres en `localhost:5432`, base y usuario `patient_auditor` (según `application-dev.yml`) y contraseña en `DB_PASSWORD`, sin valor por defecto. Exige también `JWT_SECRET` (sin valor por defecto). Swagger en `/swagger-ui.html`. No hay `mvnw`: usa el `mvn` del sistema.
 - Tests backend: `cd backend && mvn -B verify`.
 - Frontend: `cd frontend && npm start` (URL del API por `API_URL`).
 - Tests frontend: `cd frontend && npx ng test --watch=false --browsers=ChromeHeadless --code-coverage`.
 - `npm run lint` está roto (falta `@angular-eslint`): no lo uses como verificación.
 
-Objetivo de entrega (por crear): `./run.sh` o `docker compose up --build` levanta todo con un comando. Un compañero con el ZIP y el README debe tenerlo corriendo en menos de 5 minutos. Cuando existan, actualiza esta sección: es la única que lleva los comandos exactos.
+Objetivo de entrega (por crear): `./run.sh` o `docker compose up --build` levanta todo con un comando, con solo Docker Compose v2 en la máquina. El profesor entrega el README a una IA y ejecuta únicamente sus pasos; un compañero con un clon limpio debe tenerlo corriendo en menos de 5 minutos. Ver "Entrega y prueba del profesor". Cuando existan, actualiza esta sección: es la única que lleva los comandos exactos.
+
+## Entrega y prueba del profesor (clase del 24-oct-2026)
+Lo dicho en clase manda sobre la página del curso en lo logístico (plazo y formato); la rúbrica escrita sigue mandando en el puntaje.
+- **Plazo:** el enlace al repositorio se entrega en el aula virtual hasta el **jueves 29 de octubre de 2026 a medianoche**, porque el profesor necesita un día para probarlo. La demo es el sábado 31. Poner el enlace solo cuenta como entregado; sin presentación es como no haber entregado.
+- **Formato:** enlace al repositorio de GitHub, **público** (decisión del equipo; el profesor dijo que privado es opcional). No se entrega ZIP. Como el repo es público, ninguna llave ni secreto real entra al repo ni al historial.
+- **Congelar:** la versión del jueves queda en un tag (`m2-entrega`) y la demo corre desde ese tag; no se integra nada nuevo hasta terminar la presentación.
+- **El README es el contrato.** El profesor se lo da a una IA y ejecuta solo sus pasos; si la aplicación no levanta así, no la revisa. Debe decir el motor de BD, la imagen de Docker y el comando, traer los scripts de datos de prueba y no dejar labor manual. En lo posible, todo en Docker (builds multi-etapa: solo hace falta Docker Compose v2).
+- **Llave del API:** `run.sh` la toma del entorno; si no está y hay terminal, la pide y la guarda en `.env` (fuera del repo). Si no hay terminal ni llave, no se queda esperando: arranca igual y avisa con claridad que falta la llave. Nunca un `read` sin comprobar la terminal, porque una IA ejecutándolo se quedaría colgada.
+- **La IA debe estar integrada y funcionando** en esta entrega; el plan B es el proveedor de respaldo (backoff y conmutación, semana 9); el modo simulado es opcional (D16) y no la sustituye. Hay usuarios de demostración por rol, con sus credenciales en el README (D23).
+- **Demo en vivo, sin videos:** 6 min del ciclo completo (dónde entra el modelo, arquitectura, patrones de interacción, retos y cómo se usó la IA) y 3 min de preguntas. Observabilidad y evaluaciones: en clase el profesor las trató como deseables en este momento; la rúbrica escrita las puntúa, así que se mantienen en versión mínima (D25).
+- **Qué pregunta:** no pregunta por líneas de código sino por las decisiones técnicas: por qué ese proveedor, con o sin RAG, síncrono o asíncrono, por qué cada herramienta. Cada integrante responde por todas; no puede descubrir en plena presentación que el sistema salió asíncrono "porque la IA lo hizo así". Las decisiones se documentan en `docs/decisiones.md`.
+- **Prueba en frío obligatoria:** antes de entregar, un clon limpio y una IA que solo lea el README deben dejar la app corriendo. Es la puerta de aceptación (SPEC §6).
 
 ## Cómo trabajar (método del curso)
 - **Loop, en orden:** explorar (sin escribir código) → planear (por escrito, lo revisa un humano) → ejecutar (una tarea del plan a la vez) → verificar contra los criterios de aceptación. Nunca se ejecuta sin plan. Nunca se hace commit sin verificar. Si no puedes verificar, dilo.
@@ -37,20 +50,20 @@ Objetivo de entrega (por crear): `./run.sh` o `docker compose up --build` levant
 - **Revisión con contexto fresco:** quien revisa no es quien escribió. Sesión nueva para revisar; una tarea, una sesión.
 - **Skills:** `skills/` en la raíz con la cadena `escribir-spec` → `escribir-plan` → `ejecutar-plan`. Úsalos cuando la tarea coincida; si uno falla, reporta cuál y qué se corrigió.
 - **Permisos.** Sin preguntar: leer, editar en rama, correr tests. Siempre preguntar: borrar, push, comandos destructivos, instalar dependencias, tocar `.env` o credenciales.
-- **Código explicable:** se puede usar toda la IA, pero cada integrante responde por cada línea y debe poder explicar cualquier función que se le señale. No generes lo que el equipo no pueda explicar.
+- **Código explicable:** se puede usar toda la IA, pero cada integrante responde por la aplicación: por cada decisión técnica (qué se hizo y por qué) y por cualquier función que se le señale. No generes lo que el equipo no pueda explicar ni decidas en silencio algo que el profesor preguntará (proveedor, RAG, síncrono o asíncrono): déjalo escrito en `docs/decisiones.md`.
 
 ## Reglas del producto (no negociables)
 - **Supervisión humana exigida por el sistema.** Un informe solo llega al médico en estado `APROBADO`, y solo un usuario con rol de enfermería puede aprobarlo. La transición se valida en código; no basta con que alguien "mire la pantalla". Si se decide que el médico vea borradores, se muestran marcados "BORRADOR — sin aprobación de enfermería".
 - **Sin diagnóstico.** El informe describe evolución documentada: qué cambió, qué reaparece, qué falta registrar. No diagnostica ni recomienda tratamiento o dosis.
 - **Honestidad agéntica.** Si faltan registros, el informe lo dice ("sin información suficiente para la semana X"). Nunca rellena ni inventa.
 - **Fuente y criterio visibles.** Cada afirmación del informe se rastrea al registro original (fecha + texto) y se muestra el criterio de comparación. Dos niveles: lenguaje claro primero, evidencia (registros citados, llamadas a herramientas) a un clic. Enfermería puede corregir antes de aprobar.
-- **Datos de pacientes.** Solo datos sintéticos en el repo, `eval/`, trazas, prompts de ejemplo y capturas. Al proveedor del LLM sale lo mínimo: sin nombre ni documento (usar id interno). Lo que sale a terceros se declara en `docs/gobernanza.md`.
+- **Datos de pacientes.** Solo datos sintéticos en el repo, `eval/`, trazas, prompts de ejemplo y capturas. Al proveedor del LLM sale lo mínimo: sin nombre ni documento (usar id interno). Lo que sale a terceros se declara en `docs/gobernanza.md`. El repositorio es público: las credenciales de los usuarios de demostración son sintéticas y públicas por diseño, y solo existen con la semilla activa (`APP_SEED_DEMO=true`), nunca en el perfil `prod`.
 
 ## El agente
 - **Cuatro límites obligatorios** (sin ellos no hay entrega): máximo de iteraciones, presupuesto de tokens por solicitud, confirmación humana antes de escrituras o acciones irreversibles, y timeout por herramienta. Valores y justificación en `docs/decisiones/`.
 - **Herramientas:** atómicas, pocas (óptimo hasta 7) y con mínimo privilegio: lectura por defecto; la única escritura del agente es guardar el borrador en `PENDIENTE_REVISION`. La descripción de cada herramienta es un prompt: cuándo usarla, cuándo NO y qué prerrequisitos tiene. Se itera y se mide.
 - **Un error de herramienta no mata el bucle:** se devuelve como observación al modelo para que corrija.
-- **Capa de proveedor desacoplada:** ningún SDK de proveedor fuera de esa capa; cambiar de proveedor es cambiar configuración. Proveedor y modelo se declaran en el README con su justificación (latencia, costo por token, tool calling, ventana de contexto).
+- **Capa de proveedor desacoplada:** ningún SDK de proveedor fuera de esa capa; cambiar de proveedor es cambiar configuración. Proveedor y modelo se declaran en el README con su justificación (latencia, costo por token, tool calling, ventana de contexto). La IA real es la ruta principal; el plan B es el proveedor de respaldo. El adaptador simulado (replay) es opcional (D16) y, si existe, se rotula como simulado en la interfaz y en la traza.
 - **Salida validada:** el modelo devuelve JSON contra un esquema. Si no valida, un reintento devolviéndole el error; si vuelve a fallar, degradar a texto plano y registrar. Nunca confiar en la forma.
 - **Fallos sin stack trace al usuario:** 429 o caída del proveedor (backoff 1 s → 2 s → 4 s, proveedor de respaldo, mensaje honesto), timeout y salida que no valida. Los tres se deben poder forzar en la demo.
 - **Latencia:** el in-request síncrono bloqueante está prohibido en la sustentación. Usar streaming real o estados honestos ("Consultando registros…"), o cola si el informe es pesado. Nada de efecto máquina de escribir sobre un buffer bloqueado.
@@ -64,24 +77,25 @@ Objetivo de entrega (por crear): `./run.sh` o `docker compose up --build` levant
 
 ## Estructura de entrega
 ```text
-README.md             # contrato de arranque: versiones exactas, proveedor y modelo con justificación
+README.md             # contrato de arranque, ejecutable por una IA que solo lo lea: versiones exactas, BD e imagen, usuarios de demostración, proveedor y modelo con justificación
 docker-compose.yml    # runtime, BD y servicios
 run.sh                # arranque en un comando
 .env.example          # variables exactas, sin llaves reales
 docs/SPEC.md          # spec (7 secciones)
 docs/PLAN.md          # plan derivado de la spec
-docs/decisiones/      # semana08.md (datos), semana10.md (línea base)
+docs/decisiones.md    # decisiones técnicas con su razón y la alternativa descartada; cifras de línea base
+docs/decisiones/      # detalle: semana06.md (autonomía), semana08.md (datos), semana10.md (línea base)
 docs/seguridad.md     # modelo de amenazas, tríada, ataque propio y hardening (M3)
 docs/gobernanza.md    # ficha de 5 preguntas (M3)
 docs/respuesta_auditoria.md   # respuesta a la auditoría cruzada (M3)
 eval/                 # casos dorados + script
 skills/               # escribir-spec, escribir-plan, ejecutar-plan
 ```
-- El ZIP no lleva `node_modules/`, `.venv/`, `target/`, `bin/` ni `.git/`; usa rutas relativas y trae el código fuente completo.
-- `.env.example` lista las variables exactas (la del proveedor elegido, p. ej. `GEMINI_API_KEY` o `GROQ_API_KEY`, y `DATABASE_URL`). Una variable no documentada es falla crítica.
+- El repositorio no versiona `node_modules/`, `.venv/`, `target/` ni `bin/`; usa rutas relativas y trae el código fuente completo. No se entrega ZIP: se envía el enlace.
+- `.env.example` lista las variables exactas (la del proveedor elegido, p. ej. `GEMINI_API_KEY` o `GROQ_API_KEY`, y `DATABASE_URL`). Una variable no documentada es falla crítica. El repo es público: nunca una llave real, ni en el historial.
 - Los nombres que exige el curso mandan sobre la convención anterior de docs (`docs/0X-*`).
-- **Calendario:** Momento 2 el sábado 31 de octubre de 2026 (demo en vivo de 6 min + 3 min de preguntas, orden sorteado; sin presentación no hay nota). Momento 3 en la semana 14.
-- **Anulan la entrega:** app que no corre o entorno roto; agente sin límites; sin trazas ni cifras; no saber explicar el propio código.
+- **Calendario:** enlace del repositorio en el aula virtual hasta el jueves 29 de octubre de 2026 a medianoche; Momento 2 el sábado 31 de octubre (demo en vivo de 6 min + 3 min de preguntas, orden sorteado; sin presentación no hay nota). Momento 3 en la semana 14.
+- **Anulan la entrega:** app que no corre o entorno roto, incluido un README que una IA no puede ejecutar de principio a fin (el profesor no revisa lo demás); agente sin límites; sin trazas ni cifras; no poder justificar las decisiones técnicas ni explicar el propio código.
 
 ## Convenciones
 - Commits: Conventional Commits `<tipo>[ámbito]: <descripción en minúsculas, imperativo>` (ver `docs/06-contribution/git-commit-prefixes.md`).
@@ -95,16 +109,22 @@ skills/               # escribir-spec, escribir-plan, ejecutar-plan
 - No usar datos reales de pacientes en ningún archivo.
 - No montar RAG o base vectorial sin justificarlo frente a una consulta directa a la BD.
 - No reportar "funciona bien" sin cifras ni traza.
+- No commitear llaves ni secretos reales: el repositorio es público. Si una llave se filtra, se revoca; borrarla del historial no basta.
+- No bloquear `run.sh` esperando entrada si no hay terminal.
+- No dejar decisiones técnicas sin justificar en `docs/decisiones.md`.
 
 ## PENDIENTE (preguntar al dueño)
-- **Stack:** ¿se mantiene Spring Boot 3.4 / Java 17 + Angular 19? La lámina de entrega del curso pide runtime con versiones exactas (cita Java 21 LTS) y `docker-compose.yml` + `run.sh`, que hoy no existen. Definir también dónde vive el agente.
-- **Proveedor y modelo del LLM** y su capa de abstracción: aún no hay ninguno.
-- **Estrategia de datos:** consulta directa a la BD o RAG (`docs/decisiones/semana08.md`). Por defecto, consulta directa; RAG solo si se justifica y se mide.
-- **Visibilidad al médico:** el deck dice que solo ve informes aprobados; la descripción inicial dice que también puede revisarlos directamente. Decidir si ve borradores (ver reglas del producto).
-- **Patrón de integración** para generar informes: streaming SSE o cola con workers.
-- **Residuos de AgroCortex por limpiar:** paquete `com.agrocortex`, artifact `agrocortex-api`, DB `agrocortex` (`.env.example`, CI, `application-dev.yml`), `README.md`, `docs/01`–`docs/06` (análisis agrícola, modelo de datos MVP, etc.) y el deploy a Heroku/Vercel, que el curso no exige (entregable: ZIP + docker compose).
-- **Nombre del archivo de decisiones:** la lámina de entrega dice `docs/decisiones.md`; las rúbricas dicen `docs/decisiones/semana08.md` y `semana10.md`. Confirmar con el profesor antes del 31 de octubre.
+- **Stack (D9), se decide primero:** ¿se mantiene Spring Boot 3.4 / Java 17 + Angular 19? Con builds multi-etapa en Docker, el profesor solo necesita Docker; la decisión es de velocidad de desarrollo y él la va a preguntar. La página de entrega cita Java 21 LTS (hoy pom, Dockerfile y CI usan 17). Definir también dónde vive el agente.
+- **Proveedor y modelo del LLM (D15)** y su capa de abstracción: aún no hay ninguno. Verificar los modelos vigentes (la página de entrega cita modelos que pueden estar desactualizados) y registrar la justificación en `docs/decisiones.md`.
+- **Estrategia de datos (D8):** consulta directa a la BD o RAG. Por defecto, consulta directa; RAG solo si se justifica y se mide. El profesor preguntará por qué RAG o por qué no.
+- **Visibilidad al médico (D6):** el supuesto es que solo ve informes aprobados (el deck lo dice; la descripción inicial decía que también podría revisarlos directamente). Confirmar; si ve borradores, se marcan (ver reglas del producto).
+- **Patrón de integración (D24):** síncrono, streaming SSE o cola con workers. El profesor preguntará «¿síncrono o asíncrono, y por qué?»: decidirlo con conciencia y dejarlo escrito.
+- **Arranque en frío (D22 y D23):** crear `docker-compose.yml`, `run.sh`, el `CMD` del Dockerfile, la semilla de usuarios de demostración y el README ejecutable. Es el primer trabajo de construcción.
+- **Entrega:** repositorio público; el enlace va al aula virtual antes del jueves 29 a medianoche y falta crear el tag `m2-entrega` (D21).
+- **Deploy heredado:** retirar o dejar inactivos los workflows de Heroku y Vercel, que el curso no exige.
+- **Archivo de decisiones:** resuelto. Es `docs/decisiones.md` (el profesor aceptó «otro documento» o el README), con el detalle en `docs/decisiones/`.
+- **Evidencia de la aprobación de la necesidad de IA (D17):** guardar fecha y medio (clase o correo) en `docs/decisiones/`.
 - **Idioma de los identificadores del dominio** (Paciente/Patient, Registro/Entry, Informe/Report) y nombre canónico de cada entidad.
 
 ---
-Reglas del curso verificadas contra ingenieria-aplicaciones-ia.netlify.app el 21-oct-2026 (rúbricas de los Momentos 1 a 3; slides de las semanas 2, 3, 4, 7, 8, 9, 10, 12 y 13). Si el sitio cambia, este archivo envejece.
+Reglas del curso verificadas contra ingenieria-aplicaciones-ia.netlify.app el 21-oct-2026 (rúbricas de los Momentos 1 a 3; slides de las semanas 2, 3, 4, 7, 8, 9, 10, 12 y 13). Si el sitio cambia, este archivo envejece. Entrega, plazo y prueba del profesor: transcripción de la clase del sábado 24-oct-2026.

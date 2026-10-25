@@ -1,13 +1,15 @@
 # REQUISITOS — Patient Progress Auditor
 
-> **Estado:** borrador v0.1 para aprobación · **Fase del ciclo de vida:** 2 — Análisis de requisitos · **Fecha:** 2026-10-23
-> **Base:** `docs/SPEC.md` v0.4 (§1–§3, objetivos OBJ-01 a OBJ-15), `AGENTS.md` y las rúbricas del curso *Ingeniería de Aplicaciones con IA*.
+> **Estado:** borrador v0.2 para aprobación · **Fase del ciclo de vida:** 2 — Análisis de requisitos · **Fecha:** 2026-10-25
+> **Base:** `docs/SPEC.md` v0.5 (§1–§3, objetivos OBJ-01 a OBJ-16), `AGENTS.md`, las rúbricas del curso *Ingeniería de Aplicaciones con IA* y lo dicho por el profesor en la clase del 24 de octubre de 2026.
+>
+> **Cambios de la v0.2:** RF-25 (editar el borrador) sube a núcleo, porque la rúbrica del Momento 2 pide que el usuario pueda corregir la fuente y el criterio. Se agregan RF-39 (usuarios de demostración), RF-40 (adaptador simulado del proveedor, opcional), RNF-13 (arranque en frío sin pasos manuales), RNF-14 (decisiones técnicas justificadas), CU-10 y OBJ-16. Se endurecen RNF-01 (el repositorio es público), RNF-08 (el README lo ejecuta una IA), RNF-11 y RNF-12, y RF-20 se limita al cambio de proveedor por configuración, porque el curso no pide un modo simulado en el proyecto. El núcleo del Momento 2 pasa de 27 a 29 RF (RF-25 y RF-39); los M2-S se mantienen en 8 (sale RF-25 y entra RF-40); en total son 40 RF.
 >
 > **Convenciones:** RF = requisito funcional · RNF = no funcional · RN = regla de negocio · CU = caso de uso. Cada requisito tiene una traza hacia los objetivos de la SPEC y un criterio de aceptación que se responde con sí o no.
 >
 > **Hito / prioridad:** **M2-N** núcleo del Momento 2 (lo exige la rúbrica o el control humano; sin esto no hay demo) · **M2-S** Momento 2 si hay tiempo · **M3** Momento 3 · **Opc** opcional.
 >
-> **Origen:** **[Curso]** · **[Equipo]** (presentación del proyecto y `AGENTS.md`) · **[Propuesta]** (este borrador, por confirmar).
+> **Origen:** **[Curso]** (la página o lo dicho en clase) · **[Equipo]** (presentación del proyecto y `AGENTS.md`) · **[Propuesta]** (este borrador, por confirmar).
 >
 > Este documento describe **qué** debe hacer el sistema, no **cómo**. Stack, arquitectura, modelo de datos y herramientas concretas del agente son de la fase de diseño.
 
@@ -24,7 +26,7 @@
 | Médico | Recibir informes consistentes y aprobados que muestren la evolución en el tiempo | [Equipo] | RF-28, RF-29, RF-36 |
 | Médico | Registrar entradas diarias cuando le corresponda | [Equipo] | RF-30 |
 | Administrador | Gestionar usuarios y permisos sin acceder a datos clínicos | [Propuesta] | RF-31 a RF-34 |
-| Evaluador del curso | Ver en 6 minutos el agente funcionando con límites, trazas y fallos forzados | [Curso] | RF-16 a RF-22, RNF-08 |
+| Evaluador del curso | Levantar el repositorio con una IA que solo lee el README, sin pasos manuales; ver en 6 minutos el ciclo completo con el agente funcionando, límites, trazas y fallos forzados; y que el equipo justifique cada decisión técnica | [Curso] | RF-16 a RF-22, RF-39, RNF-08, RNF-13, RNF-14 |
 
 ---
 
@@ -41,6 +43,7 @@
 | CU-07 Ver la traza de una ejecución | Enfermería; equipo en la demo | Ve qué consultó el agente y con qué resultado | RF-22 |
 | CU-08 Generar informe mensual | Enfermería | Consolida el mes | RF-36 |
 | CU-09 Exportar a PDF | Médico, Enfermería | Descarga un informe aprobado | RF-37 |
+| CU-10 Levantar la aplicación en frío | Evaluador del curso, compañero | Clona el repositorio público, sigue el README, ejecuta `./run.sh` e inicia sesión con un usuario de demostración | RF-05, RF-39, RNF-08, RNF-13 |
 
 ### Flujo crítico: generar → revisar → aprobar → consultar
 
@@ -52,6 +55,17 @@
 6. El médico ve el informe aprobado (RF-28).
 
 **Excepciones:** semana sin datos suficientes, el informe lo declara (RF-14) · fallo del proveedor, mensaje honesto y respaldo (RF-19) · entrada con instrucciones, se trata como dato (RF-21).
+
+### Flujo de arranque en frío (CU-10)
+
+1. El evaluador clona el repositorio público y entrega el README a su IA.
+2. La IA ejecuta los pasos del README: `./run.sh` o `docker compose up --build` (RNF-08, RNF-13).
+3. `run.sh` crea `.env`, genera los secretos locales y resuelve la llave del proveedor: entorno o consola.
+4. Docker Compose levanta la base de datos, el backend y el frontend; las migraciones y la semilla se aplican solas (RF-05, RF-39).
+5. El evaluador abre la URL del README e inicia sesión con un usuario de demostración (RF-31, RF-39).
+6. Genera un informe con la IA real; si falta la llave, la app avisa con claridad (RNF-13).
+
+**Excepciones:** sin terminal y sin llave, no se queda esperando y arranca avisando que falta la llave · llave inválida, mensaje honesto y respaldo (RF-19) · reinicio con la semilla, sin duplicados (RF-39).
 
 ---
 
@@ -90,7 +104,8 @@
 | RF-17 | Aplicar un criterio de parada explícito (informe válido con fuente por afirmación); si un límite se agota, dejar el informe `INCOMPLETO` con el motivo | M2-N | OBJ-09 | Un caso forzado a agotar iteraciones, ¿termina en `INCOMPLETO` con motivo en vez de seguir intentando? |
 | RF-18 | Validar la salida del modelo contra el esquema; si falla, reintentar una vez con el error; si vuelve a fallar, degradar a texto plano y registrar | M2-N | OBJ-10 | Una salida inválida forzada, ¿produce reintento y luego degradación sin error visible al usuario? |
 | RF-19 | Ante timeout, 429 o caída del proveedor, reintentar con espera creciente, usar el proveedor de respaldo y mostrar un mensaje honesto, sin stack trace | M2-N | OBJ-10 | Cada uno de los tres fallos forzados, ¿muestra un mensaje claro y no un stack trace? |
-| RF-20 | Permitir cambiar el proveedor del LLM por configuración y contar con un adaptador simulado (replay) | M2-N | OBJ-10, OBJ-13 | ¿Cambiar la variable de configuración cambia de proveedor sin tocar código, y la demo corre sin internet con el simulado? |
+| RF-20 | Permitir cambiar el proveedor del LLM por configuración y mostrarlo en vivo | M2-N | OBJ-10 | ¿Cambiar la variable de configuración cambia de proveedor sin tocar código y se puede mostrar en vivo? |
+| RF-40 | Contar con un adaptador simulado (replay) del proveedor para pruebas y casos dorados sin llave, activado solo por configuración y rotulado como simulado en la interfaz y en la traza | M2-S | OBJ-10, OBJ-11 | Con el simulado activado por configuración, ¿la suite de casos dorados corre sin llave ni internet, y la interfaz deja claro que la respuesta es simulada? |
 | RF-21 | Tratar el texto de las entradas como dato y no como instrucción, y no dar al agente herramientas de salida (internet, correo, mensajes) | M2-N | OBJ-14, RNF-03 | ¿Una entrada con instrucciones maliciosas no altera el comportamiento del agente, y su inventario no incluye ninguna salida? |
 | RF-22 | Registrar la traza de cada ejecución (herramienta, parámetros, resultado, ms, tokens) y mostrarla en la app | M2-N | OBJ-11 | ¿Se ve en vivo la traza de una ejecución con esos cinco datos? |
 
@@ -100,7 +115,7 @@
 |---|---|---|---|---|
 | RF-23 | Manejar los estados del informe `PENDIENTE_REVISION`, `INCOMPLETO`, `APROBADO` y `RECHAZADO`, con transiciones validadas en el servidor | M2-N | OBJ-05 | ¿Una transición no definida es rechazada por el servidor? |
 | RF-24 | Mostrar a enfermería el informe en lenguaje claro y, a un clic, la evidencia: entradas citadas, criterio de comparación y llamadas de herramientas | M2-N | OBJ-06 | ¿Desde el informe se llega a cada entrada citada en un clic? |
-| RF-25 | Permitir a enfermería editar el borrador antes de aprobar, conservando la versión original del modelo y las ediciones | M2-S | OBJ-06 | Tras editar, ¿existen la versión del modelo y la editada? |
+| RF-25 | Permitir a enfermería editar el borrador antes de aprobar, conservando la versión original del modelo y las ediciones | M2-N | OBJ-06 | Tras editar, ¿existen la versión del modelo y la editada? |
 | RF-26 | Permitir aprobar un informe solo al rol enfermería y registrar quién y cuándo | M2-N | OBJ-05 | ¿Un usuario médico recibe rechazo al aprobar, y el informe aprobado muestra aprobador y fecha? |
 | RF-27 | Permitir a enfermería rechazar un informe con motivo y pedir uno nuevo | M2-S | OBJ-05 | ¿El rechazo guarda el motivo y permite generar un nuevo borrador? |
 
@@ -121,6 +136,7 @@
 | RF-33 | Permitir al administrador crear, actualizar y desactivar usuarios, sin leer datos clínicos | M2-S | OBJ-15 | ¿Un administrador recibe rechazo al consultar entradas o informes? |
 | RF-34 | Mostrar el tablero de permisos por rol: lectura en M2, edición en M3, con el permiso Aprobar fijo para enfermería | M2-S (lectura) · M3 (edición) | OBJ-15 | ¿El tablero muestra la matriz real y, en M3, rechaza asignar Aprobar a otro rol? |
 | RF-35 | Registrar en auditoría las acciones sensibles: aprobar, rechazar, editar entradas o informes y cambiar permisos (quién, cuándo, antes y después) | M2-S | OBJ-05, OBJ-14 | ¿Cada acción sensible deja una fila de auditoría con esos cuatro datos? |
+| RF-39 | Crear al primer arranque, de forma idempotente, un usuario de demostración por rol (ENFERMERIA, MEDICO, ADMIN) y el conjunto sintético, solo con la semilla activa (`APP_SEED_DEMO=true`) y nunca en el perfil `prod`, con las credenciales documentadas en el README | M2-N | OBJ-13, OBJ-15, RNF-13 | Tras `./run.sh` en una máquina limpia, ¿se puede iniciar sesión con cada usuario del README, y reiniciar no duplica usuarios ni datos? |
 
 ### 3.7 Momento 3 y opcionales
 
@@ -136,18 +152,20 @@
 
 | ID | Categoría | Requisito | Criterio de verificación (sí/no) |
 |---|---|---|---|
-| RNF-01 | Seguridad | Autorización en el servidor para toda operación; la UI solo oculta. Mínimo privilegio; credenciales fuera del repo y del historial; usuario de BD con permisos mínimos | ¿Una petición directa al API sin permiso es rechazada aunque la UI no muestre el botón? ¿No hay secretos en el repo ni en el historial? |
+| RNF-01 | Seguridad | Autorización en el servidor para toda operación; la UI solo oculta. Mínimo privilegio; ninguna llave ni secreto real en el repo ni en el historial (el repositorio es público); las credenciales de demostración son sintéticas, están en el README y solo existen con la semilla activa; usuario de BD con permisos mínimos | ¿Una petición directa al API sin permiso es rechazada aunque la UI no muestre el botón? ¿El escaneo de secretos no encuentra ninguno en el repo ni en el historial, y el perfil `prod` rechaza la semilla de demostración? |
 | RNF-02 | Privacidad | Solo datos sintéticos. Al LLM solo salen el id interno y el texto de las entradas, nunca nombre ni documento. Sin audio guardado | ¿Una revisión de trazas y repo no encuentra datos reales ni identificadores personales? |
 | RNF-03 | Seguridad del agente | Hay datos privados y contenido no confiable; la tercera pata (salida hacia afuera) se mantiene cerrada | ¿El inventario de herramientas del agente no incluye ninguna que envíe datos fuera? |
 | RNF-04 | Robustez | Sin stack trace al usuario; los tres fallos forzables (timeout, salida que no valida, caída o 429) se manejan | ¿Los tres fallos forzados se manejan con mensaje claro? |
-| RNF-05 | Rendimiento | La generación no bloquea la interfaz: estados honestos o streaming. La latencia se mide como mediana y se reporta, sin umbral previo | ¿La UI muestra estados durante la generación y la mediana está en `docs/decisiones/semana10.md`? |
+| RNF-05 | Rendimiento | La generación no bloquea la interfaz: estados honestos o streaming; el patrón elegido (D24) se justifica en `docs/decisiones.md`. La latencia se mide como mediana y se reporta, sin umbral previo | ¿La UI muestra estados durante la generación y la mediana está en `docs/decisiones/semana10.md`? |
 | RNF-06 | Costo | Costo cero: capa gratuita de los proveedores. El costo por tarea se mide | ¿La demo corre sin pagos y se reporta el costo por tarea? |
 | RNF-07 | Observabilidad | Trazas y auditoría consultables; los fallos se explican con la traza | ¿Un fallo forzado se explica con su traza? |
-| RNF-08 | Reproducibilidad | `./run.sh` o `docker compose up --build`; ZIP limpio; variables en `.env.example` | ¿Otra persona lo levanta en menos de 5 minutos siguiendo el README? |
+| RNF-08 | Reproducibilidad | Repositorio público autosuficiente: `./run.sh` o `docker compose up --build`; README como contrato ejecutable por una IA que solo lo lea (pasos lineales, motor de BD, imagen, comando y URL); Docker Compose v2 como único prerrequisito; variables en `.env.example`; la prueba del compañero queda documentada con lo que falló y lo que se corrigió | ¿Una IA con solo el README, en un clon limpio, deja la app corriendo sin intervención manual, y otra persona lo hace en menos de 5 minutos? |
 | RNF-09 | Usabilidad | UI en español; lenguaje claro primero y evidencia a un clic; estados honestos | ¿Una persona de enfermería llega del informe a la evidencia en un clic? |
 | RNF-10 | Integridad de datos | Las entradas y los informes no se borran, solo se corrigen con versión; las entradas son de solo lectura para el agente | ¿Existe alguna operación de borrado sobre entradas o informes? (debe ser no) |
-| RNF-11 | Calidad | Pruebas automatizadas de las reglas críticas: aprobación, permisos, validador de cifras y citas, esquema. Commits convencionales. Cada integrante explica el código | ¿La verificación del proyecto pasa y cubre esas reglas? |
-| RNF-12 | Cumplimiento del curso | Estructura de entrega, límites del agente, `eval/` y cifras con fecha, según `AGENTS.md` | ¿Existe cada entregable? |
+| RNF-11 | Calidad | Pruebas automatizadas de las reglas críticas: aprobación, permisos, validador de cifras y citas, esquema. Commits convencionales. Cada integrante responde por las decisiones técnicas (qué se hizo y por qué) y puede explicar cualquier bloque que se le señale: la rúbrica escrita lo exige, aunque el profesor dijo en clase que preguntará sobre todo por decisiones | ¿La verificación del proyecto pasa y cubre esas reglas? |
+| RNF-12 | Cumplimiento del curso | Estructura de entrega, límites del agente, `eval/` y cifras con fecha, según `AGENTS.md`; enlace al repositorio entregado en el aula virtual hasta el jueves 29-oct a medianoche, con la versión congelada en un tag hasta la presentación | ¿Existe cada entregable, y el enlace se entregó a tiempo con la versión congelada? |
+| RNF-13 | Arranque en frío | La aplicación completa (BD, backend, frontend, migraciones y semilla) levanta con un comando y sin labor manual en una máquina limpia con solo Docker Compose v2; la llave del proveedor se toma del entorno o se pide por consola si hay terminal, se guarda en `.env` (fuera del repo) y, si no hay llave ni terminal, el arranque no se bloquea y la app avisa con claridad que falta la llave | En un clon limpio, ¿un solo comando deja corriendo la app con login y datos de demostración, sin quedarse esperando entrada? |
+| RNF-14 | Decisiones justificadas | `docs/decisiones.md` registra cada decisión técnica (forma del sistema, stack, proveedor y modelo, estrategia de datos con o sin RAG, patrón síncrono, streaming o cola, base de datos y cada herramienta opcional que entre) con su razón técnica y la alternativa descartada; incluye el registro de iteración de las descripciones de herramientas y la prueba del compañero | ¿Para cada decisión técnica del sistema hay una entrada con razón y alternativa, y cada integrante sabe explicarla? |
 
 ---
 
@@ -197,12 +215,13 @@ Solo entidades y relaciones. Atributos, tipos y tablas se definen en el diseño.
 | OBJ-07 Datos insuficientes | RF-14 |
 | OBJ-08 No diagnosticar | RF-15 |
 | OBJ-09 Límites y parada | RF-09, RF-16, RF-17 |
-| OBJ-10 Resiliencia y proveedor | RF-18, RF-19, RF-20 |
-| OBJ-11 Medición y trazas | RF-22, RNF-05 a RNF-07; entregables `eval/` y `docs/decisiones/semana10.md` |
+| OBJ-10 Resiliencia y proveedor | RF-18, RF-19, RF-20, RF-40 |
+| OBJ-11 Medición y trazas | RF-22, RNF-05 a RNF-07; entregables `eval/` y `docs/decisiones.md` (cifras; detalle en `docs/decisiones/semana10.md`) |
 | OBJ-12 Necesidad del LLM y del agente | RF-10; entregable: decisiones del agente y comparación contra la plantilla sin LLM |
-| OBJ-13 Reproducibilidad y plan B | RF-05, RF-20, RNF-08 |
+| OBJ-13 Entrega autosuficiente y plan B | RF-05, RF-19, RF-39, RNF-08, RNF-13 |
 | OBJ-14 Seguridad y gobernanza | RF-21, RF-35, RNF-01 a RNF-03; entregables del Momento 3 |
-| OBJ-15 Permisos por rol | RF-30 a RF-34 |
+| OBJ-15 Permisos por rol | RF-30 a RF-34, RF-39 |
+| OBJ-16 Decisiones técnicas justificadas | RNF-11, RNF-14; entregable `docs/decisiones.md` |
 
 Todos los objetivos tienen al menos un requisito o un entregable asociado.
 
@@ -221,15 +240,21 @@ Para poder avanzar, el análisis usa estos supuestos. Si cambian, se actualiza e
 | Catálogo de métricas | El de RF-07 es una propuesta; conviene validarlo con una persona de enfermería | RF-07, RF-11 | D18 |
 | Disparo de la generación | Manual (botón) en M2; programado al cierre de semana queda para M3 | RF-08 | D19 |
 | Consulta libre al pedir el informe | Sin campo libre en M2; el caso de rechazo se construye con una entrada que pide un diagnóstico | RF-15 | D20 |
+| Forma de entrega | Enlace al repositorio público de GitHub, sin ZIP; el privado es opcional según el profesor | RNF-01, RNF-08, RNF-12 | D21 |
+| Arranque y llave del API | Una IA del profesor ejecuta solo el README; la llave se toma del entorno o se pide por consola; sin llave ni terminal, arranca igual y avisa que falta la llave | RNF-13 | D22 |
+| Usuarios de demostración | Uno por rol, sembrados al primer arranque, con credenciales sintéticas en el README | RF-39 | D23 |
+| Evaluaciones y observabilidad | En clase el profesor las trató como deseables; la rúbrica escrita las puntúa; versión mínima: 3 a 5 casos dorados con script y traza visible en la app | RF-22, OBJ-11 | D25 |
 
-**Para el diseño (no bloquean el análisis):** stack (D9), estrategia de datos (D8), proveedor del LLM (D15), tamaño del conjunto sintético (D11), motor de PDF (D13), voz (D14) y dónde se derivan los eventos (al guardar la entrada o al generar el informe).
+**Para el diseño (no bloquean el análisis):** stack (D9, se decide primero), patrón síncrono, streaming o cola (D24), estrategia de datos (D8), proveedor del LLM (D15), tamaño del conjunto sintético (D11), motor de PDF (D13), voz (D14) y dónde se derivan los eventos (al guardar la entrada o al generar el informe).
 
 ---
 
 ## 9. Criterios de salida de la fase de análisis
 
-- [ ] Cada objetivo de la SPEC tiene al menos un requisito o entregable (§7).
-- [ ] Cada requisito funcional tiene un criterio que se responde con sí o no.
+- [x] Cada objetivo de la SPEC tiene al menos un requisito o entregable (§7). Verificado el 2026-10-25, incluido OBJ-16.
+- [x] Cada requisito funcional tiene un criterio que se responde con sí o no. Verificado el 2026-10-25: los 39 RF.
 - [ ] Los dos integrantes revisaron los supuestos de trabajo de §8.
 - [ ] El catálogo de métricas (RF-07) y la estructura del informe (RF-11) se validaron con una persona de enfermería, o quedó registrado que no se pudo.
-- [ ] La SPEC se actualizó con las decisiones D18 a D20 y los supuestos confirmados.
+- [ ] La SPEC se actualizó con las decisiones D18 a D20 y los supuestos confirmados (D18 a D20 ya están en la SPEC; faltan los supuestos confirmados, incluidos D21 a D25).
+
+Las casillas abiertas no bloquean el diseño; quedan como deuda con fecha límite propuesta: revisión de supuestos por los dos integrantes el lunes 26 y validación con enfermería (o constancia de que no se pudo) el miércoles 28 **[Propuesta]**.

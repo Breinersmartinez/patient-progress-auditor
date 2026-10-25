@@ -1,13 +1,15 @@
 # SPEC — Patient Progress Auditor
 
-> **Estado:** borrador v0.4 para aprobación · **Fase del ciclo de vida:** 1 — Planificación (cerrada, línea base) · en curso: 2 — Análisis de requisitos · **Fecha:** 2026-10-23
+> **Estado:** borrador v0.5 para aprobación · **Fase del ciclo de vida:** 1 — Planificación (cerrada, línea base) · en curso: 2 — Análisis de requisitos · siguiente: 3 — Diseño · **Fecha:** 2026-10-25
 > **Equipo:** Breiner Martinez Muñoz y Andres Felipe Lopez Vivas · **Curso:** Ingeniería de Aplicaciones con IA (UCC)
+>
+> **Cambios de la v0.5 (a partir de la clase del 24 de octubre de 2026):** la entrega pasa a ser el enlace al repositorio público de GitHub (decisión del equipo; el profesor dijo que privado es opcional), sin ZIP, con plazo el jueves 29 de octubre a medianoche y demo el sábado 31. El README es el contrato de arranque y lo ejecutará una IA del profesor que solo lo lee: debe levantar todo sin pasos manuales, con Docker, y la llave del API se toma del entorno o se pide por consola. La IA tiene que estar integrada y funcionando; el plan B es el proveedor de respaldo y el modo simulado es opcional. El profesor preguntará por las decisiones técnicas y no por líneas de código. Se agregan D21 a D25 y el objetivo OBJ-16, se ajustan D9 y D13 a D16 y OBJ-13, y se siembra el arranque en frío en §4. Lo dicho en clase manda sobre la página del curso en lo logístico (plazo y formato); la rúbrica escrita se sigue usando para el puntaje.
 >
 > **Cambios de la v0.4:** se cierra la planificación; las fases se separan en análisis de requisitos (`docs/REQUISITOS.md`) y diseño; se registra la aprobación del profesor sobre la necesidad de IA (D17); los supuestos de trabajo del análisis quedan reflejados en D5, D6, D10 y D12, y se abren D18 a D20. La v0.3 fijó que el sistema es una aplicación con un agente integrado (D7) y sembró las decisiones que toma el agente. La v0.2 incorporó la semana 6 (autonomía por acción, criterio de parada, plan B sin internet) y las decisiones sobre permisos por rol, PDF y voz.
 >
 > Este documento desarrolla las secciones §1 a §3 de la spec (resumen, objetivos, alcance) y deja sembradas §4, §5 y §7. Los criterios de aceptación por requisito están en `docs/REQUISITOS.md`; la §6 los consolida en la fase de diseño.
 >
-> **Etiquetas de origen:** **[Curso]** lo exige o lo recomienda el curso · **[Equipo]** ya lo definió el equipo (presentación del proyecto y `AGENTS.md`) · **[Propuesta]** lo propone este borrador y hay que confirmarlo. Ninguna meta numérica va sin etiqueta.
+> **Etiquetas de origen:** **[Curso]** lo exige o lo recomienda el curso (la página o lo dicho en clase) · **[Equipo]** ya lo definió el equipo (presentación del proyecto y `AGENTS.md`) · **[Propuesta]** lo propone este borrador y hay que confirmarlo. Ninguna meta numérica va sin etiqueta.
 
 ---
 
@@ -37,7 +39,7 @@
 | Médico | Consulta los informes aprobados y, según D12, también puede registrar |
 | Administrador | Gestiona usuarios y roles; no lee datos clínicos **[Propuesta]** |
 | Equipo de desarrollo | Construye, evalúa y sustenta |
-| Evaluador del curso | Revisa la demo en vivo (6 min de demo + 3 de preguntas) |
+| Evaluador del curso | Levanta el repositorio con una IA que solo lee el README (el día antes de la demo) y revisa la demo en vivo (6 min de demo + 3 de preguntas), donde pregunta por las decisiones técnicas |
 
 ---
 
@@ -70,8 +72,9 @@ Cada objetivo se verifica con un sí o un no.
 | **Evidencia** | | | |
 | OBJ-11 | Medir con método y mostrar trazas | `eval/` con 5 a 10 casos verificados a mano (al menos uno de rechazo); cuatro cifras con fecha y método en `docs/decisiones/semana10.md` (tasa de éxito, costo por tarea, mediana de latencia, recuperación si aplica); trazas visibles en vivo | [Curso] |
 | OBJ-12 | Sustentar la necesidad del LLM y del agente frente a alternativas más simples | Se listan las decisiones que toma el agente (qué consultar, cuánto retroceder, cuándo declarar información insuficiente) y lo que va deliberadamente en código; los seis ejes aplicados por componente; la misma suite corrida contra una versión sin modelo (informe por plantilla con métricas por código) | [Equipo] · [Curso] |
-| OBJ-13 | Reproducibilidad y plan B | `./run.sh` o `docker compose up --build` levanta todo; un compañero con el ZIP y el README lo corre en menos de 5 minutos; existe un modo simulado del proveedor (replay) para correr la demo sin internet | [Curso] |
+| OBJ-13 | Entrega autosuficiente, reproducible y con plan B | Una IA que recibe solo el README, en un clon limpio del repositorio público, levanta todo sin pasos manuales (`./run.sh` o `docker compose up --build`; Docker Compose v2 como único prerrequisito); un compañero lo corre en menos de 5 minutos y la prueba queda documentada con lo que falló y lo que se corrigió; la llave del API se toma del entorno o se pide por consola y nunca va en el repo, y si falta la app arranca igual y avisa con claridad; un modo simulado del proveedor (replay), rotulado como tal, es opcional y sirve para las pruebas ([Propuesta], D16) | [Curso] |
 | OBJ-14 | Seguridad y gobernanza (hito del Momento 3) | `docs/seguridad.md` (modelo de amenazas, tríada evaluada, ataque propio documentado, hardening con antes y después), `docs/gobernanza.md` (cinco preguntas) y `docs/respuesta_auditoria.md` | [Curso] |
+| OBJ-16 | Decisiones técnicas justificadas y defendibles | `docs/decisiones.md` registra cada decisión técnica (forma del sistema, stack, proveedor y modelo, estrategia de datos con o sin RAG, patrón síncrono, streaming o cola, base de datos y cada herramienta opcional que entre) con su razón técnica y la alternativa descartada, más el registro de iteración de las descripciones de herramientas; cada integrante responde por cualquiera de ellas | [Curso] · [Equipo] |
 
 ### 2.3 Sobre las metas numéricas
 
@@ -94,15 +97,16 @@ No se fija un umbral de éxito del agente antes de medir la línea base. El curs
 | Tablero de permisos por rol | Solo lectura | Edición con invariantes |
 | Mapa de autonomía por acción (`docs/decisiones/semana06.md`) | Sí | |
 | Suite `eval/`, trazas visibles y línea base de las cuatro cifras | Sí | |
-| Modo simulado del proveedor (plan B sin internet y pruebas) | Sí | |
-| Empaquetado reproducible (ZIP, `docker-compose.yml`, `run.sh`, `.env.example`, README) | Sí | |
+| Modo simulado del proveedor (opcional: pruebas y casos dorados sin llave; el plan B de la entrega es el proveedor de respaldo) | Si hay tiempo | |
+| Repositorio público autosuficiente: `docker-compose.yml`, `run.sh`, `.env.example` y README como contrato de arranque, probado con una IA que solo lee el README | Sí | |
+| Usuarios de demostración (uno por rol) y datos sintéticos sembrados al primer arranque, con las credenciales en el README | Sí | |
 | Informe mensual | | Sí |
 | Seguridad, hardening, ficha de gobernanza y respuesta a la auditoría cruzada | | Sí |
 | Cifras finales comparadas contra la línea base | | Sí |
 | Exportación a PDF de informes aprobados | | Opcional |
 | Dictado por voz con transcripción editable | | Opcional |
 
-Los hitos son **[Propuesta]**: separar semanal (M2) y mensual (M3) responde a que quedan 8 días hasta el Momento 2 (a 2026-10-23). PDF y voz solo entran si todo lo demás está cerrado.
+Los hitos son **[Propuesta]**: separar semanal (M2) y mensual (M3) responde al poco tiempo: la entrega es el jueves 29 de octubre a medianoche, así que desde el 26 quedan cuatro días de construcción. PDF y voz solo entran si todo lo demás está cerrado; si entran, hay que poder justificar la tecnología elegida (D13 y D14).
 
 ### 3.2 Fuera de alcance
 
@@ -119,16 +123,21 @@ Los hitos son **[Propuesta]**: separar semanal (M2) y mensual (M3) responde a qu
 - **Varias instituciones, gestión administrativa** (agendas, facturación) **y app móvil nativa.**
 - **Entrenamiento o ajuste fino de modelos propios.**
 - **Soporte de otros idiomas distintos del español.**
-- **Despliegue en la nube para producción.** El entregable es un ZIP con docker compose. **[Propuesta]**
+- **Despliegue en la nube para producción.** El entregable es el enlace al repositorio público de GitHub, que se levanta con Docker Compose; no se entrega ZIP. **[Equipo]**
 
 ### 3.3 Supuestos y restricciones
 
-- **Tiempo:** el Momento 2 es el sábado 31 de octubre de 2026, con demo en vivo de 6 min y 3 min de preguntas; sin presentación no hay nota. El Momento 3 es en la semana 14. **[Curso]**
+- **Tiempo:** el enlace al repositorio se entrega en el aula virtual hasta el jueves 29 de octubre de 2026 a medianoche, porque el profesor necesita un día para probarlo. La demo es el sábado 31, en vivo, de 6 min más 3 min de preguntas; poner el enlace solo cuenta como entregado y, sin presentación, es como no haber entregado. El profesor aconsejó congelar la versión del jueves hasta terminar la presentación: se hace con un tag, p. ej. `m2-entrega` **[Propuesta]**. El Momento 3 es en la semana 14. **[Curso]** (clase del 24-oct)
 - **Equipo:** dos personas, y ambas deben poder explicar cualquier función que se les señale. **[Curso]**
 - **Costo cero:** el curso no exige pagar. El taller de la semana 6 sugiere Google AI Studio (sin tarjeta) y Groq como alternativa; ambos con capa gratuita. **[Curso]**
-- **Sin dependencia de internet en la demo:** se lleva plan B (modo simulado). **[Curso]**
+- **Plan B en la demo:** ante un fallo del proveedor, backoff y proveedor de respaldo (semana 9, RF-19) **[Curso]**. El modo simulado sin internet es opcional **[Propuesta]**: el curso solo lo pide en el taller y el reto de la semana 6, y la demo exige la IA en vivo.
 - **Datos:** solo sintéticos, en el repo, en `eval/`, en trazas y en capturas. **[Equipo]**
 - **Privacidad hacia el proveedor:** al LLM sale lo mínimo, sin nombre ni documento (id interno). **[Propuesta]**
+- **Entrega autosuficiente:** el profesor da el README a una IA y ejecuta solo sus pasos; si la aplicación no levanta así, no la revisa. Todo corre en Docker; el README dice el motor de BD, la imagen y el comando; no hay labor manual. **[Curso]** (clase del 24-oct)
+- **Repositorio público:** ninguna llave ni secreto real en el repo ni en el historial; las credenciales de demostración son sintéticas, están en el README y solo existen con la semilla activa. **[Equipo]**
+- **La IA debe estar integrada y funcionando en esta entrega;** el modo simulado, si se construye, no la sustituye. **[Curso]** (clase del 24-oct)
+- **Qué pregunta el profesor:** no pregunta por líneas de código sino por las decisiones técnicas (por qué ese proveedor, con o sin RAG, síncrono o asíncrono, por qué cada herramienta); cada integrante responde por todas. La rúbrica escrita sigue pidiendo dominio individual del código. **[Curso]**
+- **Evaluaciones y observabilidad:** en clase el profesor las trató como deseables en este momento («si alcanzan»); la rúbrica escrita las puntúa (25 puntos), así que se mantienen en versión mínima (D25). **[Curso]**
 
 ### 3.4 Dónde cae cada fase del ciclo de vida
 
@@ -136,10 +145,10 @@ Los hitos son **[Propuesta]**: separar semanal (M2) y mensual (M3) responde a qu
 |---|---|---|---|
 | 1. Planificación | Objetivos, alcance, restricciones | `docs/SPEC.md` §1–§3 | **Cerrada** (línea base v0.4) |
 | 2. Análisis de requisitos | Necesidades por actor, casos de uso, requisitos funcionales y no funcionales, reglas de negocio, criterios de aceptación | `docs/REQUISITOS.md` | **En curso** |
-| 3. Diseño | Arquitectura, modelo de datos, herramientas del agente, flujo de estados y decisiones (forma del sistema, datos, proveedor, patrón de integración) | `docs/SPEC.md` §4–§7, `docs/PLAN.md`, `docs/decisiones/semana06.md` (autonomía), `docs/decisiones/semana08.md` (datos) | Siguiente |
+| 3. Diseño | Arquitectura, modelo de datos, herramientas del agente, flujo de estados, mockups de las pantallas clave y decisiones (forma del sistema, stack, datos, proveedor, patrón de integración, arranque en frío) | `docs/SPEC.md` §4–§7, `docs/PLAN.md`, `docs/decisiones.md` (con el detalle en `docs/decisiones/`: `semana06.md` autonomía, `semana08.md` datos) | Siguiente (medio día: D9 y D24 se deciden primero) |
 | 4. Implementación | Agente, herramientas, app, flujo de aprobación, permisos | Código; `skills/` (`escribir-spec`, `escribir-plan`, `ejecutar-plan`) | Pendiente |
-| 5. Pruebas y evaluación | Suite dorada, cuatro cifras, trazas | `eval/`, `docs/decisiones/semana10.md` | Pendiente |
-| 6. Entrega | ZIP reproducible y demo | README, `docker-compose.yml`, `run.sh`, `.env.example` | Momento 2 |
+| 5. Pruebas y evaluación | Suite dorada, cuatro cifras, trazas | `eval/`, `docs/decisiones.md` (cifras; detalle en `docs/decisiones/semana10.md`) | Pendiente |
+| 6. Entrega | Repositorio público reproducible y demo | README, `docker-compose.yml`, `run.sh`, `.env.example`, `docs/decisiones.md` | Momento 2: enlace el jueves 29-oct, demo el sábado 31-oct |
 | 7. Seguridad, gobernanza y cierre | Amenazas, hardening, ficha, auditoría | `docs/seguridad.md`, `docs/gobernanza.md`, `docs/respuesta_auditoria.md` | Momento 3 |
 
 ---
@@ -199,6 +208,18 @@ La pregunta de la semana 6: ¿qué es lo peor que pasa si se equivoca en esta ac
 
 "El médico solo ve lo aprobado" es una regla de estado: va en la consulta, no en un permiso. Cada cambio en el tablero queda registrado (quién, cuándo, antes y después).
 
+### Arranque en frío (semilla de D22 y D23)
+
+El profesor da el README a una IA y ejecuta solo sus pasos, así que este camino se construye primero y se congela al final. El rol AGENTE es técnico y no tiene usuario con contraseña.
+
+| Pieza | Qué hace | Estado |
+|---|---|---|
+| `docker-compose.yml` | Levanta la base de datos (PostgreSQL, imagen y versión fijadas), el backend y el frontend; los builds son multi-etapa, así que no hace falta Java ni Node en la máquina | Pendiente (hoy no existe, y el Dockerfile del backend no tiene `CMD`) |
+| `run.sh` | Verifica Docker, crea `.env` desde `.env.example`, genera `JWT_SECRET` y `DB_PASSWORD`, resuelve la llave del proveedor (entorno o consola; sin ninguna de las dos, arranca igual y avisa que falta) y ejecuta `docker compose up --build` | Pendiente |
+| Migraciones Flyway | Esquema y los roles y permisos del dominio (ENFERMERIA, MEDICO, ADMIN) | Parcial: existe el RBAC genérico, solo con el rol ADMIN |
+| Semilla de demostración | Un usuario por rol y el conjunto sintético, idempotente, solo con `APP_SEED_DEMO=true` y nunca en `prod` | Pendiente |
+| README | Pasos lineales que una IA pueda ejecutar: prerrequisito (Docker Compose v2), motor de BD, imagen, comando, URL, usuarios de demostración, cómo verificar que está arriba y cómo cambiar de proveedor | Pendiente |
+
 ## §5. Casos borde (semillas)
 
 Se identifican ahora y se resuelven en el diseño. Solo tienen comportamiento esperado los que ya decidió el equipo o el curso.
@@ -212,13 +233,23 @@ Se identifican ahora y se resuelven en el diseño. Solo tienen comportamiento es
 - Paciente dado de alta a mitad del período.
 - Timeout, 429 o JSON inválido del proveedor. *Esperado: reintento, degradación y mensaje honesto, sin stack trace.*
 - Se agota el límite de iteraciones o de tokens sin un informe válido. *Esperado: se detiene, avisa y deja el informe marcado como incompleto; no sigue intentando.*
-- Sin internet en la demo. *Esperado: el modo simulado del proveedor mantiene el flujo.*
+- Sin internet en la demo. *Esperado: aviso claro, sin stack trace; el modo simulado (D16, opcional) mantendría el flujo si existe.*
 - Enfermería edita el borrador: ¿se conserva la versión original generada por el modelo?
 - Dictado por voz con errores de transcripción (opcional M3). *Esperado: el texto es editable antes de guardar y queda con origen `VOZ`.*
+- Arranque en una máquina limpia, sin llave del API y sin terminal (por ejemplo, ejecutado por una IA). *Esperado: no se queda esperando; toma la variable de entorno o arranca igual y avisa con claridad que falta la llave.*
+- Llave del API inválida, vencida o sin cuota (se cubre con RF-19).
+- Reinicio con la semilla activa, o puerto ocupado en la máquina del evaluador.
 
 ## §6. Criterios de aceptación
 
 Los criterios por requisito están en `docs/REQUISITOS.md` (columna "Criterio de aceptación"), cada uno con respuesta sí o no. Esta sección los consolida en la fase de diseño.
+
+**Puerta de aceptación de la entrega** (si falla, el profesor no revisa lo demás):
+
+- ¿Un clon limpio del repositorio público, con una IA que recibe solo el README, termina con la aplicación corriendo y sin pasos manuales?
+- ¿Se puede iniciar sesión con cada usuario de demostración del README?
+- ¿Una generación de informe llama a una IA real, y si falta la llave la app avisa con claridad en vez de fallar con un error crudo?
+- ¿El repositorio y su historial están libres de llaves y secretos reales?
 
 ## §7. Decisiones
 
@@ -232,15 +263,20 @@ Los criterios por requisito están en `docs/REQUISITOS.md` (columna "Criterio de
 | D6 | ¿El médico puede ver borradores? | Supuesto de trabajo: no | La presentación dice que solo tras la aprobación; la descripción inicial dice que podría revisarlos directamente. Mientras se decide, solo ve `APROBADO` |
 | D7 | Forma del sistema | Decidida **[Equipo]** | Aplicación con un agente integrado (ver §1), como exige la rúbrica del Momento 2. La defensa frente a "¿por qué agente y no workflow?" se hace con las decisiones reales del agente (§4) y se mide: la misma suite contra una plantilla sin LLM (obligatoria, OBJ-12) y, opcionalmente, contra un workflow con LLM sin bucle |
 | D8 | Estrategia de datos | Por decidir | Por defecto, consulta directa a la BD y el LLM lee las notas; RAG solo si se mide que hace falta. Se documenta en `docs/decisiones/semana08.md` |
-| D9 | Stack | Por decidir | El código de los talleres (bucle, FastMCP, FastAPI) es Python; el scaffold es Java con RBAC/JWT. En Java hay que escribir el bucle a mano (el taller lo resuelve en unas 80 líneas); en Python se reescribe lo existente. Pendiente en `AGENTS.md` |
+| D9 | Stack | Por decidir | El código de los talleres (bucle, FastMCP, FastAPI) es Python; el scaffold es Java con RBAC/JWT. En Java hay que escribir el bucle a mano (el taller lo resuelve en unas 80 líneas); en Python se reescribe lo existente. Con builds multi-etapa en Docker, el stack ya no condiciona al profesor (solo necesita Docker): la decisión es de velocidad de desarrollo y él la va a preguntar, así que hay que poder justificarla. Inclinación del borrador: mantener Java con Spring y Angular por el RBAC/JWT/Flyway y el CI existentes, y subir a Java 21 (la página de entrega lo cita; hoy pom, Dockerfile y CI usan 17). Se decide antes de empezar el diseño. Pendiente en `AGENTS.md` |
 | D10 | Qué es "una semana" y contra cuántas semanas anteriores se compara | Supuesto de trabajo | Lunes a domingo; se compara con la anterior y el agente decide cuántas más atrás revisar, con tope (RN-06) |
 | D11 | Tamaño del conjunto sintético | Por decidir | Cuántos pacientes y cuántas semanas; condiciona la suite de evaluación |
 | D12 | ¿El médico también registra? | Supuesto de trabajo: sí | La matriz de §4 lo asume sí; amplía el papel del médico |
-| D13 | Motor de PDF (opcional M3) | Propuesta | Thymeleaf + HTML→PDF (una sola plantilla para pantalla y PDF). Jasper solo si ya existen plantillas `.jrxml`; si se usa, versión 7.0.7 o superior. Solo informes `APROBADO` |
-| D14 | Dictado por voz (opcional M3) | Propuesta | Whisper detrás de un puerto, con Groq como adaptador y uno local por perfil de compose. Transcripción siempre editable, sin guardar audio, origen `VOZ`. Es una comodidad de entrada, no parte de la justificación de IA |
-| D15 | Proveedor del LLM | Propuesta | Google AI Studio como principal y Groq como respaldo o alternativa, los dos del taller de la semana 6. Tener ambos permite demostrar la capa del proveedor cambiando en vivo. Verificar los modelos vigentes antes de fijarlos |
-| D16 | Modo simulado del proveedor | Propuesta | Adaptador de replay con respuestas grabadas: plan B sin internet y base de las pruebas |
+| D13 | Motor de PDF (opcional M3) | Propuesta | Thymeleaf + HTML→PDF (una sola plantilla para pantalla y PDF). Jasper solo si ya existen plantillas `.jrxml`; si se usa, versión 7.0.7 o superior. Solo informes `APROBADO`. Si entra, el profesor preguntará por qué ese motor; no entra en el Momento 2 salvo que sobre tiempo |
+| D14 | Dictado por voz (opcional M3) | Propuesta | Whisper detrás de un puerto, con Groq como adaptador y uno local por perfil de compose. Transcripción siempre editable, sin guardar audio, origen `VOZ`. Es una comodidad de entrada, no parte de la justificación de IA. El profesor usó Whisper como ejemplo de lo que preguntará («por qué Whisper, cómo lo procesaron»): si entra, hay que defenderlo, y no entra en el Momento 2 salvo que sobre tiempo |
+| D15 | Proveedor del LLM | Propuesta | Google AI Studio como principal y Groq como respaldo o alternativa, los dos del taller de la semana 6. Tener ambos permite demostrar la capa del proveedor cambiando en vivo. Verificar los modelos vigentes antes de fijarlos. La ruta principal de la entrega es el proveedor real: la IA tiene que estar integrada y funcionando. La llave la aporta quien ejecuta (se toma del entorno o se pide por consola, D22) y nunca va en el repo público. El profesor preguntará por qué ese proveedor y modelo: registrar latencia, costo por token, tool calling y ventana de contexto en `docs/decisiones.md` |
+| D16 | Modo simulado del proveedor | Propuesta (opcional) | Adaptador de replay con respuestas grabadas, para pruebas y casos dorados sin llave. El curso solo pide un modo simulado en el taller y el reto de la semana 6, no en el proyecto del Momento 2: es opcional, y el plan B de la entrega es el proveedor de respaldo (semana 9, RF-19). Si se construye, se activa solo por configuración, nunca como valor por defecto, y la interfaz y la traza lo rotulan como simulado para no hacerlo pasar por IA en vivo |
 | D17 | La aplicación necesita IA (prueba de necesidad) | Decidida: aprobada por el profesor | Registrar la fecha y el medio (clase o correo) en `docs/decisiones/` como evidencia |
 | D18 | Catálogo de métricas semanales | Por confirmar | El de RF-07 es una propuesta; validar con una persona de enfermería |
 | D19 | Disparo de la generación del informe | Supuesto de trabajo | Manual (botón) en M2; programado al cierre de semana, M3 |
 | D20 | Campo de consulta libre al pedir el informe | Supuesto de trabajo: no en M2 | Sin campo, el caso de rechazo (OBJ-08) se construye con una entrada que pide un diagnóstico |
+| D21 | Forma de entrega | Decidida **[Equipo]** | Enlace al repositorio público de GitHub, sin ZIP: el profesor dijo en clase (24-oct) que el privado es opcional y que solo se envía el enlace, en el aula virtual, hasta el jueves 29 a medianoche. Por ser público, ninguna llave ni secreto real entra al repo ni al historial. El registro de decisiones es `docs/decisiones.md` (el profesor aceptó «otro documento» o el README), con el detalle en `docs/decisiones/` |
+| D22 | Arranque en frío autosuficiente y llave del API | Propuesta | El profesor da el README a una IA y ejecuta solo sus pasos; si no levanta, no revisa. Todo en Docker Compose (BD, backend y frontend, con builds multi-etapa: el único prerrequisito es Docker Compose v2). `run.sh` verifica Docker, crea `.env` desde `.env.example`, genera `JWT_SECRET` y `DB_PASSWORD` y resuelve la llave: variable de entorno si existe; si no y hay terminal, la pide sin eco y la guarda en `.env` (el profesor lo recomendó así); si no hay terminal ni llave, no se queda esperando: arranca igual y avisa con claridad que falta la llave (el modo simulado de D16 es opcional). `docker compose up --build` directo se comporta igual. Alternativa descartada: quedarse esperando la llave, que dejaría colgada a una IA que ejecuta el script |
+| D23 | Usuarios de demostración | Propuesta | Un `ApplicationRunner` idempotente crea un usuario por rol (ENFERMERIA, MEDICO, ADMIN) y el conjunto sintético (RF-05); solo corre con `APP_SEED_DEMO=true` y nunca en el perfil `prod`. La contraseña viene de una variable de entorno con valor documentado en `.env.example` y en el README, y se cifra con el mismo `PasswordEncoder` del registro normal: no hay hash en migraciones. Los roles y permisos del dominio sí van en una migración Flyway. Riesgo aceptado: credenciales de demostración públicas, de datos sintéticos |
+| D24 | Patrón de integración | Por decidir | El profesor preguntará «¿síncrono o asíncrono, y por qué?» y no quiere enterarse en plena presentación de que salió asíncrono porque la guía lo hizo. Opciones: in-request (no se admite en la sustentación según `AGENTS.md`), streaming SSE o tarea en segundo plano con estados de progreso o cola con workers. Punto de partida razonable para cuatro días: tarea en segundo plano en el mismo proceso con estados de progreso por SSE, sin broker; se confirma en el diseño y se escribe en `docs/decisiones.md` |
+| D25 | Evaluaciones y observabilidad en el Momento 2 | Supuesto de trabajo: versión mínima | En clase el profesor las trató como deseables (observabilidad «si alcanzan», evaluaciones como automatización a tener); la rúbrica escrita las puntúa. Mínimo: 3 a 5 casos dorados (incluido el de rechazo) con su script y la traza de herramientas visible en la app; las cuatro cifras con fecha si alcanza el tiempo. Se amplía para el Momento 3 |
