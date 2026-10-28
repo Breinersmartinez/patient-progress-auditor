@@ -1,7 +1,9 @@
 # REQUISITOS — Patient Progress Auditor
 
-> **Estado:** borrador v0.2 para aprobación · **Fase del ciclo de vida:** 2 — Análisis de requisitos · **Fecha:** 2026-10-25
-> **Base:** `docs/SPEC.md` v0.5 (§1–§3, objetivos OBJ-01 a OBJ-16), `AGENTS.md`, las rúbricas del curso *Ingeniería de Aplicaciones con IA* y lo dicho por el profesor en la clase del 24 de octubre de 2026.
+> **Estado:** borrador v0.3 para aprobación · **Fase del ciclo de vida:** 2 — Análisis de requisitos · **Fecha:** 2026-10-27
+> **Base:** `docs/SPEC.md` v0.6 (§1–§3, objetivos OBJ-01 a OBJ-16), `AGENTS.md`, las rúbricas del curso *Ingeniería de Aplicaciones con IA* y lo dicho por el profesor en la clase del 24 de octubre de 2026.
+>
+> **Cambios de la v0.3 (decisiones del equipo del 27 de octubre de 2026):** RF-36 (informe mensual) pasa de M3 a núcleo del Momento 2 (D4); un mes son cuatro semanas completas consecutivas y exige el informe semanal aprobado de cada una (nueva RN-10). La autenticación y lo que depende de ella pasan al Momento 3 (D23): RF-31, RF-33 y RF-34 pasan a M3, y RF-32 y RF-39 se reparten entre los dos momentos: los usuarios de demostración, sin credenciales, se siembran desde el Momento 2 y se elige con cuál trabajar (D26, propuesta); las credenciales, el administrador y las cuentas llegan en el Momento 3. RF-05 recoge de RF-39 la carga idempotente del conjunto sintético, condicionada a `APP_SEED_DEMO`. RF-35 (auditoría) sigue en M2-S porque el «quién» es ahora una persona, también para el médico que registra (D12). Se ajustan CU-06, CU-10, RNF-01, RNF-13 y los supuestos de §8. El núcleo del Momento 2 queda en 29 RF, los M2-S en 5, el Momento 3 en 3 y los opcionales en 2; en total siguen siendo 39 RF (RF-32 y RF-39 cuentan en el núcleo por su parte del Momento 2).
 >
 > **Cambios de la v0.2:** RF-25 (editar el borrador) sube a núcleo, porque la rúbrica del Momento 2 pide que el usuario pueda corregir la fuente y el criterio. Se agregan RF-39 (usuarios de demostración), RNF-13 (arranque en frío sin pasos manuales), RNF-14 (decisiones técnicas justificadas), CU-10 y OBJ-16. Se endurecen RNF-01 (el repositorio es público), RNF-08 (el README lo ejecuta una IA), RNF-11 y RNF-12, y RF-20 se limita al cambio de proveedor por configuración, porque el curso no pide un modo simulado en el proyecto (D16, descartada). El núcleo del Momento 2 pasa de 27 a 29 RF (RF-25 y RF-39); los M2-S bajan de 8 a 7; en total son 39 RF.
 >
@@ -25,8 +27,8 @@
 | Enfermería | Registrar cada día sin fricción: texto libre y, opcionalmente, voz | [Equipo] | RF-02, RF-38 |
 | Médico | Recibir informes consistentes y aprobados que muestren la evolución en el tiempo | [Equipo] | RF-28, RF-29, RF-36 |
 | Médico | Registrar entradas diarias cuando le corresponda | [Equipo] | RF-30 |
-| Administrador | Gestionar usuarios y permisos sin acceder a datos clínicos | [Propuesta] | RF-31 a RF-34 |
-| Evaluador del curso | Levantar el repositorio con una IA que solo lee el README, sin pasos manuales; ver en 6 minutos el ciclo completo con el agente funcionando, límites, trazas y fallos forzados; y que el equipo justifique cada decisión técnica | [Curso] | RF-16 a RF-22, RF-39, RNF-08, RNF-13, RNF-14 |
+| Administrador | Gestionar usuarios y permisos sin acceder a datos clínicos (Momento 3) | [Propuesta] | RF-31 a RF-34 |
+| Evaluador del curso | Levantar el repositorio con una IA que solo lee el README, sin pasos manuales; ver en 6 minutos el ciclo completo con el agente funcionando, límites, trazas y fallos forzados; y que el equipo justifique cada decisión técnica | [Curso] | RF-05, RF-16 a RF-22, RNF-08, RNF-13, RNF-14 |
 
 ---
 
@@ -39,15 +41,15 @@
 | CU-03 Revisar y corregir | Enfermería | Lee el borrador, abre la evidencia y lo corrige | RF-24, RF-25 |
 | CU-04 Aprobar o rechazar | Enfermería | Decide; el sistema registra quién y cuándo | RF-23, RF-26, RF-27, RF-35 |
 | CU-05 Consultar informes aprobados | Médico | Ve la evolución del paciente por período | RF-28, RF-29 |
-| CU-06 Gestionar usuarios y permisos | Administrador | Crea usuarios, ve y (M3) edita permisos | RF-31 a RF-34 |
+| CU-06 Gestionar usuarios y permisos (Momento 3) | Administrador | Crea usuarios, ve y edita permisos | RF-31 a RF-34 |
 | CU-07 Ver la traza de una ejecución | Enfermería; equipo en la demo | Ve qué consultó el agente y con qué resultado | RF-22 |
-| CU-08 Generar informe mensual | Enfermería | Consolida el mes | RF-36 |
+| CU-08 Generar informe mensual | Enfermería | Consolida cuatro semanas completas con informe semanal aprobado (RN-10) | RF-36 |
 | CU-09 Exportar a PDF | Médico, Enfermería | Descarga un informe aprobado | RF-37 |
-| CU-10 Levantar la aplicación en frío | Evaluador del curso, compañero | Clona el repositorio público, sigue el README, ejecuta `./run.sh` e inicia sesión con un usuario de demostración | RF-05, RF-39, RNF-08, RNF-13 |
+| CU-10 Levantar la aplicación en frío | Evaluador del curso, compañero | Clona el repositorio público, sigue el README, ejecuta `./run.sh`, abre la aplicación y elige un usuario de demostración (D26); desde el Momento 3 inicia sesión con sus credenciales | RF-05, RF-39, RNF-08, RNF-13 |
 
 ### Flujo crítico: generar → revisar → aprobar → consultar
 
-1. Enfermería elige paciente y semana y pide el borrador (RF-08).
+1. Enfermería elige paciente y período (una semana, o un mes de cuatro semanas aprobadas con RF-36 y RN-10) y pide el borrador (RF-08).
 2. El agente consulta con sus herramientas, decide cuántas semanas anteriores revisar y redacta. El código valida el esquema, las citas y las cifras (RF-09 a RF-13).
 3. El informe queda `PENDIENTE_REVISION`, o `INCOMPLETO` si se agotó un límite (RF-17).
 4. Enfermería lee, abre la evidencia y corrige si hace falta (RF-24, RF-25).
@@ -61,11 +63,11 @@
 1. El evaluador clona el repositorio público y entrega el README a su IA.
 2. La IA ejecuta los pasos del README: `./run.sh` o `docker compose up --build` (RNF-08, RNF-13).
 3. `run.sh` crea `.env`, genera los secretos locales y resuelve la llave del proveedor: entorno o consola.
-4. Docker Compose levanta la base de datos, el backend y el frontend; las migraciones y la semilla se aplican solas (RF-05, RF-39).
-5. El evaluador abre la URL del README e inicia sesión con un usuario de demostración (RF-31, RF-39).
+4. Docker Compose levanta la base de datos, el backend y el frontend; las migraciones y la semilla se aplican solas (RF-05 y los usuarios de demostración, RF-39; desde el Momento 3, también las credenciales).
+5. El evaluador abre la URL del README y elige un usuario de demostración (D26); desde el Momento 3 inicia sesión con las credenciales del README (RF-31, RF-39).
 6. Genera un informe con la IA real; si falta la llave, la app avisa con claridad (RNF-13).
 
-**Excepciones:** sin terminal y sin llave, no se queda esperando y arranca avisando que falta la llave · llave inválida, mensaje honesto y respaldo (RF-19) · reinicio con la semilla, sin duplicados (RF-39).
+**Excepciones:** sin terminal y sin llave, no se queda esperando y arranca avisando que falta la llave · llave inválida, mensaje honesto y respaldo (RF-19) · reinicio con la semilla, sin duplicados (RF-05).
 
 ---
 
@@ -79,7 +81,7 @@
 | RF-02 | Registrar una entrada diaria en texto libre asociada a paciente, fecha y autor, sin plantilla obligatoria | M2-N | OBJ-01 | ¿La entrada queda guardada con paciente, fecha y autor al enviarla en texto libre? |
 | RF-03 | Permitir corregir una entrada conservando la versión anterior y quién la cambió | M2-S | OBJ-05 | Tras editar, ¿se puede ver la versión previa y el autor del cambio? |
 | RF-04 | Listar las entradas de un paciente por fecha y filtrar por rango | M2-N | OBJ-04 | Con 10 entradas cargadas desordenadas, ¿salen en orden cronológico y el filtro devuelve solo las del rango? |
-| RF-05 | Cargar el conjunto sintético de demostración con un comando | M2-N | OBJ-13 | Tras `./run.sh`, ¿existen los pacientes y semanas del conjunto sintético? |
+| RF-05 | Cargar el conjunto sintético de demostración al primer arranque, de forma idempotente, solo con la semilla activa (`APP_SEED_DEMO=true`) y nunca en el perfil `prod` | M2-N | OBJ-13, RNF-13 | Tras `./run.sh` en una máquina limpia, ¿existen los pacientes y semanas del conjunto sintético, y reiniciar no duplica datos? |
 
 ### 3.2 Eventos y métricas (el código cuenta, el LLM interpreta)
 
@@ -128,20 +130,22 @@
 
 ### 3.6 Usuarios, roles y auditoría
 
-| ID | El sistema debe… | Hito | Traza | Criterio de aceptación (sí/no) |
-|---|---|---|---|---|
-| RF-31 | Autenticar con usuario y contraseña y usar un token con expiración | M2-N | OBJ-15, RNF-01 | Sin token válido, ¿el servidor rechaza cualquier operación? |
-| RF-32 | Manejar los roles ENFERMERIA, MEDICO y ADMIN, más un rol técnico AGENTE, con permisos por módulo y acción según la matriz de la SPEC §4 | M2-N | OBJ-15 | ¿Cada rol puede hacer exactamente lo que dice la matriz y nada más? |
-| RF-33 | Permitir al administrador crear, actualizar y desactivar usuarios, sin leer datos clínicos | M2-S | OBJ-15 | ¿Un administrador recibe rechazo al consultar entradas o informes? |
-| RF-34 | Mostrar el tablero de permisos por rol: lectura en M2, edición en M3, con el permiso Aprobar fijo para enfermería | M2-S (lectura) · M3 (edición) | OBJ-15 | ¿El tablero muestra la matriz real y, en M3, rechaza asignar Aprobar a otro rol? |
-| RF-35 | Registrar en auditoría las acciones sensibles: aprobar, rechazar, editar entradas o informes y cambiar permisos (quién, cuándo, antes y después) | M2-S | OBJ-05, OBJ-14 | ¿Cada acción sensible deja una fila de auditoría con esos cuatro datos? |
-| RF-39 | Crear al primer arranque, de forma idempotente, un usuario de demostración por rol (ENFERMERIA, MEDICO, ADMIN) y el conjunto sintético, solo con la semilla activa (`APP_SEED_DEMO=true`) y nunca en el perfil `prod`, con las credenciales documentadas en el README | M2-N | OBJ-13, OBJ-15, RNF-13 | Tras `./run.sh` en una máquina limpia, ¿se puede iniciar sesión con cada usuario del README, y reiniciar no duplica usuarios ni datos? |
-
-### 3.7 Momento 3 y opcionales
+> En el Momento 2 no hay autenticación (D23): los usuarios de demostración existen desde el arranque, sin credenciales, y la persona elige con cuál trabaja; el servidor usa su rol y su identidad para separar funciones y para registrar quién hizo cada acción (D26, propuesta). Las credenciales, el inicio de sesión, la administración de usuarios y el tablero de permisos son del Momento 3.
 
 | ID | El sistema debe… | Hito | Traza | Criterio de aceptación (sí/no) |
 |---|---|---|---|---|
-| RF-36 | Generar el informe mensual a partir de las entradas y eventos del mes, mostrando la evolución semana a semana | M3 | OBJ-03 | Con un mes de cuatro semanas, ¿el informe muestra la evolución por semana? |
+| RF-31 | Autenticar con usuario y contraseña y usar un token con expiración | M3 | OBJ-15, RNF-01 | Sin token válido, ¿el servidor rechaza cualquier operación? |
+| RF-32 | Manejar los roles ENFERMERIA, MEDICO y ADMIN, más un rol técnico AGENTE, con permisos por módulo y acción según la matriz de la SPEC §4. En M2 se aplican con el rol del usuario de demostración elegido (D26), solo con ENFERMERIA, MEDICO y AGENTE; ADMIN y las cuentas con credenciales llegan en M3 | M2-N (usuario elegido) · M3 (cuentas) | OBJ-15 | ¿Cada rol puede hacer exactamente lo que dice la matriz y nada más? |
+| RF-33 | Permitir al administrador crear, actualizar y desactivar usuarios, sin leer datos clínicos | M3 | OBJ-15 | ¿Un administrador recibe rechazo al consultar entradas o informes? |
+| RF-34 | Mostrar el tablero de permisos por rol (primero lectura, luego edición), con el permiso Aprobar fijo para enfermería | M3 | OBJ-15 | ¿El tablero muestra la matriz real y rechaza asignar Aprobar a otro rol? |
+| RF-35 | Registrar en auditoría las acciones sensibles: aprobar, rechazar, editar entradas o informes, registrar entradas por parte del médico (D12) y, en el Momento 3, cambiar permisos (quién, cuándo, antes y después). El «quién» es el usuario de demostración elegido en el Momento 2 y el usuario autenticado en el Momento 3 | M2-S | OBJ-05, OBJ-14 | ¿Cada acción sensible deja una fila de auditoría con esos cuatro datos, y se distingue qué médico registró cada entrada? |
+| RF-39 | Crear al primer arranque, de forma idempotente, los usuarios de demostración, solo con la semilla activa (`APP_SEED_DEMO=true`) y nunca en el perfil `prod`: desde el Momento 2, enfermería y médico con nombres ficticios y sin credenciales; desde el Momento 3, además el administrador y las credenciales, documentadas en el README | M2-N (usuarios) · M3 (credenciales) | OBJ-13, OBJ-15, RNF-13 | Tras `./run.sh` en una máquina limpia, ¿hay usuarios de demostración para elegir (Momento 2), se puede iniciar sesión con cada usuario del README (Momento 3), y reiniciar no duplica usuarios? |
+
+### 3.7 Informe mensual y opcionales
+
+| ID | El sistema debe… | Hito | Traza | Criterio de aceptación (sí/no) |
+|---|---|---|---|---|
+| RF-36 | Generar el informe mensual de cuatro semanas completas consecutivas (RN-10), a partir de las entradas y eventos de esas semanas, mostrando la evolución semana a semana. Solo se genera si las cuatro semanas tienen informe semanal aprobado; si falta alguna, no se genera y se indica cuál. Pasa por la misma revisión de enfermería antes de llegar al médico (RN-01, RN-02) | M2-N | OBJ-03 | Con cuatro semanas con informe semanal aprobado, ¿el informe muestra la evolución por semana, y con una semana sin aprobar el sistema no lo genera e indica cuál falta? |
 | RF-37 | Exportar a PDF un informe aprobado, con aprobador, fecha, id del informe y nota de asistencia de IA (D13) | Opc | — | ¿El texto extraído del PDF contiene la aprobación? |
 | RF-38 | Dictar una entrada por voz con transcripción editable antes de guardar, origen `VOZ` y sin guardar el audio (D14) | Opc | — | ¿La entrada dictada se puede corregir antes de guardar y queda con origen `VOZ` sin audio almacenado? |
 
@@ -151,7 +155,7 @@
 
 | ID | Categoría | Requisito | Criterio de verificación (sí/no) |
 |---|---|---|---|
-| RNF-01 | Seguridad | Autorización en el servidor para toda operación; la UI solo oculta. Mínimo privilegio; ninguna llave ni secreto real en el repo ni en el historial (el repositorio es público); las credenciales de demostración son sintéticas, están en el README y solo existen con la semilla activa; usuario de BD con permisos mínimos | ¿Una petición directa al API sin permiso es rechazada aunque la UI no muestre el botón? ¿El escaneo de secretos no encuentra ninguno en el repo ni en el historial, y el perfil `prod` rechaza la semilla de demostración? |
+| RNF-01 | Seguridad | Autorización en el servidor para toda operación; la UI solo oculta. En M2 la autorización usa el rol del usuario de demostración elegido (D26): separa funciones pero no es un control de seguridad; la autenticación llega en M3. Mínimo privilegio; ninguna llave ni secreto real en el repo ni en el historial (el repositorio es público); las credenciales de demostración (desde M3) son sintéticas, están en el README y solo existen con la semilla activa; usuario de BD con permisos mínimos | ¿Una petición directa al API sin el usuario o el permiso requerido es rechazada aunque la UI no muestre el botón? ¿El escaneo de secretos no encuentra ninguno en el repo ni en el historial, y el perfil `prod` rechaza la semilla de demostración? |
 | RNF-02 | Privacidad | Solo datos sintéticos. Al LLM solo salen el id interno y el texto de las entradas, nunca nombre ni documento. Sin audio guardado | ¿Una revisión de trazas y repo no encuentra datos reales ni identificadores personales? |
 | RNF-03 | Seguridad del agente | Hay datos privados y contenido no confiable; la tercera pata (salida hacia afuera) se mantiene cerrada | ¿El inventario de herramientas del agente no incluye ninguna que envíe datos fuera? |
 | RNF-04 | Robustez | Sin stack trace al usuario; los tres fallos forzables (timeout, salida que no valida, caída o 429) se manejan | ¿Los tres fallos forzados se manejan con mensaje claro? |
@@ -163,7 +167,7 @@
 | RNF-10 | Integridad de datos | Las entradas y los informes no se borran, solo se corrigen con versión; las entradas son de solo lectura para el agente | ¿Existe alguna operación de borrado sobre entradas o informes? (debe ser no) |
 | RNF-11 | Calidad | Pruebas automatizadas de las reglas críticas: aprobación, permisos, validador de cifras y citas, esquema. Commits convencionales. Cada integrante responde por las decisiones técnicas (qué se hizo y por qué) y puede explicar cualquier bloque que se le señale: la rúbrica escrita lo exige, aunque el profesor dijo en clase que preguntará sobre todo por decisiones | ¿La verificación del proyecto pasa y cubre esas reglas? |
 | RNF-12 | Cumplimiento del curso | Estructura de entrega, límites del agente, `eval/` y cifras con fecha, según `AGENTS.md`; enlace al repositorio entregado en el aula virtual hasta el jueves 29-oct a medianoche, con la versión congelada en un tag hasta la presentación | ¿Existe cada entregable, y el enlace se entregó a tiempo con la versión congelada? |
-| RNF-13 | Arranque en frío | La aplicación completa (BD, backend, frontend, migraciones y semilla) levanta con un comando y sin labor manual en una máquina limpia con solo Docker Compose v2; la llave del proveedor se toma del entorno o se pide por consola si hay terminal, se guarda en `.env` (fuera del repo) y, si no hay llave ni terminal, el arranque no se bloquea y la app avisa con claridad que falta la llave | En un clon limpio, ¿un solo comando deja corriendo la app con login y datos de demostración, sin quedarse esperando entrada? |
+| RNF-13 | Arranque en frío | La aplicación completa (BD, backend, frontend, migraciones y semilla) levanta con un comando y sin labor manual en una máquina limpia con solo Docker Compose v2; la llave del proveedor se toma del entorno o se pide por consola si hay terminal, se guarda en `.env` (fuera del repo) y, si no hay llave ni terminal, el arranque no se bloquea y la app avisa con claridad que falta la llave | En un clon limpio, ¿un solo comando deja corriendo la app con datos de demostración (y, desde el Momento 3, con login), sin quedarse esperando entrada? |
 | RNF-14 | Decisiones justificadas | `docs/decisiones.md` registra cada decisión técnica (forma del sistema, stack, proveedor y modelo, estrategia de datos con o sin RAG, patrón síncrono, streaming o cola, base de datos y cada herramienta opcional que entre) con su razón técnica y la alternativa descartada; incluye el registro de iteración de las descripciones de herramientas y la prueba del compañero | ¿Para cada decisión técnica del sistema hay una entrada con razón y alternativa, y cada integrante sabe explicarla? |
 
 ---
@@ -177,10 +181,11 @@
 | RN-03 | El informe describe evolución documentada; no diagnostica ni recomienda tratamiento o dosis | [Equipo] |
 | RN-04 | Toda cifra del informe la calcula el código, no el LLM | [Equipo] |
 | RN-05 | Toda afirmación del informe cita al menos una entrada | [Curso] |
-| RN-06 | Una semana va de lunes a domingo. El informe se compara con la semana anterior y el agente decide cuántas más atrás revisar, con tope | [Propuesta] (D10) |
+| RN-06 | Una semana va de lunes a domingo. El informe se compara con la semana anterior y el agente decide cuántas más atrás revisar, con tope | [Equipo] (D10) |
 | RN-07 | El agente nunca modifica las entradas originales | [Equipo] |
 | RN-08 | Si faltan datos, el informe lo declara y no los rellena | [Equipo] |
 | RN-09 | Se permiten varias entradas el mismo día; dentro del día se ordenan por hora de creación | [Propuesta] |
+| RN-10 | Un mes son cuatro semanas completas consecutivas (lunes a domingo, RN-06). El informe mensual solo se genera si cada una tiene informe semanal `APROBADO`; si falta alguna, no se genera y se indica cuál | [Equipo] (semanas aprobadas) · [Propuesta] (cuatro semanas y no mes calendario) (D4) |
 
 ---
 
@@ -190,7 +195,7 @@ Solo entidades y relaciones. Atributos, tipos y tablas se definen en el diseño.
 
 | Entidad | Qué es | Relaciones clave |
 |---|---|---|
-| Usuario, Rol, Permiso | Quién entra y qué puede hacer | Un usuario tiene un rol; un rol agrupa permisos por módulo y acción |
+| Usuario, Rol, Permiso | Quién entra y qué puede hacer (en el Momento 2, usuarios de demostración sin credenciales cuyo rol aplica el servidor, D26; credenciales y administración de cuentas desde el Momento 3) | Un usuario tiene un rol; un rol agrupa permisos por módulo y acción |
 | Paciente | Persona seguida, identificada por id interno | Tiene muchas entradas e informes |
 | Entrada | Registro diario en texto libre (fecha, autor, versiones) | Pertenece a un paciente; tiene eventos derivados |
 | Evento | Dato estructurado derivado por el LLM de una entrada (tipo, descripción normalizada, fecha) | Enlaza a su entrada original |
@@ -241,10 +246,15 @@ Para poder avanzar, el análisis usa estos supuestos. Si cambian, se actualiza e
 | Consulta libre al pedir el informe | Sin campo libre en M2; el caso de rechazo se construye con una entrada que pide un diagnóstico | RF-15 | D20 |
 | Forma de entrega | Enlace al repositorio público de GitHub, sin ZIP; el privado es opcional según el profesor | RNF-01, RNF-08, RNF-12 | D21 |
 | Arranque y llave del API | Una IA del profesor ejecuta solo el README; la llave se toma del entorno o se pide por consola; sin llave ni terminal, arranca igual y avisa que falta la llave | RNF-13 | D22 |
-| Usuarios de demostración | Uno por rol, sembrados al primer arranque, con credenciales sintéticas en el README | RF-39 | D23 |
+| Usuarios de demostración | Sembrados al arrancar desde el Momento 2 (enfermería y médico, nombres ficticios, sin credenciales) para que cada acción tenga un autor identificable; credenciales sintéticas en el README y administrador desde el Momento 3 | RF-05, RF-35, RF-39 | D23 |
+| Informe mensual | En el Momento 2 (decidido). Un mes son cuatro semanas completas consecutivas (lunes a domingo) y exige el informe semanal aprobado de cada una; cuatro semanas y no mes calendario es propuesta por confirmar | RF-36, RN-10 | D4 |
+| Identidad en el Momento 2 | Sin autenticación; el usuario de demostración elegido (enfermería o médico, sembrado sin credenciales) viaja en cada petición y el servidor lo usa para aprobar, para filtrar lo que ve el médico y para registrar quién hizo cada acción. Propuesta por confirmar | RF-02, RF-26, RF-28, RF-32, RF-35, RNF-01 | D26 |
+| Patrón de integración | Ejecución asíncrona del agente con eventos de progreso por SSE | RF-22, RNF-05 | D24 |
 | Evaluaciones y observabilidad | En clase el profesor las trató como deseables; la rúbrica escrita las puntúa; versión mínima: 3 a 5 casos dorados con script y traza visible en la app | RF-22, OBJ-11 | D25 |
 
-**Para el diseño (no bloquean el análisis):** stack (D9, se decide primero), patrón síncrono, streaming o cola (D24), estrategia de datos (D8), proveedor del LLM (D15), tamaño del conjunto sintético (D11), motor de PDF (D13), voz (D14) y dónde se derivan los eventos (al guardar la entrada o al generar el informe).
+**Estado de las decisiones de la SPEC §7:** decididas D1, D2, D3, D4, D5, D7, D8, D9, D10, D11, D12, D13, D14, D17, D21, D22, D23, D24; propuestas D15, D26; supuestos D6, D19, D20, D25; por confirmar D18; descartada D16.
+
+**Para el diseño (no bloquean el análisis):** proveedor del LLM (D15, propuesta), subir la versión de Java de 17 a 21 (parte pendiente de D9), cifras del conjunto sintético (D11 está decidida, sin valores; debe incluir al menos un paciente con cuatro semanas aprobadas para el informe mensual) y dónde se derivan los eventos (al guardar la entrada o al generar el informe). Ya decididas: stack (D9), estrategia de datos (D8), motor de PDF (D13), voz (D14) y patrón de integración (D24).
 
 ---
 
@@ -254,6 +264,6 @@ Para poder avanzar, el análisis usa estos supuestos. Si cambian, se actualiza e
 - [x] Cada requisito funcional tiene un criterio que se responde con sí o no. Verificado el 2026-10-25: los 39 RF.
 - [ ] Los dos integrantes revisaron los supuestos de trabajo de §8.
 - [ ] El catálogo de métricas (RF-07) y la estructura del informe (RF-11) se validaron con una persona de enfermería, o quedó registrado que no se pudo.
-- [ ] La SPEC se actualizó con las decisiones D18 a D20 y los supuestos confirmados (D18 a D20 ya están en la SPEC; faltan los supuestos confirmados, incluidos D21 a D25).
+- [ ] La SPEC se actualizó con las decisiones D18 a D20 y los supuestos confirmados (D18 a D20 ya están en la SPEC; faltan los supuestos confirmados, incluidos D21 a D26).
 
 Las casillas abiertas no bloquean el diseño; quedan como deuda con fecha límite propuesta: revisión de supuestos por los dos integrantes el lunes 26 y validación con enfermería (o constancia de que no se pudo) el miércoles 28 **[Propuesta]**.

@@ -1,7 +1,9 @@
 # SPEC — Patient Progress Auditor
 
-> **Estado:** borrador v0.5 para aprobación · **Fase del ciclo de vida:** 1 — Planificación (cerrada, línea base) · en curso: 2 — Análisis de requisitos · siguiente: 3 — Diseño · **Fecha:** 2026-10-25
+> **Estado:** borrador v0.6 para aprobación · **Fase del ciclo de vida:** 1 — Planificación (cerrada, línea base) · en curso: 2 — Análisis de requisitos · siguiente: 3 — Diseño · **Fecha:** 2026-10-27
 > **Equipo:** Breiner Martinez Muñoz y Andres Felipe Lopez Vivas · **Curso:** Ingeniería de Aplicaciones con IA (UCC)
+>
+> **Cambios de la v0.6 (decisiones del equipo del 27 de octubre de 2026):** el informe mensual pasa al Momento 2 junto con el semanal (D4), porque ese momento presenta lo principal de la aplicación: el agente y los informes. La autenticación y lo que depende de ella (inicio de sesión, credenciales, cuentas, administración de usuarios y tablero de permisos) pasa al Momento 3, cuando se presenta la aplicación completa (D23). El arranque siembra desde el Momento 2 el conjunto sintético y los usuarios de demostración, sin credenciales, y desde el Momento 3 las credenciales y el administrador. Para no perder la revisión humana que exige el curso ni saber quién hizo cada acción (D12), se propone una sesión de demostración sin autenticación en el Momento 2: se elige con qué usuario sembrado se trabaja (D26, propuesta). D24 queda escrita: ejecución asíncrona con eventos de progreso por SSE. Se define el mes: cuatro semanas completas consecutivas, cada una con informe semanal aprobado (D4). D9 pasa a decidida sin límite de momento: el stack aplica desde el Momento 2 y solo el RBAC/JWT del scaffold espera al Momento 3.
 >
 > **Cambios de la v0.5 (a partir de la clase del 24 de octubre de 2026):** la entrega pasa a ser el enlace al repositorio público de GitHub (decisión del equipo; el profesor dijo que privado es opcional), sin ZIP, con plazo el jueves 29 de octubre a medianoche y demo el sábado 31. El README es el contrato de arranque y lo ejecutará una IA del profesor que solo lo lee: debe levantar todo sin pasos manuales, con Docker, y la llave del API se toma del entorno o se pide por consola. La IA tiene que estar integrada y funcionando; el plan B es el proveedor de respaldo y el modo simulado se descarta (D16). El profesor preguntará por las decisiones técnicas y no por líneas de código. Se agregan D21 a D25 y el objetivo OBJ-16, se ajustan D9 y D13 a D16 y OBJ-13, y se siembra el arranque en frío en §4. Lo dicho en clase manda sobre la página del curso en lo logístico (plazo y formato); la rúbrica escrita se sigue usando para el puntaje.
 >
@@ -15,7 +17,7 @@
 
 ## §1. Resumen
 
-**Qué se construye.** Un auditor de seguimiento de pacientes. Enfermería registra cada día, en texto libre, cómo está un paciente. Un agente de IA consulta los registros de cada semana, los compara con semanas anteriores y redacta un borrador de informe semanal (y, más adelante, mensual). Enfermería lo revisa y aprueba antes de que llegue al médico.
+**Qué se construye.** Un auditor de seguimiento de pacientes. Enfermería registra cada día, en texto libre, cómo está un paciente. Un agente de IA consulta los registros de cada semana, los compara con semanas anteriores y redacta un borrador de informe semanal o mensual. Enfermería lo revisa y aprueba antes de que llegue al médico.
 
 **Qué problema resuelve.** Los registros diarios quedan dispersos. Al cerrar la semana, alguien debe releerlos todos, compararlos con la anterior y redactar el informe a mano. Eso consume tiempo y hace fácil que se pierdan patrones, como un síntoma que reaparece. Se buscan informes semanales y mensuales consistentes que muestren la evolución en el tiempo.
 
@@ -37,7 +39,7 @@
 |---|---|
 | Enfermería | Registra, dispara o consulta el informe, lo revisa, lo corrige y lo aprueba |
 | Médico | Consulta los informes aprobados y, según D12, también puede registrar |
-| Administrador | Gestiona usuarios y roles; no lee datos clínicos **[Propuesta]** |
+| Administrador | Gestiona usuarios y roles desde el Momento 3; no lee datos clínicos **[Propuesta]** |
 | Equipo de desarrollo | Construye, evalúa y sustenta |
 | Evaluador del curso | Levanta el repositorio con una IA que solo lee el README (el día antes de la demo) y revisa la demo en vivo (6 min de demo + 3 de preguntas), donde pregunta por las decisiones técnicas |
 
@@ -58,14 +60,14 @@ Cada objetivo se verifica con un sí o un no.
 | **Producto** | | | |
 | OBJ-01 | Generar un borrador de informe semanal que compare la semana con la(s) anterior(es), a partir de registros diarios en texto libre | Para cada caso dorado de la suite, el sistema produce un borrador que valida contra el esquema de salida y cubre ambas semanas | [Equipo] |
 | OBJ-02 | Señalar patrones que reaparecen (p. ej. un síntoma que vuelve tras semanas sin él) | En los casos dorados con un patrón recurrente sembrado, el borrador lo menciona. La tasa de detección se registra como línea base | [Equipo] |
-| OBJ-03 | Generar el informe mensual a partir de los registros del mes (hito del Momento 3) | Dado un mes con registros de cuatro semanas, el informe muestra la evolución semana a semana | [Equipo] · hito [Propuesta] |
+| OBJ-03 | Generar el informe mensual a partir de los registros del mes (hito del Momento 2, D4) | Dado un mes de cuatro semanas completas con informe semanal aprobado, el informe muestra la evolución semana a semana, y si falta una semana aprobada no se genera | [Equipo] |
 | OBJ-04 | Que toda cifra del informe la calcule el código, no el LLM | En todos los casos dorados, las cifras del informe coinciden con las de la función de métricas y con el cálculo manual | [Equipo] |
 | **Control humano y seguridad clínica** | | | |
-| OBJ-05 | La revisión humana la exige el sistema, no es costumbre del operador | Prueba automatizada: un informe pendiente no es visible para el rol médico, y solo el rol enfermería puede aprobarlo | [Equipo] · [Curso] |
+| OBJ-05 | La revisión humana la exige el sistema, no es costumbre del operador | Prueba automatizada: un informe pendiente no es visible para el rol médico, y solo el rol enfermería puede aprobarlo (en el Momento 2, con el usuario de demostración elegido, D26) | [Equipo] · [Curso] |
 | OBJ-06 | Fuente y criterio visibles, y corregibles por enfermería | Cada afirmación enlaza a al menos un registro original (fecha + texto); el criterio de comparación se muestra; enfermería puede editar antes de aprobar | [Curso] |
 | OBJ-07 | Honestidad ante datos insuficientes | En un caso con una semana sin registros, el informe lo declara y no rellena ni inventa | [Equipo] · [Curso] |
 | OBJ-08 | No diagnosticar ni recomendar tratamiento | Al menos un caso de rechazo en la suite (pedir diagnóstico o dosis) donde el sistema se niega | [Curso] |
-| OBJ-15 | Permisos por rol con tablero | Seed de permisos propio del proyecto; vista del tablero (solo lectura en M2, edición en M3); tres pruebas: el médico no puede aprobar, un informe pendiente no lo ve el médico, el tablero no puede asignar Aprobar a otro rol que enfermería | [Equipo] · hito [Propuesta] |
+| OBJ-15 | Permisos por rol con tablero | Seed de permisos propio del proyecto; tablero de permisos con edición e invariantes (Momento 3); tres pruebas: el médico no puede aprobar y un informe pendiente no lo ve el médico (desde el Momento 2, con el usuario de demostración elegido, D26), y el tablero no puede asignar Aprobar a otro rol que enfermería (Momento 3) | [Equipo] · hito [Propuesta] |
 | **Agente y robustez** | | | |
 | OBJ-09 | Agente con los cuatro límites activos (iteraciones, presupuesto de tokens, confirmación humana, timeout por herramienta), **criterio de parada explícito** (condición de éxito) y mapa de autonomía por acción | Los cuatro existen, tienen valor justificado y se pueden mostrar en la demo; al agotarse un límite el agente se detiene y avisa en vez de seguir intentando; el mapa está en `docs/decisiones/semana06.md`. Sin límite no hay entrega | [Curso] |
 | OBJ-10 | Resiliencia y capa de proveedor desacoplada | Se fuerzan y se muestran tres fallos (timeout, salida que no valida, caída o 429) sin stack trace al usuario; el proveedor cambia por configuración | [Curso] |
@@ -93,19 +95,21 @@ No se fija un umbral de éxito del agente antes de medir la línea base. El curs
 | Agente integrado que genera el borrador: decide qué consultar con herramientas de lectura y de métricas, compara semana vs anteriores y opera con los cuatro límites | Sí | |
 | Borrador de informe semanal con fuente y criterio visibles | Sí | |
 | Flujo de revisión y aprobación por enfermería; vista del médico solo con informes aprobados | Sí | |
-| Autenticación y roles mínimos, reutilizando el RBAC/JWT del scaffold con seed propio | Sí | |
-| Tablero de permisos por rol | Solo lectura | Edición con invariantes |
+| Sesión de demostración sin autenticación: se elige un usuario de demostración (enfermería o médico) y el servidor aplica con su rol la aprobación solo por enfermería y la vista del médico solo con informes aprobados (D26) | Sí | |
+| Autenticación con usuario, contraseña y token, roles y cuentas, y gestión de usuarios por el administrador, reutilizando el RBAC/JWT del scaffold con seed propio | | Sí |
+| Tablero de permisos por rol, con edición e invariantes | | Sí |
 | Mapa de autonomía por acción (`docs/decisiones/semana06.md`) | Sí | |
 | Suite `eval/`, trazas visibles y línea base de las cuatro cifras | Sí | |
 | Repositorio público autosuficiente: `docker-compose.yml`, `run.sh`, `.env.example` y README como contrato de arranque, probado con una IA que solo lee el README | Sí | |
-| Usuarios de demostración (uno por rol) y datos sintéticos sembrados al primer arranque, con las credenciales en el README | Sí | |
-| Informe mensual | | Sí |
+| Datos sintéticos y usuarios de demostración (enfermería y médico, sin credenciales) sembrados al primer arranque | Sí | |
+| Credenciales de los usuarios de demostración en el README y usuario de administración | | Sí |
+| Informe mensual de cuatro semanas con informe semanal aprobado, con la evolución semana a semana | Sí | |
 | Seguridad, hardening, ficha de gobernanza y respuesta a la auditoría cruzada | | Sí |
 | Cifras finales comparadas contra la línea base | | Sí |
 | Exportación a PDF de informes aprobados | | Opcional |
 | Dictado por voz con transcripción editable | | Opcional |
 
-Los hitos son **[Propuesta]**: separar semanal (M2) y mensual (M3) responde al poco tiempo: la entrega es el jueves 29 de octubre a medianoche, así que desde el 26 quedan cuatro días de construcción. PDF y voz solo entran si todo lo demás está cerrado; si entran, hay que poder justificar la tecnología elegida (D13 y D14).
+Los hitos son **[Propuesta]** salvo lo que el equipo decidió (D4 y D23): el Momento 2 presenta lo principal, el agente y los informes semanal y mensual, y el Momento 3 presenta la aplicación completa, con la autenticación y lo que depende de ella. La entrega es el jueves 29 de octubre a medianoche, así que desde el 26 quedan cuatro días de construcción. PDF y voz solo entran si todo lo demás está cerrado; si entran, hay que poder justificar la tecnología elegida (D13 y D14).
 
 ### 3.2 Fuera de alcance
 
@@ -127,13 +131,14 @@ Los hitos son **[Propuesta]**: separar semanal (M2) y mensual (M3) responde al p
 ### 3.3 Supuestos y restricciones
 
 - **Tiempo:** el enlace al repositorio se entrega en el aula virtual hasta el jueves 29 de octubre de 2026 a medianoche, porque el profesor necesita un día para probarlo. La demo es el sábado 31, en vivo, de 6 min más 3 min de preguntas; poner el enlace solo cuenta como entregado y, sin presentación, es como no haber entregado. El profesor aconsejó congelar la versión del jueves hasta terminar la presentación: se hace con un tag, p. ej. `m2-entrega` **[Propuesta]**. El Momento 3 es en la semana 14. **[Curso]** (clase del 24-oct)
+- **Sin autenticación en el Momento 2:** el equipo decidió dejarla, con las credenciales, las cuentas y la administración, para el Momento 3 (D23). Hasta entonces la app abre sin inicio de sesión y se trabaja con un usuario de demostración elegido en pantalla, sin contraseña (D26, propuesta). **[Equipo]**
 - **Equipo:** dos personas, y ambas deben poder explicar cualquier función que se les señale. **[Curso]**
 - **Costo cero:** el curso no exige pagar. El taller de la semana 6 sugiere Google AI Studio (sin tarjeta) y Groq como alternativa; ambos con capa gratuita. **[Curso]**
 - **Plan B en la demo:** ante un fallo del proveedor, backoff y proveedor de respaldo (semana 9, RF-19) **[Curso]**. No hay modo simulado: el curso solo lo pide en el taller guiado y el reto de la semana 6, y la demo exige la IA en vivo (D16, descartada). Si falla la red, el plan B es una conexión alternativa, p. ej. los datos del celular **[Propuesta]**.
 - **Datos:** solo sintéticos, en el repo, en `eval/`, en trazas y en capturas. **[Equipo]**
 - **Privacidad hacia el proveedor:** al LLM sale lo mínimo, sin nombre ni documento (id interno). **[Propuesta]**
 - **Entrega autosuficiente:** el profesor da el README a una IA y ejecuta solo sus pasos; si la aplicación no levanta así, no la revisa. Todo corre en Docker; el README dice el motor de BD, la imagen y el comando; no hay labor manual. **[Curso]** (clase del 24-oct)
-- **Repositorio público:** ninguna llave ni secreto real en el repo ni en el historial; las credenciales de demostración son sintéticas, están en el README y solo existen con la semilla activa. **[Equipo]**
+- **Repositorio público:** ninguna llave ni secreto real en el repo ni en el historial; las credenciales de demostración (desde el Momento 3, D23) son sintéticas, están en el README y solo existen con la semilla activa. **[Equipo]**
 - **La IA debe estar integrada y funcionando en esta entrega,** y en vivo en la demo. **[Curso]** (clase del 24-oct)
 - **Qué pregunta el profesor:** no pregunta por líneas de código sino por las decisiones técnicas (por qué ese proveedor, con o sin RAG, síncrono o asíncrono, por qué cada herramienta); cada integrante responde por todas. La rúbrica escrita sigue pidiendo dominio individual del código. **[Curso]**
 - **Evaluaciones y observabilidad:** en clase el profesor las trató como deseables en este momento («si alcanzan»); la rúbrica escrita las puntúa (25 puntos), así que se mantienen en versión mínima (D25). **[Curso]**
@@ -145,10 +150,10 @@ Los hitos son **[Propuesta]**: separar semanal (M2) y mensual (M3) responde al p
 | 1. Planificación | Objetivos, alcance, restricciones | `docs/SPEC.md` §1–§3 | **Cerrada** (línea base v0.4) |
 | 2. Análisis de requisitos | Necesidades por actor, casos de uso, requisitos funcionales y no funcionales, reglas de negocio, criterios de aceptación | `docs/REQUISITOS.md` | **En curso** |
 | 3. Diseño | Arquitectura, modelo de datos, herramientas del agente, flujo de estados, mockups de las pantallas clave y decisiones (forma del sistema, stack, datos, proveedor, patrón de integración, arranque en frío) | `docs/SPEC.md` §4–§7, `docs/PLAN.md`, `docs/decisiones.md` (con el detalle en `docs/decisiones/`: `semana06.md` autonomía, `semana08.md` datos) | Siguiente (medio día: D9 y D24 se deciden primero) |
-| 4. Implementación | Agente, herramientas, app, flujo de aprobación, permisos | Código; `skills/` (`escribir-spec`, `escribir-plan`, `ejecutar-plan`) | Pendiente |
+| 4. Implementación | Agente, herramientas, app, flujo de aprobación, permisos | Código; `skills/` (`especifica-encargo`, `planea-trabajo`, `ejecuta-plan`, `valida-resultado`) | Pendiente |
 | 5. Pruebas y evaluación | Suite dorada, cuatro cifras, trazas | `eval/`, `docs/decisiones.md` (cifras; detalle en `docs/decisiones/semana10.md`) | Pendiente |
 | 6. Entrega | Repositorio público reproducible y demo | README, `docker-compose.yml`, `run.sh`, `.env.example`, `docs/decisiones.md` | Momento 2: enlace el jueves 29-oct, demo el sábado 31-oct |
-| 7. Seguridad, gobernanza y cierre | Amenazas, hardening, ficha, auditoría | `docs/seguridad.md`, `docs/gobernanza.md`, `docs/respuesta_auditoria.md` | Momento 3 |
+| 7. Seguridad, gobernanza y cierre | Autenticación y cuentas, amenazas, hardening, ficha, auditoría | `docs/seguridad.md`, `docs/gobernanza.md`, `docs/respuesta_auditoria.md` | Momento 3 |
 
 ---
 
@@ -205,7 +210,7 @@ La pregunta de la semana 6: ¿qué es lo peor que pasa si se equivoca en esta ac
 | Roles/permisos | — | — | V A | — |
 | Trazas | — | — | V | — |
 
-"El médico solo ve lo aprobado" es una regla de estado: va en la consulta, no en un permiso. Cada cambio en el tablero queda registrado (quién, cuándo, antes y después).
+"El médico solo ve lo aprobado" es una regla de estado: va en la consulta, no en un permiso. Cada cambio en el tablero queda registrado (quién, cuándo, antes y después). En el Momento 2 los roles ENFERMERIA y MEDICO se aplican con el usuario de demostración elegido (D26); la administración, las cuentas y el tablero llegan en el Momento 3 (D23).
 
 ### Arranque en frío (semilla de D22 y D23)
 
@@ -216,8 +221,8 @@ El profesor da el README a una IA y ejecuta solo sus pasos, así que este camino
 | `docker-compose.yml` | Levanta la base de datos (PostgreSQL, imagen y versión fijadas), el backend y el frontend; los builds son multi-etapa, así que no hace falta Java ni Node en la máquina | Pendiente (hoy no existe, y el Dockerfile del backend no tiene `CMD`) |
 | `run.sh` | Verifica Docker, crea `.env` desde `.env.example`, genera `JWT_SECRET` y `DB_PASSWORD`, resuelve la llave del proveedor (entorno o consola; sin ninguna de las dos, arranca igual y avisa que falta) y ejecuta `docker compose up --build` | Pendiente |
 | Migraciones Flyway | Esquema y los roles y permisos del dominio (ENFERMERIA, MEDICO, ADMIN) | Parcial: existe el RBAC genérico, solo con el rol ADMIN |
-| Semilla de demostración | Un usuario por rol y el conjunto sintético, idempotente, solo con `APP_SEED_DEMO=true` y nunca en `prod` | Pendiente |
-| README | Pasos lineales que una IA pueda ejecutar: prerrequisito (Docker Compose v2), motor de BD, imagen, comando, URL, usuarios de demostración, cómo verificar que está arriba y cómo cambiar de proveedor | Pendiente |
+| Semilla de demostración | El conjunto sintético y los usuarios de demostración (enfermería y médico, sin credenciales) desde el Momento 2, y las credenciales y el administrador desde el Momento 3 (D23); idempotente, solo con `APP_SEED_DEMO=true` y nunca en `prod` | Pendiente |
+| README | Pasos lineales que una IA pueda ejecutar: prerrequisito (Docker Compose v2), motor de BD, imagen, comando, URL, usuarios de demostración elegibles (Momento 2) o con credenciales (Momento 3), cómo verificar que está arriba y cómo cambiar de proveedor | Pendiente |
 
 ## §5. Casos borde (semillas)
 
@@ -246,7 +251,7 @@ Los criterios por requisito están en `docs/REQUISITOS.md` (columna "Criterio de
 **Puerta de aceptación de la entrega** (si falla, el profesor no revisa lo demás):
 
 - ¿Un clon limpio del repositorio público, con una IA que recibe solo el README, termina con la aplicación corriendo y sin pasos manuales?
-- ¿Se puede iniciar sesión con cada usuario de demostración del README?
+- ¿La app abre con los datos de demostración y se puede trabajar con un usuario de demostración de enfermería y uno de médico, sin pasos manuales? Desde el Momento 3: ¿se puede iniciar sesión con cada usuario de demostración del README?
 - ¿Una generación de informe llama a una IA real, y si falta la llave la app avisa con claridad en vez de fallar con un error crudo?
 - ¿El repositorio y su historial están libres de llaves y secretos reales?
 
@@ -257,12 +262,12 @@ Los criterios por requisito están en `docs/REQUISITOS.md` (columna "Criterio de
 | D1 | Revisión humana obligatoria antes de que el informe llegue al médico | Decidida **[Equipo]** | Alternativa descartada: envío automático |
 | D2 | Reparto código / LLM / humano | Decidida **[Equipo]** | Ver §1 |
 | D3 | El sistema no diagnostica | Decidida **[Equipo]** | Ver §3.2 |
-| D4 | Informe semanal y mensual en el Momento 2 | Decidida **[Equipo]** | Por el tiempo disponible |
+| D4 | Informe semanal y mensual en el Momento 2 | Decidida **[Equipo]** | El Momento 2 presenta lo principal de la aplicación, el agente y los informes, y por eso incluye el semanal y el mensual (RF-36, OBJ-03). Reemplaza la propuesta de dejar el mensual para el Momento 3; el tiempo se compensa moviendo la autenticación al Momento 3 (D23). Un mes son cuatro semanas completas consecutivas (lunes a domingo) y el mensual solo se genera si las cuatro tienen informe semanal aprobado (RN-10), esto último decidido por el equipo. Se propone cuatro semanas y no el mes calendario porque las semanas de lunes a domingo cruzan los límites de mes y un mes calendario tiene entre cuatro y cinco: sería ambiguo qué semanas deben estar aprobadas. Es la ejecución más pesada del agente (D24) |
 | D5 | Origen de los registros | Decidida **[Equipo]** | Captura mínima propia + semilla sintética (propuesto) vs. solo carga por script |
 | D6 | ¿El médico puede ver borradores? | Supuesto de trabajo: no | La presentación dice que solo tras la aprobación; la descripción inicial dice que podría revisarlos directamente. Mientras se decide, solo ve `APROBADO` |
 | D7 | Forma del sistema | Decidida **[Equipo]** | Aplicación con un agente integrado (ver §1), como exige la rúbrica del Momento 2. La defensa frente a "¿por qué agente y no workflow?" se hace con las decisiones reales del agente (§4) y se mide: la misma suite contra una plantilla sin LLM (obligatoria, OBJ-12) y, opcionalmente, contra un workflow con LLM sin bucle |
-| D8 | Estrategia de datos | Decidida **[Equipo]** | Por defecto, consulta directa a la BD y el LLM lee las notas;|
-| D9 | Stack | Decidida **[Equipo]** para M3 | El código de los talleres (bucle, FastMCP, FastAPI) es Python; el scaffold es Java con RBAC/JWT. En Java hay que escribir el bucle a mano (el taller lo resuelve en unas 80 líneas); en Python se reescribe lo existente. Con builds multi-etapa en Docker, el stack ya no condiciona al profesor (solo necesita Docker): la decisión es de velocidad de desarrollo y él la va a preguntar, así que hay que poder justificarla. Inclinación del borrador: mantener Java con Spring y Angular por el RBAC/JWT/Flyway y el CI existentes, y subir a Java 21 (la página de entrega lo cita; hoy pom, Dockerfile y CI usan 17). Se decide antes de empezar el diseño. Pendiente en `AGENTS.md` |
+| D8 | Estrategia de datos | Decidida **[Equipo]** | Por defecto, consulta directa a la BD y el LLM lee las notas; RAG solo si se mide que hace falta. Se documenta en `docs/decisiones/semana08.md` |
+| D9 | Stack | Decidida **[Equipo]** | Se mantiene Java con Spring Boot y Angular, el stack del scaffold, desde el Momento 2. Alternativa descartada: Python, como los talleres (bucle, FastMCP, FastAPI), que obliga a reescribir lo existente; en Java el bucle del agente se escribe a mano (el taller lo resuelve en unas 80 líneas) y el agente vive en el backend Spring. Con builds multi-etapa en Docker el stack no condiciona al profesor, que solo necesita Docker, pero él lo va a preguntar: la razón es la velocidad de desarrollo con Flyway, el CI y la seguridad del scaffold ya montados. Del scaffold, solo el RBAC y el JWT esperan al Momento 3, con la autenticación (D23). Pendiente dentro de D9: subir a Java 21 (la página de entrega lo cita; hoy pom, Dockerfile y CI usan 17) |
 | D10 | Qué es "una semana" y contra cuántas semanas anteriores se compara | Decidida **[Equipo]** | Lunes a domingo; se compara con la anterior y el agente decide cuántas más atrás revisar, con tope (RN-06) |
 | D11 | Tamaño del conjunto sintético | Decidida **[Equipo]** | Cuántos pacientes y cuántas semanas; condiciona la suite de evaluación |
 | D12 | ¿El médico también registra? | Decidida **[Equipo]** | La matriz de §4 lo asume sí; amplía el papel del médico, puede registrar pero se debe auditar que medico hizo el registro |
@@ -276,6 +281,7 @@ Los criterios por requisito están en `docs/REQUISITOS.md` (columna "Criterio de
 | D20 | Campo de consulta libre al pedir el informe | Supuesto de trabajo: no en M2 | Sin campo, el caso de rechazo (OBJ-08) se construye con una entrada que pide un diagnóstico |
 | D21 | Forma de entrega | Decidida **[Equipo]** | Enlace al repositorio público de GitHub, sin ZIP: el profesor dijo en clase (24-oct) que el privado es opcional y que solo se envía el enlace, en el aula virtual, hasta el jueves 29 a medianoche. Por ser público, ninguna llave ni secreto real entra al repo ni al historial. El registro de decisiones es `docs/decisiones.md` (el profesor aceptó «otro documento» o el README), con el detalle en `docs/decisiones/` |
 | D22 | Arranque en frío autosuficiente y llave del API | Decidida **[Equipo]** | El profesor da el README a una IA y ejecuta solo sus pasos; si no levanta, no revisa. Todo en Docker Compose (BD, backend y frontend, con builds multi-etapa: el único prerrequisito es Docker Compose v2). `run.sh` verifica Docker, crea `.env` desde `.env.example`, genera `JWT_SECRET` y `DB_PASSWORD` y resuelve la llave: variable de entorno si existe; si no y hay terminal, la pide sin eco y la guarda en `.env` (el profesor lo recomendó así); si no hay terminal ni llave, no se queda esperando: arranca igual y avisa con claridad que falta la llave y cómo pasarla por la variable de entorno del proveedor. `docker compose up --build` directo se comporta igual. Alternativa descartada: quedarse esperando la llave, que dejaría colgada a una IA que ejecuta el script |
-| D23 | Usuarios de demostración | Decidida **[Equipo]** solo en M3 | Un `ApplicationRunner` idempotente crea un usuario por rol (ENFERMERIA, MEDICO, ADMIN) y el conjunto sintético (RF-05); solo corre con `APP_SEED_DEMO=true` y nunca en el perfil `prod`. La contraseña viene de una variable de entorno con valor documentado en `.env.example` y en el README, y se cifra con el mismo `PasswordEncoder` del registro normal: no hay hash en migraciones. Los roles y permisos del dominio sí van en una migración Flyway. Riesgo aceptado: credenciales de demostración públicas, de datos sintéticos |
-| D24 | Patrón de integración | Decidida **[Equipo]** | El profesor preguntará «¿síncrono o asíncrono, y por qué?» y no quiere enterarse en plena presentación de que salió asíncrono porque la IA lo hizo. Opciones: in-request (no se admite en la sustentación según `AGENTS.md`), streaming SSE o tarea en segundo plano con estados de progreso o cola con workers. Punto de partida razonable para cuatro días: tarea en segundo plano en el mismo proceso con estados de progreso por SSE, sin broker; se confirma en el diseño y se escribe en `docs/decisiones.md` |
+| D23 | Usuarios de demostración | Decidida **[Equipo]**: usuarios en el Momento 2, credenciales en el Momento 3 | El equipo decidió el 27-oct que la autenticación y lo que depende de ella pasan al Momento 3, cuando se presenta la aplicación completa. Los usuarios de demostración siguen sembrándose desde el Momento 2, sin credenciales, para que cada acción tenga un autor identificable (RF-02, RF-26, RF-35, y qué médico registra, D12) y se pueda elegir con cuál trabajar (D26): enfermería y médico con nombres ficticios. Un `ApplicationRunner` idempotente crea los usuarios y el conjunto sintético (RF-05) al arrancar y, desde el Momento 3, además el usuario de administración y las credenciales; solo corre con `APP_SEED_DEMO=true` y nunca en el perfil `prod`. Desde el Momento 3, la contraseña viene de una variable de entorno con valor documentado en `.env.example` y en el README, y se cifra con el mismo `PasswordEncoder` del registro normal: no hay hash en migraciones. Los roles y permisos del dominio sí van en una migración Flyway. Riesgo aceptado: credenciales de demostración públicas, de datos sintéticos |
+| D24 | Patrón de integración | Decidida **[Equipo]** | El profesor preguntará «¿síncrono o asíncrono, y por qué?» y no quiere enterarse en plena presentación de que salió asíncrono porque la IA lo hizo. **Es asíncrono: el agente corre fuera de la petición HTTP y la pantalla recibe eventos de progreso reales por SSE, sin broker.** La petición de generación (semanal o mensual) valida el usuario de demostración elegido (D26), crea una ejecución en curso y responde de inmediato con su id; si ya hay una para el mismo paciente y período devuelve esa. Un ejecutor acotado en el mismo proceso corre el bucle. Cada paso (herramienta, validación, reintento, proveedor de respaldo, límite agotado) se escribe en la traza (RF-22) y se emite como evento desde esa misma fila, así que lo que se ve en vivo es lo que luego se consulta. El estado vive en la base de datos, no en la conexión: si el flujo se corta o se recarga la página, se reanuda desde el último id o se consulta el estado. «En curso» y «Generando…» no son estados del informe (RF-23); la ejecución termina en `PENDIENTE_REVISION` o `INCOMPLETO` (RF-17), o en un error honesto (RF-19). **Se transmiten pasos, no tokens:** la salida se valida completa (esquema, cifras y citas) y mostrar texto parcial sería mostrar texto sin validar. Descartadas: in-request síncrono (prohibido en la sustentación), streaming de tokens, cola con workers y broker (otro servicio en el arranque en frío) y polling como única vía. A probar el primer día: el proxy no debe acumular la respuesta (`X-Accel-Buffering: no`). En el Momento 2 no hay token y basta `EventSource`; con la autenticación (Momento 3, RF-31) el cliente pasa a `fetch` para enviar el `Authorization` sin poner el token en la URL. Verificación: ¿llega el primer evento antes de terminar la ejecución? Detalle en `docs/decisiones.md`. |
 | D25 | Evaluaciones y observabilidad en el Momento 2 | Supuesto de trabajo: versión mínima | En clase el profesor las trató como deseables (observabilidad «si alcanzan», evaluaciones como automatización a tener); la rúbrica escrita las puntúa. Mínimo: 3 a 5 casos dorados (incluido el de rechazo) con su script y la traza de herramientas visible en la app; las cuatro cifras con fecha si alcanza el tiempo. Se amplía para el Momento 3 |
+| D26 | Sesión de demostración en el Momento 2, sin autenticación | Propuesta | Como la autenticación pasa al Momento 3 (D23), en el Momento 2 la app abre sin inicio de sesión y la persona elige en pantalla, entre los usuarios de demostración sembrados, con cuál trabaja: una enfermera o un médico con nombres ficticios y sin contraseña. El usuario elegido viaja en cada petición y el servidor toma de él su rol y su identidad: solo Enfermería aprueba o rechaza (RN-02, RF-26), el Médico solo ve informes `APROBADO` (RN-01, RF-28) y el «quién» de RF-02, RF-26 y RF-35 es una persona, lo que permite auditar qué médico registró una entrada (D12). Es una separación de funciones para la demostración, no un control de seguridad: cualquiera puede cambiar de usuario, así que RNF-01 se cumple en el Momento 2 solo en esa medida y por completo desde el Momento 3, cuando la selección se reemplaza por el inicio de sesión (RF-31) con las credenciales de D23, sin cambiar las reglas, y entra el rol Administración. Alternativas: sin usuarios en el Momento 2, solo un rol (no recomendada: no se podría auditar qué médico registra ni habría cómo mostrar que el médico no ve borradores ni aprueba, OBJ-05) e inicio de sesión mínimo con contraseña (contradice la decisión de dejar la autenticación para el Momento 3). Por confirmar con el equipo |
