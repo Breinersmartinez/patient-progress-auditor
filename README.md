@@ -45,7 +45,7 @@ skills/      Cadena escribir-spec → escribir-plan → ejecutar-plan (pendiente
 | Plan de trabajo | `docs/PLAN.md` (pendiente) |
 | Índice de documentación | `docs/README.md` |
 | CI/CD | `docs/04-operations/ci-cd.md` |
-| Despliegue | `docs/04-operations/deployment.md` |
+| Despliegue | (retirado) |
 | Seguridad | `docs/05-security/README.md` |
 | Convenciones de commit | `docs/06-contribution/git-commit-prefixes.md` |
 | Esquema de la base de datos | migraciones Flyway en `backend/src/main/resources/db/migration/` |
