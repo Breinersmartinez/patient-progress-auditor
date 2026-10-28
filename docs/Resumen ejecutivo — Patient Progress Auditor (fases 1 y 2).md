@@ -31,7 +31,7 @@ La planificación está cerrada (SPEC v0.7) y el análisis de requisitos está e
 
 ## Qué se trabajó
 
-Se cubrieron catorce pasos, del nombre del proyecto a la estructuración del registro; los entregables para el repo son `AGENTS.md`, `CLAUDE.md`, `SPEC.md`, `REQUISITOS.md` y este resumen.
+Se cubrieron dieciséis pasos, del nombre del proyecto al cierre de los pendientes del 28 de octubre; los entregables para el repo son `AGENTS.md`, `CLAUDE.md`, `SPEC.md`, `REQUISITOS.md`, `DICCIONARIO_DATOS.md` y este resumen.
 
 | # | Paso | Qué se hizo | Entregable |
 | --- | --- | --- | --- |
@@ -49,6 +49,8 @@ Se cubrieron catorce pasos, del nombre del proyecto a la estructuración del reg
 | 12 | Patrón de integración | D24 escrita: ejecución asíncrona con eventos de progreso por SSE, estado en la BD y reanudación | SPEC §7, D24 |
 | 13 | Decisiones del 27 de octubre | Informe mensual al Momento 2 con su definición de mes, autenticación al Momento 3 con usuarios de demostración desde el Momento 2, D9 y D8 decididas; se actualizan los cuatro documentos y se crea `CLAUDE.md` | SPEC v0.6, REQUISITOS v0.3, `AGENTS.md`, `CLAUDE.md` |
 | 14 | Estructuración del registro | A partir de la pantalla de registro del equipo, la IA propone síntomas con intensidad y veces y la persona los confirma antes de guardar; el original se guarda intacto y el texto corregido es una versión aparte (D27) | SPEC v0.7, REQUISITOS v0.4 |
+| 15 | Diccionario de datos | 16 tablas (5 del RBAC existente y 11 del dominio) con columnas, tipos, catálogos, permisos del dominio, reglas de integridad, migraciones necesarias y 13 puntos por resolver; identificadores en inglés con etiqueta en español | `DICCIONARIO_DATOS.md` v0.1 |
+| 16 | Cierre de pendientes del 28 de octubre | `JWT_SECRET` y JWT al Momento 3, Java se queda en 17 y el conjunto sintético queda en 5 pacientes y 18 semanas-paciente con el reparto por paciente (D11) | SPEC D9, D11, D22, D23; REQUISITOS; `AGENTS.md` |
 
 ## Decisiones
 
@@ -63,9 +65,9 @@ De las 27 decisiones registradas en la SPEC, 18 están tomadas, 4 son supuestos 
 | D5 | Registros: captura mínima propia más datos sintéticos sembrados | Decidida |
 | D7 | Aplicación con un agente integrado, no un workflow | Decidida |
 | D8 | Consulta directa a la BD; RAG solo si se mide que hace falta | Decidida |
-| D9 | Spring Boot y Angular desde el Momento 2; solo el RBAC y el JWT esperan al Momento 3; pendiente subir a Java 21 | Decidida |
+| D9 | Spring Boot y Angular desde el Momento 2; solo el RBAC y el JWT esperan al Momento 3; Java se queda en 17 | Decidida |
 | D10 | Semana de lunes a domingo; el agente decide cuántas semanas atrás revisar, con tope | Decidida |
-| D11 | Tamaño del conjunto sintético: decidido, aún sin cifras | Decidida |
+| D11 | Conjunto sintético: 5 pacientes y 18 semanas-paciente, con fechas fijas y un paciente de cinco semanas para el mensual | Decidida |
 | D12 | El médico también registra y se audita qué médico hizo cada registro | Decidida |
 | D13 | PDF con Thymeleaf y HTML a PDF; opcional | Decidida |
 | D14 | Voz con Whisper detrás de un puerto, sin guardar el audio; opcional | Decidida |
@@ -91,27 +93,28 @@ Ocho conclusiones sostienen lo que viene; las dos primeras definen qué se const
 - **El Momento 2 es el agente y los informes.** Núcleo de 31 requisitos, con el registro estructurado, el informe semanal y el mensual. El mensual (RF-36) es la ejecución más pesada del agente y la que más exige al patrón asíncrono (D4, D24).
 - **El control humano sigue viviendo en el código aunque no haya autenticación.** Con usuarios de demostración elegibles, el servidor aplica el rol: solo enfermería aprueba, el médico solo ve informes aprobados y cada acción tiene un autor (D26, RF-35). Es separación de funciones, no seguridad; RNF-01 se cumple por completo en el Momento 3.
 - **La IA propone y la persona confirma también al registrar.** Los eventos que el código cuenta los confirmó una persona (RN-11), el texto original queda intacto como fuente citable y, si la estructuración falla, la entrada se guarda igual y el informe lo declara (RF-41). Es la respuesta a dónde se derivan los eventos (D27, propuesta).
-- **Un mes son cuatro semanas aprobadas.** El mensual no se genera con una semana sin aprobar y dice cuál falta (RN-10). El conjunto sintético debe incluir al menos un paciente con cuatro semanas aprobadas para poder mostrarlo.
+- **Un mes son cuatro semanas aprobadas.** El mensual no se genera con una semana sin aprobar y dice cuál falta (RN-10). El conjunto sintético (5 pacientes, D11) incluye un paciente con cinco semanas, cuatro de ellas aprobadas, para poder mostrarlo.
 - **El agente se defiende por las decisiones que toma.** La pregunta de la semana 6 es si el paso siguiente depende de lo encontrado. Hay cinco decisiones candidatas y se miden contra una plantilla sin LLM (OBJ-12).
 - **El código no puede contar sobre texto libre.** El LLM convierte cada entrada en eventos estructurados y el código los cuenta (RF-06 y RF-07). Así las cifras siguen siendo exactas (OBJ-04) y es el mejor argumento de necesidad de IA.
-- **El stack ya no es una incógnita.** Spring Boot y Angular se quedan (D9); el bucle del agente se escribe a mano en Java (unas 80 líneas en el taller) y vive en el backend. Falta subir de Java 17 a 21 y justificarlo en `docs/decisiones.md`.
+- **El stack ya no es una incógnita.** Spring Boot y Angular se quedan (D9); el bucle del agente se escribe a mano en Java (unas 80 líneas en el taller) y vive en el backend. Java se queda en 17 por estabilidad y la razón, frente a la página de entrega que cita 21, se escribe en `docs/decisiones.md`.
 - **El alcance es pesado para dos días de construcción.** La versión del jueves queda congelada en el tag `m2-entrega`; el viernes no se integra nada nuevo. Si no alcanza, lo primero que se recorta son los 6 requisitos M2-S.
 
 ## Riesgos y pendientes
 
-Diez pendientes pueden afectar el Momento 2; los dos primeros son los que impiden que el profesor pueda probar la aplicación.
+Once pendientes pueden afectar el Momento 2; los tres primeros son los que impiden que el profesor pueda probar la aplicación.
 
 | Pendiente | Por qué importa | Siguiente paso |
 | --- | --- | --- |
 | Arranque en frío sin construir (D22, D23) | `docker-compose.yml` y `run.sh` están vacíos, el `Dockerfile` del backend no tiene `CMD` y el README describe el scaffold; si una IA no puede levantar la app con el README, el profesor no la revisa | Construirlo primero: compose, `run.sh`, `CMD`, semilla de datos y de usuarios de demostración, README ejecutable |
-| Backend con `JWT_SECRET` obligatorio | Sin autenticación en el Momento 2, el backend no puede exigir `JWT_SECRET` ni proteger rutas con JWT al arrancar; hoy `application.yml` lo exige sin valor por defecto | Relajar la seguridad del scaffold en el Momento 2 y dejar RBAC y JWT para el Momento 3 |
+| Backend con `JWT_SECRET` obligatorio | Decidido que el JWT y su secreto son del Momento 3 (D23); mientras no se cambie el código, hoy `application.yml` lo exige sin valor por defecto y el backend no arranca sin él | Quitar la exigencia de `application.yml` y de `.env.example`, dejar la cadena de seguridad sin token y que `run.sh` genere solo `DB_PASSWORD` |
+| Llave del API para el profesor (D22) | Si el profesor o su IA no tienen llave, la app arranca pero el agente y la estructuración no funcionan, y él pidió la IA integrada y funcionando | README con el proveedor y cómo conseguir una llave gratuita, más una llave temporal enviada por mensaje privado y revocada al terminar la calificación |
 | Sesión de demostración sin confirmar (D26) y mes de cuatro semanas (D4) | Sostienen RF-26, RF-28, RF-35, RF-36 y RN-10 | Los dos integrantes los confirman y cambian el estado en la tabla de decisiones |
 | Proveedor y modelo del LLM sin decidir (D15) | Los modelos citados en las fuentes no están verificados y difieren de la lámina de entrega | Verificar los vigentes y registrar la justificación en `docs/decisiones.md` |
-| Java 17 frente a Java 21 (D9) | La página de entrega cita Java 21; hoy pom, Dockerfile y CI usan 17 | Subir la versión o dejar escrito por qué no |
-| Conjunto sintético sin cifras (D11) | Está decidido, pero no cuántos pacientes ni semanas; condiciona las evaluaciones y la demo del mensual | Fijarlo con al menos un paciente con cuatro semanas aprobadas |
+| Conjunto sintético por escribir (D11) | Las cifras están decididas (5 pacientes, 18 semanas-paciente, unas 120 entradas con eventos y 5 informes), pero los datos no existen; condicionan las evaluaciones y la demo del mensual | Escribirlos con revisión a mano, empezando por el paciente de cinco semanas; es trabajo de más de medio día y conviene partirlo en tareas |
 | Supuestos sin confirmar | D6, D19, D20 y D25 sostienen requisitos | Los dos integrantes los revisan |
 | Catálogo de métricas sin validar (D18) | Lo inventó el equipo, no un usuario | 15 minutos con una persona de enfermería, o dejar constancia de que no se pudo |
-| Defensa de las decisiones ante el profesor | `docs/decisiones.md` y `docs/decisiones/` no existen todavía; el profesor pregunta por proveedor, RAG, síncrono o asíncrono y por qué cada herramienta | Escribir al menos D8, D9, D15 y D24 antes de la demo |
+| Defensa de las decisiones ante el profesor | `docs/decisiones.md` y `docs/decisiones/` no existen todavía; el profesor pregunta por proveedor, RAG, síncrono o asíncrono y por qué cada herramienta | Escribir al menos D8, D9 (incluida la razón de Java 17), D15 y D24 antes de la demo |
+| Diccionario de datos con 13 puntos abiertos | Cambian columnas y permisos antes de escribir la migración `V3`: fecha del evento, catálogo de síntomas, permisos de trazas y la contraseña nula de los usuarios de demostración, entre otros | Resolver hoy los de las tablas del núcleo y dejar el resto anotado |
 | Estructuración del registro sin confirmar (D27) | Suma RF-06 ampliado, RF-40 y RF-41 al núcleo a dos días del congelamiento y deja por definir los valores de intensidad, el significado de «Descartar» y el nombre del botón | Confirmarla hoy, y si no alcanza, decidir qué se simplifica antes de recortar otra cosa |
 
 Los mockups no se actualizaron con las decisiones del 27 de octubre y pueden mostrar la autenticación en el hito anterior; por decisión del equipo se mantienen tal cual, y en alcance mandan la SPEC y los requisitos. La pantalla de registro con los síntomas detectados es de esos mockups y es la base de D27.
@@ -432,7 +435,7 @@ En el Momento 2 no hay autenticación (D23): los usuarios de demostración exist
 | RNF-10 | Integridad de datos | Las entradas y los informes no se borran, solo se corrigen con versión; las entradas son de solo lectura para el agente |
 | RNF-11 | Calidad | Pruebas automatizadas de las reglas críticas: aprobación, permisos, validador de cifras y citas, esquema. Commits convencionales. Cada integrante responde por las decisiones técnicas (qué se hizo y por qué) y puede explicar cualquier bloque que se le señale: la rúbrica escrita lo exige, aunque el profesor dijo en clase que preguntará sobre todo por decisiones |
 | RNF-12 | Cumplimiento del curso | Estructura de entrega, límites del agente, `eval/` y cifras con fecha, según `AGENTS.md`; enlace al repositorio entregado en el aula virtual hasta el jueves 29-oct a medianoche, con la versión congelada en un tag hasta la presentación |
-| RNF-13 | Arranque en frío | La aplicación completa (BD, backend, frontend, migraciones y semilla) levanta con un comando y sin labor manual en una máquina limpia con solo Docker Compose v2; la llave del proveedor se toma del entorno o se pide por consola si hay terminal, se guarda en `.env` (fuera del repo) y, si no hay llave ni terminal, el arranque no se bloquea y la app avisa con claridad que falta la llave |
+| RNF-13 | Arranque en frío | La aplicación completa (BD, backend, frontend, migraciones y semilla) levanta con un comando y sin labor manual en una máquina limpia con solo Docker Compose v2; la llave del proveedor se toma del entorno o se pide por consola si hay terminal, se guarda en `.env` (fuera del repo) y, si no hay llave ni terminal, el arranque no se bloquea y la app avisa con claridad que falta la llave; el `JWT_SECRET` no se exige antes del Momento 3 (D23) |
 | RNF-14 | Decisiones justificadas | `docs/decisiones.md` registra cada decisión técnica (forma del sistema, stack, proveedor y modelo, estrategia de datos con o sin RAG, patrón síncrono, streaming o cola, base de datos y cada herramienta opcional que entre) con su razón técnica y la alternativa descartada; incluye el registro de iteración de las descripciones de herramientas y la prueba del compañero |
 
 ### Reglas de negocio (11)
@@ -453,7 +456,7 @@ En el Momento 2 no hay autenticación (D23): los usuarios de demostración exist
 
 ### Modelo conceptual preliminar
 
-Solo entidades y relaciones. Atributos, tipos y tablas se definen en el diseño.
+Solo entidades y relaciones. Atributos, tipos y tablas están en `docs/DICCIONARIO_DATOS.md`.
 
 | Entidad | Qué es | Relaciones clave |
 |---|---|---|
@@ -490,7 +493,7 @@ Para poder avanzar, el análisis usa estos supuestos. Si cambian, se actualiza e
 
 **Estado de las decisiones de la SPEC §7:** decididas D1, D2, D3, D4, D5, D7, D8, D9, D10, D11, D12, D13, D14, D17, D21, D22, D23, D24; propuestas D15, D26, D27; supuestos D6, D19, D20, D25; por confirmar D18; descartada D16.
 
-**Para el diseño (no bloquean el análisis):** proveedor del LLM (D15, propuesta), subir la versión de Java de 17 a 21 (parte pendiente de D9), cifras del conjunto sintético (D11 está decidida, sin valores; debe incluir al menos un paciente con cuatro semanas aprobadas para el informe mensual), valores de intensidad y tipos de evento de la estructuración (D27, D18) y qué hace «Descartar». Ya decididas: stack (D9), estrategia de datos (D8), motor de PDF (D13), voz (D14), patrón de integración (D24) y dónde se derivan los eventos (al registrar la entrada, D27 propuesta).
+**Para el diseño (no bloquean el análisis):** proveedor del LLM (D15, propuesta), cómo recibe el profesor la llave si no tiene una (parte pendiente de D22), valores de intensidad y tipos de evento de la estructuración (D27, D18) y qué hace «Descartar». Ya decididas: stack con Java 17 (D9), conjunto sintético de 5 pacientes y 18 semanas-paciente con un paciente de cuatro semanas aprobadas para el mensual (D11), `JWT_SECRET` y JWT en el Momento 3 (D23), estrategia de datos (D8), motor de PDF (D13), voz (D14), patrón de integración (D24) y dónde se derivan los eventos (al registrar la entrada, D27 propuesta).
 
 ### Criterios de salida de la fase de análisis
 

@@ -9,7 +9,8 @@ Lee, en este orden, solo lo que la tarea necesita:
 1. `AGENTS.md` — qué es el producto, reglas no negociables, entrega y prueba del profesor.
 2. `docs/SPEC.md` — objetivos (OBJ), alcance (§3), diseño (§4), puerta de aceptación (§6) y decisiones D1 a D27 con su estado (§7).
 3. `docs/REQUISITOS.md` — RF, RNF, RN y CU con su hito (M2-N, M2-S, M3, Opc) y su criterio de aceptación.
-4. `docs/PLAN.md` — el plan de trabajo, cuando exista. Sin plan no se ejecuta.
+4. `docs/DICCIONARIO_DATOS.md` — tablas, columnas, tipos, catálogos y reglas de integridad; base de las migraciones Flyway. Identificadores en inglés y `snake_case`.
+5. `docs/PLAN.md` — el plan de trabajo, cuando exista. Sin plan no se ejecuta.
 
 ## Qué se construye ahora
 - **Momento 2 (enlace el jueves 29-oct a medianoche, demo el sábado 31):**
@@ -29,7 +30,7 @@ Lee, en este orden, solo lo que la tarea necesita:
 - **Mockups:** el diseño de la interfaz es el de los mockups del equipo; no se modifican sin que lo pidan. Pueden mostrar la autenticación en el hito anterior a la decisión del 27-oct: en alcance mandan la SPEC y los requisitos; en interfaz, los mockups.
 
 ## Mantener los documentos coherentes
-- Cuando cambia una decisión, actualiza en este orden: `docs/SPEC.md` §7, luego `docs/REQUISITOS.md` (hito del RF, §8, conteos), `AGENTS.md` y el resumen ejecutivo de `docs/`. La copia de `AGENTS.md` en el Project de claude.ai se sincroniza aparte.
+- Cuando cambia una decisión, actualiza en este orden: `docs/SPEC.md` §7, luego `docs/REQUISITOS.md` (hito del RF, §8, conteos), `docs/DICCIONARIO_DATOS.md` si cambian los datos, `AGENTS.md` y el resumen ejecutivo de `docs/`. La copia de `AGENTS.md` en el Project de claude.ai se sincroniza aparte.
 - No renumeres RF, RNF, RN, OBJ ni D: se citan entre documentos.
 - Cada afirmación lleva su origen: **[Curso]**, **[Equipo]** o **[Propuesta]**. Lo que no está decidido se marca como propuesta o supuesto, no como hecho.
 - Tablas de requisitos: ID, requisito, hito, traza y criterio que se responde con sí o no. Revisa que cada fila conserve el mismo número de columnas.
