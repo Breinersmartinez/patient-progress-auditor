@@ -1,7 +1,9 @@
 # REQUISITOS — Patient Progress Auditor
 
-> **Estado:** borrador v0.3 para aprobación · **Fase del ciclo de vida:** 2 — Análisis de requisitos · **Fecha:** 2026-10-27
-> **Base:** `docs/SPEC.md` v0.6 (§1–§3, objetivos OBJ-01 a OBJ-16), `AGENTS.md`, las rúbricas del curso *Ingeniería de Aplicaciones con IA* y lo dicho por el profesor en la clase del 24 de octubre de 2026.
+> **Estado:** borrador v0.4 para aprobación · **Fase del ciclo de vida:** 2 — Análisis de requisitos · **Fecha:** 2026-10-28
+> **Base:** `docs/SPEC.md` v0.7 (§1–§3, objetivos OBJ-01 a OBJ-16), `AGENTS.md`, las rúbricas del curso *Ingeniería de Aplicaciones con IA* y lo dicho por el profesor en la clase del 24 de octubre de 2026.
+>
+> **Cambios de la v0.4 (pantalla de registro del equipo, 28 de octubre de 2026):** RF-06 pasa de derivar eventos «de cada entrada» a proponerlos al registrarla, con intensidad y veces, y se resuelve dónde se derivan los eventos (D27, propuesta). Se agregan RF-40 (confirmar, editar, quitar, agregar o descartar antes de guardar) y RF-41 (si la estructuración falla, guardar solo el texto o agregar a mano) al núcleo del Momento 2, RF-42 (texto corregido como versión, con el original intacto) como M2-S, y la regla RN-11 (la IA solo propone). RF-02 aclara que el texto se guarda tal como se escribió y RF-05 que la semilla trae los eventos ya confirmados. Se ajustan RN-07, CU-01, el modelo conceptual y §8. El núcleo del Momento 2 queda en 31 RF, los M2-S en 6, el Momento 3 en 3 y los opcionales en 2; en total son 42 RF.
 >
 > **Cambios de la v0.3 (decisiones del equipo del 27 de octubre de 2026):** RF-36 (informe mensual) pasa de M3 a núcleo del Momento 2 (D4); un mes son cuatro semanas completas consecutivas y exige el informe semanal aprobado de cada una (nueva RN-10). La autenticación y lo que depende de ella pasan al Momento 3 (D23): RF-31, RF-33 y RF-34 pasan a M3, y RF-32 y RF-39 se reparten entre los dos momentos: los usuarios de demostración, sin credenciales, se siembran desde el Momento 2 y se elige con cuál trabajar (D26, propuesta); las credenciales, el administrador y las cuentas llegan en el Momento 3. RF-05 recoge de RF-39 la carga idempotente del conjunto sintético, condicionada a `APP_SEED_DEMO`. RF-35 (auditoría) sigue en M2-S porque el «quién» es ahora una persona, también para el médico que registra (D12). Se ajustan CU-06, CU-10, RNF-01, RNF-13 y los supuestos de §8. El núcleo del Momento 2 queda en 29 RF, los M2-S en 5, el Momento 3 en 3 y los opcionales en 2; en total siguen siendo 39 RF (RF-32 y RF-39 cuentan en el núcleo por su parte del Momento 2).
 >
@@ -24,7 +26,7 @@
 | Enfermería | No releer todos los registros ni redactar el informe a mano cada semana | [Equipo] | RF-08 a RF-13 |
 | Enfermería | Ver la evolución frente a semanas anteriores sin que se pierda un síntoma que reaparece | [Equipo] | RF-07, RF-10 |
 | Enfermería | Revisar rápido con la evidencia a la mano, corregir y aprobar | [Propuesta] | RF-24 a RF-27 |
-| Enfermería | Registrar cada día sin fricción: texto libre y, opcionalmente, voz | [Equipo] | RF-02, RF-38 |
+| Enfermería | Registrar cada día sin fricción: texto libre, con los síntomas propuestos por la IA para confirmar en un paso y, opcionalmente, voz | [Equipo] | RF-02, RF-06, RF-40, RF-38 |
 | Médico | Recibir informes consistentes y aprobados que muestren la evolución en el tiempo | [Equipo] | RF-28, RF-29, RF-36 |
 | Médico | Registrar entradas diarias cuando le corresponda | [Equipo] | RF-30 |
 | Administrador | Gestionar usuarios y permisos sin acceder a datos clínicos (Momento 3) | [Propuesta] | RF-31 a RF-34 |
@@ -36,7 +38,7 @@
 
 | CU | Actor | Qué hace | Requisitos |
 |---|---|---|---|
-| CU-01 Registrar entrada diaria | Enfermería, Médico | Escribe (o dicta) cómo está el paciente hoy | RF-02, RF-03, RF-30, RF-38 |
+| CU-01 Registrar entrada diaria | Enfermería, Médico | Escribe (o dicta) cómo está el paciente hoy, revisa los síntomas que propone la IA y confirma | RF-02, RF-03, RF-06, RF-30, RF-38, RF-40, RF-41, RF-42 |
 | CU-02 Generar borrador semanal | Enfermería | Pide el informe de un paciente y una semana; el agente lo redacta | RF-06 a RF-22 |
 | CU-03 Revisar y corregir | Enfermería | Lee el borrador, abre la evidencia y lo corrige | RF-24, RF-25 |
 | CU-04 Aprobar o rechazar | Enfermería | Decide; el sistema registra quién y cuándo | RF-23, RF-26, RF-27, RF-35 |
@@ -58,6 +60,16 @@
 
 **Excepciones:** semana sin datos suficientes, el informe lo declara (RF-14) · fallo del proveedor, mensaje honesto y respaldo (RF-19) · entrada con instrucciones, se trata como dato (RF-21).
 
+### Flujo de registro de una entrada (CU-01)
+
+1. La persona (enfermería o médico, D12) elige el paciente y escribe el texto del día (RF-02).
+2. El servidor manda al LLM el id interno y el texto; el modelo propone los eventos con intensidad y veces y el código valida el esquema (RF-06).
+3. La pantalla muestra el texto y los eventos propuestos con un estado visible mientras espera (RF-40).
+4. La persona confirma, cambia la intensidad o las veces, quita un evento, agrega uno a mano o descarta (RF-40).
+5. Al confirmar se guardan la entrada, con el texto tal como se escribió, y los eventos que quedaron, con quién y cuándo los confirmó (RF-02, RF-40). Descartar no guarda nada.
+
+**Excepciones:** el proveedor falla, se agota el tiempo o la salida no valida tras un reintento: se guarda solo el texto o se agregan los eventos a mano, y la entrada queda «sin estructurar» (RF-41) · el texto trae instrucciones: se trata como dato (RF-21) · el texto no menciona síntomas o los niega: no se proponen eventos (RN-11).
+
 ### Flujo de arranque en frío (CU-10)
 
 1. El evaluador clona el repositorio público y entrega el README a su IA.
@@ -78,17 +90,20 @@
 | ID | El sistema debe… | Hito | Traza | Criterio de aceptación (sí/no) |
 |---|---|---|---|---|
 | RF-01 | Crear pacientes con un id interno y un alias legible; el LLM solo recibe el id interno | M2-N | OBJ-05, RNF-02 | ¿Existe el paciente creado y las trazas del agente muestran solo el id interno, sin alias? |
-| RF-02 | Registrar una entrada diaria en texto libre asociada a paciente, fecha y autor, sin plantilla obligatoria | M2-N | OBJ-01 | ¿La entrada queda guardada con paciente, fecha y autor al enviarla en texto libre? |
+| RF-02 | Registrar una entrada diaria en texto libre asociada a paciente, fecha y autor, sin plantilla obligatoria; el texto se guarda tal como se escribió, se estructure o no | M2-N | OBJ-01 | ¿La entrada queda guardada con paciente, fecha, autor y el texto exacto que se escribió? |
 | RF-03 | Permitir corregir una entrada conservando la versión anterior y quién la cambió | M2-S | OBJ-05 | Tras editar, ¿se puede ver la versión previa y el autor del cambio? |
 | RF-04 | Listar las entradas de un paciente por fecha y filtrar por rango | M2-N | OBJ-04 | Con 10 entradas cargadas desordenadas, ¿salen en orden cronológico y el filtro devuelve solo las del rango? |
-| RF-05 | Cargar el conjunto sintético de demostración al primer arranque, de forma idempotente, solo con la semilla activa (`APP_SEED_DEMO=true`) y nunca en el perfil `prod` | M2-N | OBJ-13, RNF-13 | Tras `./run.sh` en una máquina limpia, ¿existen los pacientes y semanas del conjunto sintético, y reiniciar no duplica datos? |
+| RF-05 | Cargar el conjunto sintético de demostración, con sus eventos ya confirmados y sin llamar al LLM, al primer arranque, de forma idempotente, solo con la semilla activa (`APP_SEED_DEMO=true`) y nunca en el perfil `prod` | M2-N | OBJ-13, RNF-13 | Tras `./run.sh` en una máquina limpia, ¿existen los pacientes, las semanas y los eventos ya confirmados del conjunto sintético, y reiniciar no duplica datos? |
 
 ### 3.2 Eventos y métricas (el código cuenta, el LLM interpreta)
 
 | ID | El sistema debe… | Hito | Traza | Criterio de aceptación (sí/no) |
 |---|---|---|---|---|
-| RF-06 | Derivar de cada entrada eventos estructurados (tipo, descripción normalizada, fecha) mediante el LLM, validados contra un esquema, guardados aparte del texto original y enlazados a su entrada | M2-N | OBJ-02, OBJ-04 | ¿Cada evento valida contra el esquema y enlaza a su entrada original? |
+| RF-06 | Proponer, mediante el LLM y al registrar una entrada, los eventos estructurados que el texto dice (tipo, descripción normalizada, intensidad, veces y fecha), validados contra un esquema; lo que el texto no dice queda «sin indicar» o vacío y nunca se inventa. Los eventos se guardan aparte del texto original y enlazados a su entrada (D27) | M2-N | OBJ-02, OBJ-04 | Con «Dolor de cabeza intenso desde la mañana. Tuvo diarrea intensa dos veces. Comió poco.», ¿la propuesta trae dolor de cabeza (intenso), diarrea (intensa, 2 veces) y apetito bajo (sin indicar), valida contra el esquema y no agrega nada que el texto no diga? |
 | RF-07 | Calcular en código, a partir de entradas y eventos, las métricas semanales por paciente: días con entrada, días sin entrada, eventos por tipo, días con cada síntoma, variación frente a la semana anterior y síntomas nuevos, persistentes, desaparecidos y reaparecidos | M2-N | OBJ-02, OBJ-04 | En cada caso dorado, ¿las métricas coinciden con el cálculo manual? |
+| RF-40 | Mostrar a la persona que registra, antes de guardar, el texto y los eventos propuestos para que los confirme, cambie la intensidad o las veces, quite uno, agregue uno a mano o descarte. Solo lo confirmado se guarda como evento, con quién lo confirmó y cuándo; descartar no guarda nada | M2-N | OBJ-04, OBJ-05 | ¿No se guarda ningún evento hasta que la persona confirma, y tras confirmar quedan solo los que ella dejó, con quién y cuándo los confirmó? |
+| RF-41 | Si la estructuración falla (caída o 429 del proveedor, tiempo agotado o salida que no valida tras un reintento), avisar con claridad y permitir guardar la entrada solo como texto o agregar los eventos a mano, sin perder lo escrito; la entrada sin eventos confirmados queda marcada «sin estructurar» y el informe lo declara (RN-08) | M2-N | OBJ-07, OBJ-10 | Con el proveedor caído o la llave inválida, ¿se puede guardar la entrada, queda marcada «sin estructurar» y el usuario no ve un stack trace ni pierde el texto? |
+| RF-42 | Proponer, junto a los eventos, una versión corregida del texto (ortografía y puntuación, sin cambiar el contenido) que la persona acepta, edita o ignora; se guarda como versión de la entrada con quién la confirmó, reutilizando el versionado de RF-03, y el original queda intacto y es el que citan los informes (RN-05, RN-07) | M2-S | OBJ-05, OBJ-06 | Tras confirmar, ¿existen el texto original tal como se escribió y la versión corregida con su autor, y el informe cita el original? |
 
 ### 3.3 Agente e informe
 
@@ -182,10 +197,11 @@
 | RN-04 | Toda cifra del informe la calcula el código, no el LLM | [Equipo] |
 | RN-05 | Toda afirmación del informe cita al menos una entrada | [Curso] |
 | RN-06 | Una semana va de lunes a domingo. El informe se compara con la semana anterior y el agente decide cuántas más atrás revisar, con tope | [Equipo] (D10) |
-| RN-07 | El agente nunca modifica las entradas originales | [Equipo] |
+| RN-07 | El agente nunca modifica las entradas originales; el texto corregido (RF-42) es una versión aparte y el original sigue siendo la fuente citable | [Equipo] |
 | RN-08 | Si faltan datos, el informe lo declara y no los rellena | [Equipo] |
 | RN-09 | Se permiten varias entradas el mismo día; dentro del día se ordenan por hora de creación | [Propuesta] |
 | RN-10 | Un mes son cuatro semanas completas consecutivas (lunes a domingo, RN-06). El informe mensual solo se genera si cada una tiene informe semanal `APROBADO`; si falta alguna, no se genera y se indica cuál | [Equipo] (semanas aprobadas) · [Propuesta] (cuatro semanas y no mes calendario) (D4) |
+| RN-11 | La IA solo propone: ningún evento queda guardado sin confirmación de una persona, y el modelo no agrega lo que el texto no dice (intensidad «sin indicar» y veces vacías si no se indican, sin negaciones convertidas en síntomas y sin diagnóstico) | [Equipo] (confirmación humana) · [Propuesta] (no agregar lo que el texto no dice) (D27) |
 
 ---
 
@@ -197,8 +213,8 @@ Solo entidades y relaciones. Atributos, tipos y tablas se definen en el diseño.
 |---|---|---|
 | Usuario, Rol, Permiso | Quién entra y qué puede hacer (en el Momento 2, usuarios de demostración sin credenciales cuyo rol aplica el servidor, D26; credenciales y administración de cuentas desde el Momento 3) | Un usuario tiene un rol; un rol agrupa permisos por módulo y acción |
 | Paciente | Persona seguida, identificada por id interno | Tiene muchas entradas e informes |
-| Entrada | Registro diario en texto libre (fecha, autor, versiones) | Pertenece a un paciente; tiene eventos derivados |
-| Evento | Dato estructurado derivado por el LLM de una entrada (tipo, descripción normalizada, fecha) | Enlaza a su entrada original |
+| Entrada | Registro diario en texto libre (fecha, autor, texto original, versión corregida si la hay y marca «sin estructurar») | Pertenece a un paciente; tiene eventos derivados |
+| Evento | Dato estructurado propuesto por el LLM y confirmado por una persona (tipo, descripción normalizada, intensidad, veces, fecha, origen y quién lo confirmó) | Enlaza a su entrada original |
 | Informe | Documento por paciente y período, con estado, contenido estructurado, versión del modelo, versión editada, aprobador y fecha | Tiene afirmaciones; tiene una ejecución del agente |
 | Afirmación | Frase del informe con su cita | Referencia una o más entradas |
 | Ejecución del agente | Traza de pasos: herramienta, parámetros, resultado, ms, tokens | Asociada a un informe |
@@ -213,13 +229,13 @@ Solo entidades y relaciones. Atributos, tipos y tablas se definen en el diseño.
 | OBJ-01 Borrador semanal | RF-02, RF-08, RF-10, RF-11 |
 | OBJ-02 Patrones que reaparecen | RF-06, RF-07, RF-10 |
 | OBJ-03 Informe mensual | RF-36 |
-| OBJ-04 Cifras por código | RF-04, RF-06, RF-07, RF-13 |
-| OBJ-05 Revisión humana exigida | RF-01, RF-03, RF-09, RF-23, RF-26 a RF-28, RF-35 |
-| OBJ-06 Fuente y criterio visibles | RF-12, RF-24, RF-25, RF-29 |
-| OBJ-07 Datos insuficientes | RF-14 |
+| OBJ-04 Cifras por código | RF-04, RF-06, RF-07, RF-13, RF-40 |
+| OBJ-05 Revisión humana exigida | RF-01, RF-03, RF-09, RF-23, RF-26 a RF-28, RF-35, RF-40, RF-42 |
+| OBJ-06 Fuente y criterio visibles | RF-12, RF-24, RF-25, RF-29, RF-42 |
+| OBJ-07 Datos insuficientes | RF-14, RF-41 |
 | OBJ-08 No diagnosticar | RF-15 |
 | OBJ-09 Límites y parada | RF-09, RF-16, RF-17 |
-| OBJ-10 Resiliencia y proveedor | RF-18, RF-19, RF-20 |
+| OBJ-10 Resiliencia y proveedor | RF-18, RF-19, RF-20, RF-41 |
 | OBJ-11 Medición y trazas | RF-22, RNF-05 a RNF-07; entregables `eval/` y `docs/decisiones.md` (cifras; detalle en `docs/decisiones/semana10.md`) |
 | OBJ-12 Necesidad del LLM y del agente | RF-10; entregable: decisiones del agente y comparación contra la plantilla sin LLM |
 | OBJ-13 Entrega autosuficiente y plan B | RF-05, RF-19, RF-39, RNF-08, RNF-13 |
@@ -248,22 +264,23 @@ Para poder avanzar, el análisis usa estos supuestos. Si cambian, se actualiza e
 | Arranque y llave del API | Una IA del profesor ejecuta solo el README; la llave se toma del entorno o se pide por consola; sin llave ni terminal, arranca igual y avisa que falta la llave | RNF-13 | D22 |
 | Usuarios de demostración | Sembrados al arrancar desde el Momento 2 (enfermería y médico, nombres ficticios, sin credenciales) para que cada acción tenga un autor identificable; credenciales sintéticas en el README y administrador desde el Momento 3 | RF-05, RF-35, RF-39 | D23 |
 | Informe mensual | En el Momento 2 (decidido). Un mes son cuatro semanas completas consecutivas (lunes a domingo) y exige el informe semanal aprobado de cada una; cuatro semanas y no mes calendario es propuesta por confirmar | RF-36, RN-10 | D4 |
+| Estructuración de la entrada | La IA propone los eventos al registrar y la persona los confirma antes de guardar; el original se guarda intacto y el texto corregido es una versión aparte (M2-S). Propuesta por confirmar | RF-06, RF-40 a RF-42, RN-07, RN-11 | D27 |
 | Identidad en el Momento 2 | Sin autenticación; el usuario de demostración elegido (enfermería o médico, sembrado sin credenciales) viaja en cada petición y el servidor lo usa para aprobar, para filtrar lo que ve el médico y para registrar quién hizo cada acción. Propuesta por confirmar | RF-02, RF-26, RF-28, RF-32, RF-35, RNF-01 | D26 |
 | Patrón de integración | Ejecución asíncrona del agente con eventos de progreso por SSE | RF-22, RNF-05 | D24 |
 | Evaluaciones y observabilidad | En clase el profesor las trató como deseables; la rúbrica escrita las puntúa; versión mínima: 3 a 5 casos dorados con script y traza visible en la app | RF-22, OBJ-11 | D25 |
 
-**Estado de las decisiones de la SPEC §7:** decididas D1, D2, D3, D4, D5, D7, D8, D9, D10, D11, D12, D13, D14, D17, D21, D22, D23, D24; propuestas D15, D26; supuestos D6, D19, D20, D25; por confirmar D18; descartada D16.
+**Estado de las decisiones de la SPEC §7:** decididas D1, D2, D3, D4, D5, D7, D8, D9, D10, D11, D12, D13, D14, D17, D21, D22, D23, D24; propuestas D15, D26, D27; supuestos D6, D19, D20, D25; por confirmar D18; descartada D16.
 
-**Para el diseño (no bloquean el análisis):** proveedor del LLM (D15, propuesta), subir la versión de Java de 17 a 21 (parte pendiente de D9), cifras del conjunto sintético (D11 está decidida, sin valores; debe incluir al menos un paciente con cuatro semanas aprobadas para el informe mensual) y dónde se derivan los eventos (al guardar la entrada o al generar el informe). Ya decididas: stack (D9), estrategia de datos (D8), motor de PDF (D13), voz (D14) y patrón de integración (D24).
+**Para el diseño (no bloquean el análisis):** proveedor del LLM (D15, propuesta), subir la versión de Java de 17 a 21 (parte pendiente de D9), cifras del conjunto sintético (D11 está decidida, sin valores; debe incluir al menos un paciente con cuatro semanas aprobadas para el informe mensual), valores de intensidad y tipos de evento de la estructuración (D27, D18) y qué hace «Descartar». Ya decididas: stack (D9), estrategia de datos (D8), motor de PDF (D13), voz (D14), patrón de integración (D24) y dónde se derivan los eventos (al registrar la entrada, D27 propuesta).
 
 ---
 
 ## 9. Criterios de salida de la fase de análisis
 
 - [x] Cada objetivo de la SPEC tiene al menos un requisito o entregable (§7). Verificado el 2026-10-25, incluido OBJ-16.
-- [x] Cada requisito funcional tiene un criterio que se responde con sí o no. Verificado el 2026-10-25: los 39 RF.
+- [x] Cada requisito funcional tiene un criterio que se responde con sí o no. Verificado el 2026-10-25 en los 39 RF y el 2026-10-28 en RF-40 a RF-42 (42 RF).
 - [ ] Los dos integrantes revisaron los supuestos de trabajo de §8.
 - [ ] El catálogo de métricas (RF-07) y la estructura del informe (RF-11) se validaron con una persona de enfermería, o quedó registrado que no se pudo.
-- [ ] La SPEC se actualizó con las decisiones D18 a D20 y los supuestos confirmados (D18 a D20 ya están en la SPEC; faltan los supuestos confirmados, incluidos D21 a D26).
+- [ ] La SPEC se actualizó con las decisiones D18 a D20 y los supuestos confirmados (D18 a D20 ya están en la SPEC; faltan los supuestos confirmados, incluidos D21 a D27).
 
 Las casillas abiertas no bloquean el diseño; quedan como deuda con fecha límite propuesta: revisión de supuestos por los dos integrantes el lunes 26 y validación con enfermería (o constancia de que no se pudo) el miércoles 28 **[Propuesta]**.

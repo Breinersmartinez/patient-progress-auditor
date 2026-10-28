@@ -9,8 +9,8 @@
 ## Dónde va el LLM y dónde no
 Si se quita el modelo, los registros siguen existiendo pero el informe no. La frontera es esta:
 - **Código determinista:** guardar y consultar registros, ordenar por fecha, calcular métricas (conteos, frecuencias, días con síntoma), permisos, validaciones y estados del informe. Los números los calcula el código, nunca el LLM.
-- **LLM:** interpretar texto libre ("vomitó el lunes, ánimo alto") y redactar la comparación entre semanas.
-- **Humano:** enfermería contrasta las afirmaciones con los registros originales y aprueba.
+- **LLM:** interpretar texto libre ("vomitó el lunes, ánimo alto"), proponer al registrar una entrada los eventos que el texto dice (síntoma, intensidad y veces, D27) y redactar la comparación entre semanas.
+- **Humano:** quien registra confirma los eventos que propone la IA antes de guardar; enfermería contrasta las afirmaciones del informe con los registros originales y aprueba.
 - No poner el LLM en lo que el código resuelve exacto. La utilidad del LLM y del agente se mide contra una solución convencional (sin modelo).
 
 ## Estado actual
@@ -19,8 +19,8 @@ Scaffold ya limpio de AgroCortex (al 2026-10-25), sin lógica de dominio de paci
 - `frontend/`: Angular 19, Node 20, sin rutas ni servicios.
 - **Stack (D9, decidido):** se mantienen Spring Boot y Angular desde el Momento 2; el agente vive en el backend Spring. De lo existente, solo el RBAC y el JWT esperan al Momento 3, con la autenticación (D23). Parte pendiente: subir Java 17 a 21, que cita la página de entrega.
 - `.github/workflows/`: CI, Security y Qodana.
-- `docs/`: `SPEC.md`, `REQUISITOS.md` y el resumen ejecutivo; `PLAN.md` es un esqueleto y `decisiones/` está vacío. `docs/03` a `docs/06` son documentación del scaffold (CI, seguridad y commits).
-- **No existen todavía:** agente, herramientas, capa de proveedor, casos en `eval/` (solo `.gitkeep`), contenido en `docker-compose.yml` y `run.sh` (existen vacíos, sin versionar), `docs/decisiones.md` y un README ejecutable (el actual describe el scaffold). Los cuatro skills del curso (`especifica-encargo`, `planea-trabajo`, `ejecuta-plan`, `valida-resultado`) están en `skills/`, con copias en `.claude/skills/` y `.opencode/skills/`.
+- `docs/`: `SPEC.md`, `REQUISITOS.md` y el resumen ejecutivo; `PLAN.md` trae hoy el plan del retiro del despliegue heredado y `decisiones/` está vacío. `docs/03` a `docs/06` son documentación del scaffold (CI, seguridad y commits).
+- **No existen todavía:** agente, herramientas, capa de proveedor, casos en `eval/` (solo `.gitkeep`), contenido en `docker-compose.yml` y `run.sh` (están en el repo, pero vacíos), `docs/decisiones.md` y un README ejecutable (el actual describe el scaffold). Los cuatro skills del curso (`especifica-encargo`, `planea-trabajo`, `ejecuta-plan`, `valida-resultado`) están en `skills/`, con copias en `.claude/skills/` y `.opencode/skills/`.
 
 ## Cómo se corre y se prueba
 Hoy (heredado del scaffold):
@@ -55,6 +55,7 @@ Lo dicho en clase manda sobre la página del curso en lo logístico (plazo y for
 
 ## Reglas del producto (no negociables)
 - **Supervisión humana exigida por el sistema.** Un informe solo llega al médico en estado `APROBADO`, y solo un usuario con rol de enfermería puede aprobarlo (en el Momento 2, el usuario de demostración de enfermería elegido, D26). La transición se valida en código; no basta con que alguien "mire la pantalla". Si se decide que el médico vea borradores, se muestran marcados "BORRADOR — sin aprobación de enfermería".
+- **La IA propone, la persona confirma.** Al registrar una entrada, ningún evento estructurado se guarda sin confirmación de una persona, y el modelo no agrega lo que el texto no dice (RN-11). El texto original se guarda tal como se escribió y es la fuente citable; el «texto corregido» es una versión aparte (RN-07, RF-42, D27).
 - **Sin diagnóstico.** El informe describe evolución documentada: qué cambió, qué reaparece, qué falta registrar. No diagnostica ni recomienda tratamiento o dosis.
 - **Honestidad agéntica.** Si faltan registros, el informe lo dice ("sin información suficiente para la semana X"). Nunca rellena ni inventa.
 - **Fuente y criterio visibles.** Cada afirmación del informe se rastrea al registro original (fecha + texto) y se muestra el criterio de comparación. Dos niveles: lenguaje claro primero, evidencia (registros citados, llamadas a herramientas) a un clic. Enfermería puede corregir antes de aprobar.
@@ -71,7 +72,7 @@ Lo dicho en clase manda sobre la página del curso en lo logístico (plazo y for
 - **Seguridad (tríada letal):** el sistema tiene datos privados (registros) y contenido no confiable (el texto libre de las notas puede traer instrucciones: inyección indirecta). La tercera pata se mantiene cerrada: el agente no tiene herramientas de salida (internet, correo, mensajes). Tratar el texto de los registros como dato, no como instrucción ayuda, pero la defensa es de arquitectura. Usuario de BD con permisos mínimos.
 
 ## Medición
-- `eval/`: 5 a 10 casos dorados con respuesta verificada a mano contra los datos, al menos uno de rechazo (p. ej. pedir un diagnóstico), más el script que los corre.
+- `eval/`: 5 a 10 casos dorados con respuesta verificada a mano contra los datos, al menos uno de rechazo (p. ej. pedir un diagnóstico), más casos de estructuración de la entrada (síntomas, intensidad, veces, negaciones, sin síntomas) y el script que los corre.
 - Cuatro cifras en `docs/decisiones/semana10.md`, con fecha y método: tasa de éxito, costo por tarea, **mediana** de latencia (no promedio) y recuperación si aplica. Compararlas contra la solución convencional.
 - Corre la suite cada vez que cambie el modelo, el prompt del sistema, la descripción de una herramienta o el proveedor. Las cifras finales del Momento 3 se comparan contra esta línea base.
 - Trazas visibles (herramienta pedida, parámetros, resultado, ms, tokens) en la app o en la salida. Los fallos se explican con la traza; no se esconden.
@@ -120,8 +121,9 @@ skills/               # los cuatro skills del curso: especifica-encargo, planea-
 - **Estrategia de datos (D8):** decidida: consulta directa a la BD; RAG solo si se mide que hace falta. Falta escribir `docs/decisiones/semana08.md`; el profesor preguntará por qué RAG o por qué no.
 - **Visibilidad al médico (D6):** el supuesto es que solo ve informes aprobados (el deck lo dice; la descripción inicial decía que también podría revisarlos directamente). Confirmar; si ve borradores, se marcan (ver reglas del producto).
 - **Patrón de integración (D24):** decidido: asíncrono, con eventos de progreso por SSE (SPEC §7). Falta escribir su entrada en `docs/decisiones.md`: el profesor preguntará «¿síncrono o asíncrono, y por qué?».
-- **Arranque en frío (D22 y D23):** crear `docker-compose.yml`, `run.sh`, el `CMD` del Dockerfile, la semilla de datos y de usuarios de demostración (enfermería y médico, sin credenciales; las credenciales y el administrador llegan en el Momento 3) y el README ejecutable. Es el primer trabajo de construcción. Como el Momento 2 no tiene autenticación, el backend no puede exigir `JWT_SECRET` ni proteger las rutas con JWT en el arranque: hoy `application.yml` exige `JWT_SECRET` sin valor por defecto.
+- **Arranque en frío (D22 y D23):** crear `docker-compose.yml`, `run.sh`, el `CMD` del Dockerfile, la semilla de datos, con los eventos ya confirmados y sin llamar al LLM, y de usuarios de demostración (enfermería y médico, sin credenciales; las credenciales y el administrador llegan en el Momento 3) y el README ejecutable. Es el primer trabajo de construcción. Como el Momento 2 no tiene autenticación, el backend no puede exigir `JWT_SECRET` ni proteger las rutas con JWT en el arranque: hoy `application.yml` exige `JWT_SECRET` sin valor por defecto.
 - **Conjunto sintético (D11):** decidida, pero sin cifras. Falta fijar cuántos pacientes y semanas; debe incluir al menos un paciente con cuatro semanas consecutivas con informe semanal aprobado, para poder mostrar el mensual (RN-10).
+- **Estructuración de la entrada (D27):** propuesta por confirmar. Falta decidir los valores de intensidad, los tipos de evento (catálogo D18), qué hace «Descartar» y el nombre del botón («Aprobar y guardar» se parece a la aprobación del informe, RN-02), y escribir su entrada en `docs/decisiones.md`: el profesor puede preguntar por qué esta llamada corta va en la misma petición y la del agente es asíncrona (D24).
 - **Informe mensual en el Momento 2 (D4):** decidido por el equipo. Un mes son cuatro semanas completas consecutivas y el mensual exige el informe semanal aprobado de cada una (RN-10, RF-36); cuatro semanas y no mes calendario es propuesta por confirmar.
 - **Autenticación en el Momento 3 (D23):** decidido por el equipo. En el Momento 2 la app abre sin inicio de sesión y se elige con qué usuario de demostración sembrado se trabaja (D26, por confirmar): así solo Enfermería aprueba, el médico solo ve lo aprobado y cada acción, incluida la del médico que registra, tiene un autor (D12). No es un control de seguridad.
 - **Entrega:** repositorio público; el enlace va al aula virtual antes del jueves 29 a medianoche y falta crear el tag `m2-entrega` (D21).
