@@ -108,7 +108,6 @@ Diez pendientes pueden afectar el Momento 2; los dos primeros son los que impide
 | Supuestos sin confirmar | D6, D19, D20 y D25 sostienen requisitos | Los dos integrantes los revisan |
 | Catálogo de métricas sin validar (D18) | Lo inventó el equipo, no un usuario | 15 minutos con una persona de enfermería, o dejar constancia de que no se pudo |
 | Defensa de las decisiones ante el profesor | `docs/decisiones.md` y `docs/decisiones/` no existen todavía; el profesor pregunta por proveedor, RAG, síncrono o asíncrono y por qué cada herramienta | Escribir al menos D8, D9, D15 y D24 antes de la demo |
-| Deploy heredado y tag de entrega | Los workflows de Heroku y Vercel no los exige el curso; falta el tag `m2-entrega` (D21) | Dejar inactivos los workflows y crear el tag el jueves |
 
 Los mockups no se actualizaron con las decisiones del 27 de octubre y pueden mostrar la autenticación en el hito anterior; por decisión del equipo se mantienen tal cual, y en alcance mandan la SPEC y los requisitos.
 

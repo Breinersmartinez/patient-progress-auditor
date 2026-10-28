@@ -18,8 +18,8 @@ Scaffold ya limpio de AgroCortex (al 2026-10-25), sin lógica de dominio de paci
 - `backend/`: Spring Boot 3.4.1, Java 17, Maven, PostgreSQL, Flyway, Spring Security + JWT. Paquete `com.patientprogressauditor`. Migraciones `V1` (esquema RBAC) y `V2` (permisos genéricos y solo el rol `ADMIN`: faltan los roles del dominio y no hay usuarios sembrados). Solo existe la clase `*Application` y su test; sin controllers ni entidades. `backend/Dockerfile` compila y copia el jar pero no tiene `CMD`, así que hoy no arranca solo con `docker compose`.
 - `frontend/`: Angular 19, Node 20, sin rutas ni servicios.
 - **Stack (D9, decidido):** se mantienen Spring Boot y Angular desde el Momento 2; el agente vive en el backend Spring. De lo existente, solo el RBAC y el JWT esperan al Momento 3, con la autenticación (D23). Parte pendiente: subir Java 17 a 21, que cita la página de entrega.
-- `.github/workflows/`: CI, Security, Qodana y Deploy (Heroku + Vercel; el curso no exige el deploy, la entrega es el repositorio).
-- `docs/`: `SPEC.md`, `REQUISITOS.md` y el resumen ejecutivo; `PLAN.md` es un esqueleto y `decisiones/` está vacío. `docs/03` a `docs/06` son documentación del scaffold (CI/CD, despliegue, seguridad y commits).
+- `.github/workflows/`: CI, Security y Qodana.
+- `docs/`: `SPEC.md`, `REQUISITOS.md` y el resumen ejecutivo; `PLAN.md` es un esqueleto y `decisiones/` está vacío. `docs/03` a `docs/06` son documentación del scaffold (CI, seguridad y commits).
 - **No existen todavía:** agente, herramientas, capa de proveedor, casos en `eval/` (solo `.gitkeep`), contenido en `docker-compose.yml` y `run.sh` (existen vacíos, sin versionar), `docs/decisiones.md` y un README ejecutable (el actual describe el scaffold). Los cuatro skills del curso (`especifica-encargo`, `planea-trabajo`, `ejecuta-plan`, `valida-resultado`) están en `skills/`, con copias en `.claude/skills/` y `.opencode/skills/`.
 
 ## Cómo se corre y se prueba
@@ -125,7 +125,6 @@ skills/               # los cuatro skills del curso: especifica-encargo, planea-
 - **Informe mensual en el Momento 2 (D4):** decidido por el equipo. Un mes son cuatro semanas completas consecutivas y el mensual exige el informe semanal aprobado de cada una (RN-10, RF-36); cuatro semanas y no mes calendario es propuesta por confirmar.
 - **Autenticación en el Momento 3 (D23):** decidido por el equipo. En el Momento 2 la app abre sin inicio de sesión y se elige con qué usuario de demostración sembrado se trabaja (D26, por confirmar): así solo Enfermería aprueba, el médico solo ve lo aprobado y cada acción, incluida la del médico que registra, tiene un autor (D12). No es un control de seguridad.
 - **Entrega:** repositorio público; el enlace va al aula virtual antes del jueves 29 a medianoche y falta crear el tag `m2-entrega` (D21).
-- **Deploy heredado:** retirar o dejar inactivos los workflows de Heroku y Vercel, que el curso no exige.
 - **Archivo de decisiones:** resuelto. Es `docs/decisiones.md` (el profesor aceptó «otro documento» o el README), con el detalle en `docs/decisiones/`.
 - **Evidencia de la aprobación de la necesidad de IA (D17):** guardar fecha y medio (clase o correo) en `docs/decisiones/`.
 - **Idioma de los identificadores del dominio** (Paciente/Patient, Registro/Entry, Informe/Report) y nombre canónico de cada entidad.
