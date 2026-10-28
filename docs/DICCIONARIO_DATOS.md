@@ -5,6 +5,8 @@
 >
 > **Qué es:** el detalle físico de lo que el modelo conceptual de `REQUISITOS.md` §6 dejó para el diseño: tablas, columnas, tipos, claves, valores permitidos y reglas de integridad. Es la base de las migraciones Flyway y de las entidades del backend; no las sustituye.
 >
+> **Para el Momento 2:** `docs/DICCIONARIO_DATOS_M2.md` es el recorte a lo que se construye en ese momento, sin lo del Momento 3 y con los 13 puntos de §8 cerrados por una propuesta marcada. Es el que se usa para escribir `V3` y `V4`; si algo que está en los dos cambia, se actualizan los dos.
+>
 > **Origen:** cada columna cita el requisito (RF, RN, RNF) o la decisión (D) que la pide. Lo que el diccionario agrega para poder construir y no viene de un requisito se marca **[Propuesta]** y queda por confirmar en §8.
 >
 > **Hito:** **M2-N** núcleo del Momento 2 · **M2-S** Momento 2 si hay tiempo · **M3** Momento 3 · **Opc** opcional, igual que en `REQUISITOS.md`.
@@ -418,7 +420,7 @@ V1 y V2 existen y no se editan: se agregan migraciones nuevas. Roles y permisos 
 
 ## 8. Puntos por resolver
 
-Cada punto cambia una columna, un valor o un permiso de este diccionario; ninguno bloquea empezar con el resto.
+Cada punto cambia una columna, un valor o un permiso de este diccionario; ninguno bloquea empezar con el resto. `docs/DICCIONARIO_DATOS_M2.md` §8 propone un cierre para cada uno en el Momento 2 (por ejemplo, el evento toma la fecha de su entrada y no tiene `event_date`).
 
 1. **Trazas.** La matriz de `SPEC.md` §4 da el módulo Trazas solo a `ADMIN` (Momento 3), pero RF-24 y RF-29 muestran las llamadas de herramientas a enfermería y al médico, y CU-07 dice que enfermería ve la traza. Lectura propuesta: la traza de la ejecución de un informe es parte de su evidencia (`REPORTS_READ`) y el módulo global de trazas es de `ADMIN`. Confirmar o corregir la matriz.
 2. **Permisos de roles.** V2 da a `ADMIN` los permisos `ROLES_CREATE` y `ROLES_DELETE`, y la matriz solo le da ver y actualizar roles y permisos. Quitarlos en `V4` o ampliar la matriz.

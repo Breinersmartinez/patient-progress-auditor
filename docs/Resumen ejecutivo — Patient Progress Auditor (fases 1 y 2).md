@@ -31,7 +31,7 @@ La planificación está cerrada (SPEC v0.7) y el análisis de requisitos está e
 
 ## Qué se trabajó
 
-Se cubrieron dieciséis pasos, del nombre del proyecto al cierre de los pendientes del 28 de octubre; los entregables para el repo son `AGENTS.md`, `CLAUDE.md`, `SPEC.md`, `REQUISITOS.md`, `DICCIONARIO_DATOS.md` y este resumen.
+Se cubrieron diecisiete pasos, del nombre del proyecto al diccionario de datos del Momento 2; los entregables para el repo son `AGENTS.md`, `CLAUDE.md`, `SPEC.md`, `REQUISITOS.md`, `DICCIONARIO_DATOS.md`, `DICCIONARIO_DATOS_M2.md` y este resumen.
 
 | # | Paso | Qué se hizo | Entregable |
 | --- | --- | --- | --- |
@@ -51,6 +51,7 @@ Se cubrieron dieciséis pasos, del nombre del proyecto al cierre de los pendient
 | 14 | Estructuración del registro | A partir de la pantalla de registro del equipo, la IA propone síntomas con intensidad y veces y la persona los confirma antes de guardar; el original se guarda intacto y el texto corregido es una versión aparte (D27) | SPEC v0.7, REQUISITOS v0.4 |
 | 15 | Diccionario de datos | 16 tablas (5 del RBAC existente y 11 del dominio) con columnas, tipos, catálogos, permisos del dominio, reglas de integridad, migraciones necesarias y 13 puntos por resolver; identificadores en inglés con etiqueta en español | `DICCIONARIO_DATOS.md` v0.1 |
 | 16 | Cierre de pendientes del 28 de octubre | `JWT_SECRET` y JWT al Momento 3, Java se queda en 17 y el conjunto sintético queda en 5 pacientes y 18 semanas-paciente con el reparto por paciente (D11) | SPEC D9, D11, D22, D23; REQUISITOS; `AGENTS.md` |
+| 17 | Diccionario de datos del Momento 2 | Recorte del diccionario a lo que se construye el 31 de octubre, sin lo del Momento 3 y con los 13 puntos abiertos cerrados por una propuesta marcada: fecha del evento igual a la de la entrada, nueve síntomas cerrados, traza leída desde el informe, `INCOMPLETO` final y contraseña nula; trae el contenido de la semilla por tabla | `DICCIONARIO_DATOS_M2.md` v0.1 |
 
 ## Decisiones
 
@@ -114,7 +115,7 @@ Once pendientes pueden afectar el Momento 2; los tres primeros son los que impid
 | Supuestos sin confirmar | D6, D19, D20 y D25 sostienen requisitos | Los dos integrantes los revisan |
 | Catálogo de métricas sin validar (D18) | Lo inventó el equipo, no un usuario | 15 minutos con una persona de enfermería, o dejar constancia de que no se pudo |
 | Defensa de las decisiones ante el profesor | `docs/decisiones.md` y `docs/decisiones/` no existen todavía; el profesor pregunta por proveedor, RAG, síncrono o asíncrono y por qué cada herramienta | Escribir al menos D8, D9 (incluida la razón de Java 17), D15 y D24 antes de la demo |
-| Diccionario de datos con 13 puntos abiertos | Cambian columnas y permisos antes de escribir la migración `V3`: fecha del evento, catálogo de síntomas, permisos de trazas y la contraseña nula de los usuarios de demostración, entre otros | Resolver hoy los de las tablas del núcleo y dejar el resto anotado |
+| Propuestas del diccionario de M2 sin confirmar | `DICCIONARIO_DATOS_M2.md` cierra con una propuesta los 13 puntos abiertos y es la base de `V3`; si el equipo cambia alguno (el catálogo de síntomas de D18, las trazas o la contraseña nula), cambian columnas y permisos | Confirmarlo hoy, antes de escribir `V3`, y actualizar los dos diccionarios si algo cambia |
 | Estructuración del registro sin confirmar (D27) | Suma RF-06 ampliado, RF-40 y RF-41 al núcleo a dos días del congelamiento y deja por definir los valores de intensidad, el significado de «Descartar» y el nombre del botón | Confirmarla hoy, y si no alcanza, decidir qué se simplifica antes de recortar otra cosa |
 
 Los mockups no se actualizaron con las decisiones del 27 de octubre y pueden mostrar la autenticación en el hito anterior; por decisión del equipo se mantienen tal cual, y en alcance mandan la SPEC y los requisitos. La pantalla de registro con los síntomas detectados es de esos mockups y es la base de D27.
@@ -456,7 +457,7 @@ En el Momento 2 no hay autenticación (D23): los usuarios de demostración exist
 
 ### Modelo conceptual preliminar
 
-Solo entidades y relaciones. Atributos, tipos y tablas están en `docs/DICCIONARIO_DATOS.md`.
+Solo entidades y relaciones. Atributos, tipos y tablas están en `docs/DICCIONARIO_DATOS.md` y, recortados al Momento 2, en `docs/DICCIONARIO_DATOS_M2.md`.
 
 | Entidad | Qué es | Relaciones clave |
 |---|---|---|

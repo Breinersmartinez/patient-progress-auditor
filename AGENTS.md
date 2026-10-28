@@ -19,7 +19,7 @@ Scaffold ya limpio de AgroCortex (al 2026-10-25), sin lógica de dominio de paci
 - `frontend/`: Angular 19, Node 20, sin rutas ni servicios.
 - **Stack (D9, decidido):** se mantienen Spring Boot y Angular desde el Momento 2; el agente vive en el backend Spring. De lo existente, solo el RBAC y el JWT esperan al Momento 3, con la autenticación (D23). Java se queda en 17 por estabilidad (decisión del equipo del 28-oct); la página de entrega cita 21, así que la razón se escribe en `docs/decisiones.md`.
 - `.github/workflows/`: CI, Security y Qodana.
-- `docs/`: `SPEC.md`, `REQUISITOS.md`, `DICCIONARIO_DATOS.md` y el resumen ejecutivo; `PLAN.md` trae hoy el plan del retiro del despliegue heredado y `decisiones/` está vacío. `docs/03` a `docs/06` son documentación del scaffold (CI, seguridad y commits).
+- `docs/`: `SPEC.md`, `REQUISITOS.md`, `DICCIONARIO_DATOS.md`, `DICCIONARIO_DATOS_M2.md` y el resumen ejecutivo; `PLAN.md` trae hoy el plan del retiro del despliegue heredado y `decisiones/` está vacío. `docs/03` a `docs/06` son documentación del scaffold (CI, seguridad y commits).
 - **No existen todavía:** agente, herramientas, capa de proveedor, casos en `eval/` (solo `.gitkeep`), contenido en `docker-compose.yml` y `run.sh` (están en el repo, pero vacíos), `docs/decisiones.md` y un README ejecutable (el actual describe el scaffold). Los cuatro skills del curso (`especifica-encargo`, `planea-trabajo`, `ejecuta-plan`, `valida-resultado`) están en `skills/`, con copias en `.claude/skills/` y `.opencode/skills/`.
 
 ## Cómo se corre y se prueba
@@ -86,6 +86,7 @@ run.sh                # arranque en un comando
 docs/SPEC.md          # spec (7 secciones)
 docs/PLAN.md          # plan derivado de la spec
 docs/DICCIONARIO_DATOS.md  # diccionario de datos: tablas, columnas, tipos y reglas de integridad; base de las migraciones
+docs/DICCIONARIO_DATOS_M2.md  # el mismo recortado al Momento 2, con los puntos abiertos cerrados por propuesta; base de V3 y V4
 docs/decisiones.md    # decisiones técnicas con su razón y la alternativa descartada; cifras de línea base
 docs/decisiones/      # detalle: semana06.md (autonomía), semana08.md (datos), semana10.md (línea base)
 docs/seguridad.md     # modelo de amenazas, tríada, ataque propio y hardening (M3)
@@ -131,7 +132,7 @@ skills/               # los cuatro skills del curso: especifica-encargo, planea-
 - **Entrega:** repositorio público; el enlace va al aula virtual antes del jueves 29 a medianoche y falta crear el tag `m2-entrega` (D21).
 - **Archivo de decisiones:** resuelto. Es `docs/decisiones.md` (el profesor aceptó «otro documento» o el README), con el detalle en `docs/decisiones/`.
 - **Evidencia de la aprobación de la necesidad de IA (D17):** guardar fecha y medio (clase o correo) en `docs/decisiones/`.
-- **Diccionario de datos:** `docs/DICCIONARIO_DATOS.md` v0.1 resuelve el idioma de los identificadores (inglés en `snake_case`, con etiqueta en español) y propone las 16 tablas, sus columnas y los permisos del dominio. Quedan 13 puntos por confirmar (§8), por ejemplo la fecha del evento, el catálogo de síntomas y los permisos de trazas. Antes de escribir `V3` hay que resolver los de las tablas del núcleo; `app_users.password_hash` hoy es `NOT NULL` y los usuarios de demostración del Momento 2 no tienen credenciales.
+- **Diccionario de datos:** `docs/DICCIONARIO_DATOS.md` v0.1 resuelve el idioma de los identificadores (inglés en `snake_case`, con etiqueta en español) y propone las 16 tablas, sus columnas y los permisos del dominio. Quedan 13 puntos por confirmar (§8). `docs/DICCIONARIO_DATOS_M2.md` v0.1 es el recorte al Momento 2 y los cierra con una propuesta marcada: el evento toma la fecha de su entrada, los síntomas son una lista cerrada de nueve (la del mockup), la traza se lee desde el informe, `INCOMPLETO` es un estado final y `app_users.password_hash` admite `NULL` (hoy es `NOT NULL` en `V1`). Es el que se usa para escribir `V3` y `V4`. Falta que el equipo lo confirme, sobre todo el catálogo de síntomas (D18, con una persona de enfermería) y la matriz de trazas de la SPEC §4; si cambia algo que esté en los dos diccionarios, se actualizan los dos.
 
 ---
 Reglas del curso verificadas contra ingenieria-aplicaciones-ia.netlify.app el 21-oct-2026 (rúbricas de los Momentos 1 a 3; slides de las semanas 2, 3, 4, 7, 8, 9, 10, 12 y 13). Si el sitio cambia, este archivo envejece. Entrega, plazo y prueba del profesor: transcripción de la clase del sábado 24-oct-2026.

@@ -207,7 +207,7 @@
 
 ## 6. Modelo conceptual preliminar
 
-Solo entidades y relaciones. Atributos, tipos y tablas están en `docs/DICCIONARIO_DATOS.md`.
+Solo entidades y relaciones. Atributos, tipos y tablas están en `docs/DICCIONARIO_DATOS.md` y, recortados al Momento 2, en `docs/DICCIONARIO_DATOS_M2.md`.
 
 | Entidad | Qué es | Relaciones clave |
 |---|---|---|

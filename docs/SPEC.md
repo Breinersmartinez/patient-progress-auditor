@@ -163,7 +163,7 @@ Los hitos son **[Propuesta]** salvo lo que el equipo decidió (D4 y D23): el Mom
 
 ## §4. Diseño (semillas)
 
-El diseño completo es de la fase 3. Estas semillas ya salen de la semana 6 y de lo acordado; todas son **[Propuesta]** salvo lo que dice el curso. El modelo de datos detallado (tablas, columnas, tipos y reglas de integridad) está en `docs/DICCIONARIO_DATOS.md`.
+El diseño completo es de la fase 3. Estas semillas ya salen de la semana 6 y de lo acordado; todas son **[Propuesta]** salvo lo que dice el curso. El modelo de datos detallado (tablas, columnas, tipos y reglas de integridad) está en `docs/DICCIONARIO_DATOS.md`; lo que se construye en el Momento 2, con los puntos abiertos cerrados por propuesta, está en `docs/DICCIONARIO_DATOS_M2.md`.
 
 ### Las cinco piezas del agente
 
