@@ -19,14 +19,13 @@ Portal de documentación técnica del proyecto. Cada documento describe un probl
 
 | Documento | Qué es | Relacionado con |
 |---|---|---|
-| [github-actions-workflows.md](03-engineering/github-actions-workflows.md) | Cómo se construyeron los workflows de GitHub Actions: decisiones, alternativas descartadas, verificaciones | CI/CD (04) |
+| [github-actions-workflows.md](03-engineering/github-actions-workflows.md) | Cómo se construyeron los workflows de GitHub Actions: decisiones, alternativas descartadas, verificaciones | CI (04) |
 
 ### 04 — Operations
 
 | Documento | Qué es | Relacionado con |
 |---|---|---|
-| [ci-cd.md](04-operations/ci-cd.md) | Pipeline automatizado CI/CD: workflows, secretos, environments, branch protection | Workflows (03) · Deployment (04) |
-| [deployment.md](04-operations/deployment.md) | Despliegue manual: Heroku (`heroku.yml` + git push) y Vercel, con troubleshooting | CI/CD (04) |
+| [ci-cd.md](04-operations/ci-cd.md) | Pipeline de integración continua: workflows y protección de rama | Workflows (03) |
 
 ### 05 — Security
 

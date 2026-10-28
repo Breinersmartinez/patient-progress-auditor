@@ -1,9 +1,0 @@
-# Manifiesto de build de Heroku.
-# App destino: patient-progress-auditor (el nombre real viaja en el secreto
-# HEROKU_APP_NAME; ver .github/workflows/deploy.yml).
-# El contexto del build es la carpeta del Dockerfile (backend/).
-build:
-  docker:
-    web: backend/Dockerfile
-run:
-  web: java -jar app.jar

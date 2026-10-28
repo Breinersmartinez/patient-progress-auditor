@@ -12,8 +12,8 @@ Lo que sí existe:
 
 - `backend/`: Spring Boot con dependencias de Spring Security / Flyway / JWT y migraciones RBAC (`V1` esquema, `V2` semilla genérica de roles y permisos). **Sin controllers, sin entidades de dominio, sin agente.**
 - `frontend/`: SPA Angular standalone. **Sin rutas, sin servicios, sin pantallas.**
-- `.github/workflows/`: CI (backend + frontend), Security (CodeQL, Dependency Review, Gitleaks), Qodana y Deploy (Heroku + Vercel).
-- `docs/`: especificación y plan pendientes de redactar; documentación vigente de CI/CD, despliegue, seguridad y convenciones de commit.
+- `.github/workflows/`: CI (backend + frontend), Security (CodeQL, Dependency Review, Gitleaks) y Qodana.
+- `docs/`: especificación y plan pendientes de redactar; documentación vigente de CI, seguridad y convenciones de commit.
 
 ## Tecnologías
 
@@ -21,7 +21,7 @@ Lo que sí existe:
 |---|---|
 | Backend | Spring Boot 3.4.1 · Java 17 · Maven · PostgreSQL · Flyway · Spring Security + JWT |
 | Frontend | Angular 19.2 · TypeScript · Node 20 |
-| CI/CD | GitHub Actions · Heroku (backend) · Vercel (frontend) |
+| Automatización | GitHub Actions |
 
 El proveedor y el modelo de LLM **están por decidir**: se documentarán aquí con su justificación (latencia, costo por token, tool calling, ventana de contexto) cuando se cierren en `docs/SPEC.md`.
 
@@ -44,8 +44,7 @@ skills/      Cadena escribir-spec → escribir-plan → ejecutar-plan (pendiente
 | Especificación del incremento | `docs/SPEC.md` (pendiente) |
 | Plan de trabajo | `docs/PLAN.md` (pendiente) |
 | Índice de documentación | `docs/README.md` |
-| CI/CD | `docs/04-operations/ci-cd.md` |
-| Despliegue | `docs/04-operations/deployment.md` |
+| CI | `docs/04-operations/ci-cd.md` |
 | Seguridad | `docs/05-security/README.md` |
 | Convenciones de commit | `docs/06-contribution/git-commit-prefixes.md` |
 | Esquema de la base de datos | migraciones Flyway en `backend/src/main/resources/db/migration/` |
