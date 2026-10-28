@@ -24,9 +24,11 @@ Scaffold ya limpio de AgroCortex (al 2026-10-25), sin lógica de dominio de paci
 
 ## Cómo se corre y se prueba
 Hoy (heredado del scaffold):
-- Backend: `cd backend && mvn spring-boot:run`. Perfil `dev`; Postgres en `localhost:5432`, base y usuario `patient_auditor` (según `application-dev.yml`) y contraseña en `DB_PASSWORD`, sin valor por defecto. Hoy exige también `JWT_SECRET` (sin valor por defecto); en el Momento 2 ya no se exigirá (D23). Swagger en `/swagger-ui.html`. No hay `mvnw`: usa el `mvn` del sistema.
+- Backend: `cd backend && mvn spring-boot:run`. Perfil `dev`; Postgres en `localhost:5432`, base y usuario `patient_auditor` (según `application-dev.yml`) y contraseña en `DB_PASSWORD`, sin valor por defecto. Ya no exige `JWT_SECRET` (D23, desde la etapa E1). Swagger en `/swagger-ui.html`. No hay `mvnw`: usa el `mvn` del sistema.
 - Tests backend: `cd backend && mvn -B verify`.
-- Frontend: `cd frontend && npm start` (URL del API por `API_URL`).
+- Frontend: `cd frontend && npm start` (el proxy de `ng serve` manda `/api` a `localhost:8080`, ver `proxy.conf.json`).
+- Todo en Docker: `./run.sh` (crea `.env`, genera `DB_PASSWORD`, toma o pide la llave y ejecuta `docker compose up --build -d --wait`). Sin terminal y sin llave arranca igual y avisa. Interfaz en `http://localhost:4200`, API en `http://localhost:8080`; si el puerto está ocupado, `run.sh` usa el siguiente libre.
+- Variables: `scripts/check-env-example.sh` falla si un yml o el compose usan una variable que `.env.example` no documenta.
 - Tests frontend: `cd frontend && npx ng test --watch=false --browsers=ChromeHeadless --code-coverage`.
 - `npm run lint` está roto (falta `@angular-eslint`): no lo uses como verificación.
 
@@ -127,7 +129,7 @@ skills/               # los cuatro skills del curso: especifica-encargo, planea-
 - **Conjunto sintético (D11):** decidido con cifras: 5 pacientes, 18 semanas-paciente (5, 4, 3, 4 y 2), unas 120 entradas con eventos confirmados, fechas fijas que terminan el domingo 25-oct-2026, y 5 informes sembrados (4 aprobados del paciente de cinco semanas, que permiten el mensual, RN-10, y 1 pendiente de revisión). Falta escribir los datos y revisar a mano los informes. Reparto por paciente en SPEC D11; los casos dorados de `eval/` salen de ahí.
 - **Estructuración de la entrada (D27):** propuesta por confirmar. Falta decidir los valores de intensidad, los tipos de evento (catálogo D18), qué hace «Descartar» y el nombre del botón («Aprobar y guardar» se parece a la aprobación del informe, RN-02), y escribir su entrada en `docs/decisiones.md`: el profesor puede preguntar por qué esta llamada corta va en la misma petición y la del agente es asíncrona (D24).
 - **Informe mensual en el Momento 2 (D4):** decidido por el equipo. Un mes son cuatro semanas completas consecutivas y el mensual exige el informe semanal aprobado de cada una (RN-10, RF-36); cuatro semanas y no mes calendario es propuesta por confirmar.
-- **Autenticación en el Momento 3 (D23):** decidido por el equipo. En el Momento 2 la app abre sin inicio de sesión y se elige con qué usuario de demostración sembrado se trabaja (D26, por confirmar): así solo Enfermería aprueba, el médico solo ve lo aprobado y cada acción, incluida la del médico que registra, tiene un autor (D12). No es un control de seguridad.
+- **Autenticación en el Momento 3 (D23):** decidido por el equipo. En el Momento 2 la app abre sin inicio de sesión y se elige con qué usuario de demostración sembrado se trabaja (D26, decidida el 28-oct): así solo Enfermería aprueba, el médico solo ve lo aprobado y cada acción, incluida la del médico que registra, tiene un autor (D12). No es un control de seguridad.
 - **Llave del API para el profesor (parte pendiente de D22):** por decidir cómo la recibe si no tiene una. Recomendado: el README dice el proveedor y cómo conseguir una llave gratuita, y el equipo envía por mensaje privado una llave temporal creada solo para la calificación y revocable; nunca en el repo ni en el historial. Mientras tanto, sin llave la app arranca con la semilla y avisa que falta.
 - **Entrega:** repositorio público; el enlace va al aula virtual antes del jueves 29 a medianoche y falta crear el tag `m2-entrega` (D21).
 - **Archivo de decisiones:** resuelto. Es `docs/decisiones.md` (el profesor aceptó «otro documento» o el README), con el detalle en `docs/decisiones/`.

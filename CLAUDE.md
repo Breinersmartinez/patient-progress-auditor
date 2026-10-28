@@ -17,7 +17,7 @@ Lee, en este orden, solo lo que la tarea necesita:
 - **Momento 2 (enlace el jueves 29-oct a medianoche, demo el sábado 31):**
   - Núcleo (M2-N): RF-01, RF-02, RF-04 a RF-26, RF-28, RF-32, RF-36, RF-40, RF-41 y RF-39 en su parte del Momento 2, más los requisitos no funcionales (RNF-01 se cumple solo en parte hasta el Momento 3). Es el registro con estructuración por IA (D27, propuesta), el agente, el informe semanal y el mensual, y la revisión de enfermería.
   - Si hay tiempo (M2-S): RF-03, RF-27, RF-29, RF-30, RF-35 y RF-42.
-  - Sin inicio de sesión: la app abre con datos y usuarios de demostración, sin credenciales, y se elige con cuál trabajar (D26, propuesta por confirmar).
+  - Sin inicio de sesión: la app abre con datos y usuarios de demostración, sin credenciales, y se elige con cuál trabajar (D26, decidida el 28-oct).
 - **Momento 3:** autenticación y JWT (RF-31), credenciales y administrador (RF-33), tablero de permisos (RF-34), seguridad, gobernanza y respuesta a la auditoría cruzada.
 - **Opcionales:** PDF (RF-37, D13) y voz (RF-38, D14).
 - No adelantes lo del Momento 3 ni agregues funcionalidades que no estén en `docs/REQUISITOS.md`.

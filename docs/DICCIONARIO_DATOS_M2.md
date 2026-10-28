@@ -182,6 +182,9 @@ El rol `AGENTE` no tiene fila en `app_users`: es técnico y no inicia sesión (S
 |---|---|---|---|---|---|---|
 | `id` | Id interno | `UUID` | No | PK | Único identificador del paciente que sale al proveedor del LLM | RF-01, RNF-02 |
 | `alias` | Alias | `VARCHAR(100)` | No | — | Nombre sintético o iniciales para mostrar. Nunca se envía al LLM ni a la traza. No es único | RF-01 |
+| `bed` | Cama | `VARCHAR(10)` | Sí | — | Nueva. Cama del paciente (por ejemplo `204-A`), sintética; la muestran la lista y la ficha. Nunca se envía al LLM ni a la traza | RF-01, RNF-02, **[Propuesta]** |
+| `age` | Edad | `SMALLINT` | Sí | — | Nueva. Años cumplidos, sintéticos. Nunca se envía al LLM ni a la traza | RF-01, RNF-02, **[Propuesta]** |
+| `admitted_on` | Fecha de ingreso | `DATE` | Sí | — | Nueva. Día de ingreso, sintético. Nunca se envía al LLM ni a la traza | RF-01, RNF-02, **[Propuesta]** |
 | `created_at` | Creado | `TIMESTAMPTZ` | No | — | | V1 |
 | `updated_at` | Actualizado | `TIMESTAMPTZ` | No | — | | V1 |
 
@@ -420,7 +423,7 @@ Una fila por acción sensible. Solo se agregan filas; nunca se actualizan ni se 
 |---|---|---|---|
 | `patients.id` | Sí | Único identificador del paciente que se envía | RF-01, RNF-02 |
 | `entries.body` y los eventos de las entradas | Sí | Texto sintético; al estructurar una entrada y como resultado de las herramientas del agente. Se trata como dato, no como instrucción | RNF-02, RF-21 |
-| `patients.alias`, `app_users.display_name` y `email` | No | Nunca van al proveedor ni a la traza | RNF-02 |
+| `patients.alias`, `bed`, `age`, `admitted_on`, `app_users.display_name` y `email` | No | Nunca van al proveedor ni a la traza | RNF-02 |
 | `app_users.password_hash` | No | | RNF-01 |
 | Audio de dictado | No se guarda | Solo queda el texto transcrito, con `source = 'VOZ'` | RF-38, RNF-02 |
 | Métricas calculadas | No se guardan | Se calculan al pedirlas; el informe guarda una copia de las que usó | RF-07 |
