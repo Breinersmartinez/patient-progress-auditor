@@ -27,8 +27,13 @@ services:
       DB_USERNAME: ${DB_USERNAME:-patient_auditor}
       DB_PASSWORD: "${DB_PASSWORD:?DB_PASSWORD no esta definido, ejecute ./run.sh}"
       APP_SEED_DEMO: ${APP_SEED_DEMO:-true}
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      LLM_PROVIDER: ${LLM_PROVIDER:-groq}
+      LLM_FALLBACK: ${LLM_FALLBACK:-gemini}
+      GROQ_MODEL: ${GROQ_MODEL:-openai/gpt-oss-120b}
+      GROQ_STRUCTURING_MODEL: ${GROQ_STRUCTURING_MODEL:-openai/gpt-oss-120b}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     healthcheck:

@@ -68,10 +68,10 @@ if [ -z "$(docker compose ps -q 2> /dev/null)" ]; then
 fi
 
 # Llave del proveedor: entorno, o consola si hay terminal; si no, se avisa y se sigue.
-for key in GEMINI_API_KEY GROQ_API_KEY; do
+for key in GROQ_API_KEY GEMINI_API_KEY; do
   if ! have_key "$key" && [ -t 0 ]; then
-    label="principal (Gemini)"
-    [ "$key" = GROQ_API_KEY ] && label="de respaldo (Groq)"
+    label="principal (Groq)"
+    [ "$key" = GEMINI_API_KEY ] && label="de respaldo (Gemini)"
     read -r -s -p "Llave $label, $key (Enter para omitir): " value || value=""
     echo
     [ -n "$value" ] && set_var "$key" "$value"
@@ -79,7 +79,7 @@ for key in GEMINI_API_KEY GROQ_API_KEY; do
 done
 
 missing_key=""
-have_key GEMINI_API_KEY || missing_key="GEMINI_API_KEY"
+have_key GROQ_API_KEY || missing_key="GROQ_API_KEY"
 
 if ! docker compose up --build -d --wait --wait-timeout 300; then
   docker compose ps || true
@@ -97,5 +97,5 @@ echo "  Detener:   docker compose down"
 if [ -n "$missing_key" ]; then
   echo
   echo "AVISO: falta la llave $missing_key. La aplicacion funciona, pero las funciones de IA no hasta que la defina:"
-  echo "  GEMINI_API_KEY=<su llave> ./run.sh      (o escribala en .env y repita ./run.sh)"
+  echo "  GROQ_API_KEY=<su llave> ./run.sh      (o escribala en .env y repita ./run.sh)"
 fi

@@ -107,6 +107,41 @@
 | El cálculo de referencia está hecho en Python (`scripts/expected_metrics.py`), con otro método, y su salida es el fixture de la prueba | Si la interpretación de una regla estuviera mal en Java, estaría igual de mal en una prueba escrita por la misma persona y el mismo método. La prueba compara las 18 semanas-paciente; se comprobó que falla si se rompe la regla de «reaparecido» | Escribir las cifras esperadas a mano en la prueba; calcular el esperado con el mismo código |
 | Las fechas son `DATE` de la propia entrada: no hay conversión de zona horaria en las métricas | Evita el riesgo de límites de semana que el plan señalaba: la zona solo interviene al decidir «hoy» | Convertir `created_at` a fecha |
 
+## E8 — Capa de proveedor del LLM (2026-10-28)
+
+**Proveedor y modelo (D15).** Principal **Groq**, respaldo **Gemini** (el equipo invirtió el orden propuesto el 2026-10-28). Todo medido ese día con las llaves del equipo, salvo lo que se marca «no verificado».
+
+| | Groq (principal) | Gemini (respaldo) |
+|---|---|---|
+| Modelo del agente | `openai/gpt-oss-120b` | `gemini-3.5-flash-lite` |
+| Modelo de estructuración | `openai/gpt-oss-120b`, razonamiento medio | `gemini-3.5-flash-lite` |
+| Ventana de contexto | 131 072 tokens (documentación) | 1 048 576 tokens (API de modelos) |
+| Herramientas y JSON con esquema | Sí, con esquema estricto (medido) | Sí, con JSON Schema estándar (medido) |
+| Latencia medida | 0,5 a 1,4 s por llamada corta | 0,7 s en una llamada trivial; 4 a 8 s con el ejemplo de estructuración |
+| Precio de lista, USD por millón de tokens (entrada/salida) | 0,15 / 0,60 | 0,30 / 2,50 |
+| Límites gratuitos | **30 solicitudes/min, 1 000/día, 8 000 tokens/min, 200 000 tokens/día**, por modelo (documentación y encabezados) | **No verificados**: Google no los publica por modelo; solo se ven en la consola de AI Studio |
+
+| Decisión | Razón | Alternativa descartada |
+|---|---|---|
+| Estructurar con `gpt-oss-120b` y razonamiento medio | Con el ejemplo del prompt acierta 14 de 14 llamadas (5 y 9); con razonamiento bajo falla 0 de 5 (omite «comió poco» o hasta el dolor de cabeza) y con el modelo de 20B falla 4 de 5 en medio y 3 de 9 en alto. Es una muestra chica, no la evaluación de E14, que la repetirá con los casos dorados | `gpt-oss-20b` (otra cuota y más barato, pero impreciso); razonamiento bajo (más rápido, pero omite síntomas) |
+| El agente y la estructuración comparten la cuota de `gpt-oss-120b` (8 000 tokens por minuto) | No hay un modelo mejor y más barato que sirva. Riesgo declarado: un informe en curso y un registro a la vez compiten por los tokens; el límite de 8 000 obliga a que cada llamada del bucle del agente sea pequeña (E10), y un 429 largo conmuta a Gemini | Repartir en dos modelos de Groq |
+| `gemini-3.5-flash-lite` como respaldo, no `gemini-3.8-flash` ni `gemini-3.5-flash` | Medido: `3.8-flash` dio un 503 y un tiempo agotado a los 40 s; `3.5-flash` tardó 22 s en responder «ok»; `3.5-flash-lite` responde en menos de un segundo y llama bien a las herramientas | El modelo más nuevo |
+| Llamadas por HTTP con el cliente de la JDK (`java.net.http`), sin SDK ni `RestClient` | El prompt sugería `RestClient`; la JDK da un tiempo máximo por llamada y acceso a los encabezados (`Retry-After`) con menos código, sin dependencias nuevas. Ningún SDK de proveedor entra a la aplicación | SDK de Groq o de Google: dependencia nueva y acoplamiento |
+| Un solo JSON Schema estándar para los dos proveedores (`response_format` estricto en Groq; `responseJsonSchema` y `parametersJsonSchema` en Gemini) | Los dos lo aceptan (medido) y el esquema se escribe una vez. Con `json_object` suelto Groq devolvió «dolor de cabeza» y «intensa», fuera del catálogo: no se usa | Un esquema por proveedor |
+| Reintentos de 1, 2 y 4 s por proveedor ante 429, caída o tiempo agotado, y luego conmutación. Si el proveedor pide esperar más de 8 s (`Retry-After`), no se espera: se conmuta. Una llave rechazada, una solicitud inválida o una salida inválida del proveedor conmutan sin reintentar | Reintentar lo que no puede arreglarse esperando solo demora. El tope de 8 s evita que la persona espere un minuto por la cuota por minuto de Groq cuando Gemini está disponible | Esperar siempre lo que pida el proveedor |
+| La conmutación es por llamada: un bucle puede empezar en Groq y seguir en Gemini | El historial es neutral al proveedor. Gemini rechaza con 400 una llamada a herramienta sin firma de pensamiento; para las que hizo Groq se usa el valor documentado `skip_thought_signature_validator` (medido: sin él, 400; con él, funciona) | Reiniciar el bucle al conmutar: pierde el trabajo hecho |
+| La salida estructurada se valida con una función de quien llama; si no valida hay UN reintento devolviéndole el error al modelo y, si vuelve a fallar, `InvalidOutputException` con el último texto para degradar a texto plano (RF-18) | Nunca confiar en la forma. La degradación y su registro son de E9 y E10, que conocen la tarea | Reintentar sin límite |
+| El mensaje a la persona es de una lista fija por clase de fallo y nunca lleva el cuerpo del proveedor, una llave ni una traza; el detalle técnico va al registro y a la traza (`Attempt.detail`) | RNF-04. Una prueba verifica que un cuerpo con «stack trace» y una llave no llegan al mensaje | Mostrar el mensaje del proveedor |
+| El costo que se registra es el precio de lista de la llamada, aunque la capa gratuita no cobre; un modelo sin precio conocido da `null`, no cero | Permite comparar el costo por tarea contra la solución convencional (E14) con una cifra honesta | Registrar 0 |
+| Sin llave la aplicación arranca, `GET /api/llm/status` lo dice y una llamada falla con «falta la llave» en vez de un error crudo | D22 y RNF-13. El endpoint no devuelve llaves | Fallar al arrancar |
+| `GOOGLE_API_KEY` no se acepta como nombre alternativo | La variable documentada es `GEMINI_API_KEY`; aceptar otra sin documentarla sería una variable oculta. El `.env` del equipo todavía usa `GOOGLE_API_KEY` y hay que renombrarla | Leer las dos |
+
+**Cómo cambiar de proveedor (RF-20).** Editar `LLM_PROVIDER` y `LLM_FALLBACK` en `.env` (por ejemplo `gemini` y `groq`) y ejecutar `docker compose up -d backend`. No hay que reconstruir. Comprobado reiniciando el backend con las dos combinaciones: `GET /api/llm/status` muestra el orden. Con `LLM_FALLBACK=none` no hay respaldo.
+
+**Dato para gobernanza.** A los proveedores sale el texto de la entrada o las métricas del paciente y su id interno, nunca el alias, la cama, la edad ni el ingreso (RNF-02). La página de precios de Google dice que el contenido enviado en la capa gratuita puede usarse para mejorar sus productos; los datos son sintéticos. La política de retención de Groq: no verificada.
+
+**Fallos.** Se prueban con pruebas automáticas, no en vivo (decisión del equipo): un servidor HTTP local reproduce un 429 con `Retry-After`, un 503, un tiempo agotado real, una llave rechazada y una respuesta ilegible; la pasarela se prueba con un reloj falso. Las llamadas reales (`LlmLiveTest`, solo con `RUN_LIVE_LLM=true`) comprobaron la conmutación con una llave de Groq inválida y que Gemini continúa una conversación que empezó Groq.
+
 ## Decisiones del equipo (2026-10-28)
 
 | Decisión | Razón | Alternativa descartada |
@@ -115,5 +150,6 @@
 | No se construyen fallos forzables en vivo (`LLM_FAULT`) | Decisión del equipo: lo que se necesita ahora es el módulo de enfermería. Los tres fallos (tiempo agotado, salida inválida, 429 o caída) se prueban con pruebas automáticas y dobles de prueba. **Riesgo declarado:** `AGENTS.md` y OBJ-10 piden poder forzarlos en la demo; sin ellos solo se pueden mostrar las pruebas, no el fallo en vivo | Variables de entorno de fallo inyectado dentro de la capa de proveedor |
 | Vista del médico (E12c) fuera por ahora | Decisión del equipo. Consecuencia: la puerta de la SPEC §6 no se cumple completa; el servidor ya niega al médico aprobar y ver informes que no sean `APROBADO`, y se prueba con pruebas automáticas | Promover E12c al núcleo |
 | Una sola sesión, sin frentes paralelos | Decisión del equipo. Orden: E2 a E12b, E14 y E15; E13 al final si sobra tiempo; E16 y «texto corregido» fuera | Dos frentes (A y B) |
+| Groq es el proveedor principal del LLM y Gemini (Google AI Studio) el de respaldo (D15) | Decisión del equipo el 2026-10-28, que invierte la propuesta inicial. La razón de fondo se escribe en E8 con latencia, costo, herramientas y ventana de contexto medidos. **Riesgo declarado:** los límites gratuitos de Groq por minuto son más estrechos que los de Gemini; el bucle del agente es lo que más tokens gasta, así que se mide en E8 y se ajustan las salidas de las herramientas | Gemini principal y Groq respaldo (propuesta original) |
 
-**Pendiente de redactar en etapas posteriores:** proveedor y modelo (E8), por qué asíncrono con SSE y por qué la estructuración es síncrona (E9, E11), sin RAG (E15), Java 17 y por qué Spring Boot y Angular (E15), rutas con hash (E5).
+**Pendiente de redactar en etapas posteriores:** por qué asíncrono con SSE y por qué la estructuración es síncrona (E9, E11), sin RAG (E15), Java 17 y por qué Spring Boot y Angular (E15), rutas con hash (E5).

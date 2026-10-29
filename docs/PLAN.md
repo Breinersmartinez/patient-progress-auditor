@@ -152,14 +152,14 @@ Solo hay una tarea: primero se retiran el manifiesto y el workflow, junto con su
 
 ### Seguimiento
 
-- [x] E1 · [x] E2 · [x] E3 · [x] E4 · [x] E5 · [x] E6 · [x] E7 · [ ] E8 · [ ] E9 · [ ] E10 · [ ] E11 · [ ] E12a · [ ] E12b · [ ] E14 · [ ] E15
+- [x] E1 · [x] E2 · [x] E3 · [x] E4 · [x] E5 · [x] E6 · [x] E7 · [x] E8 · [ ] E9 · [ ] E10 · [ ] E11 · [ ] E12a · [ ] E12b · [ ] E14 · [ ] E15
 - [ ] E12c (fuera por decisión del 28-oct) · [ ] E13 (al final, solo si sobra tiempo) · [ ] E16 (fuera)
 
 ## 5. Propuestas del §4.2 del prompt, cerradas para tu aprobación
 
 | Tema | Propuesta | Alternativa descartada |
 |---|---|---|
-| Proveedor y modelo (D15) | Principal Google AI Studio y respaldo Groq, por HTTP con `RestClient`, sin SDK. **Verificado hoy en las páginas oficiales:** Gemini lista como estables `gemini-3.8-flash`, `gemini-3.6-flash`, `gemini-3.5-flash-lite` y `gemini-3.1-flash-lite`; Groq lista `llama-3.3-70b-versatile`, `openai/gpt-oss-120b` y `openai/gpt-oss-20b`, todos con 131 072 tokens de contexto. Candidatos: `gemini-3.8-flash` para el agente y `gemini-3.5-flash-lite` para estructurar; `openai/gpt-oss-120b` como respaldo. **No verificado:** los límites gratuitos (Google ya no los publica por modelo: se ven en la consola de AI Studio; las fuentes de terceros se contradicen, de 2 a 10 solicitudes por minuto), el soporte de herramientas y de JSON de cada modelo (las páginas no lo dicen) y el precio. Se decide en E8, paso 1, con la llave. Dato para gobernanza: Google puede usar los datos de la capa gratuita para mejorar sus productos | Un solo proveedor (no permitiría mostrar el cambio en vivo); un SDK (rompe «ningún SDK fuera de la capa») |
+| Proveedor y modelo (D15) | **[Invertido por el equipo el 2026-10-28: principal Groq y respaldo Gemini; lo que sigue es la propuesta original]** Principal Google AI Studio y respaldo Groq, por HTTP con `RestClient`, sin SDK. **Verificado hoy en las páginas oficiales:** Gemini lista como estables `gemini-3.8-flash`, `gemini-3.6-flash`, `gemini-3.5-flash-lite` y `gemini-3.1-flash-lite`; Groq lista `llama-3.3-70b-versatile`, `openai/gpt-oss-120b` y `openai/gpt-oss-20b`, todos con 131 072 tokens de contexto. Candidatos: `gemini-3.8-flash` para el agente y `gemini-3.5-flash-lite` para estructurar; `openai/gpt-oss-120b` como respaldo. **No verificado:** los límites gratuitos (Google ya no los publica por modelo: se ven en la consola de AI Studio; las fuentes de terceros se contradicen, de 2 a 10 solicitudes por minuto), el soporte de herramientas y de JSON de cada modelo (las páginas no lo dicen) y el precio. Se decide en E8, paso 1, con la llave. Dato para gobernanza: Google puede usar los datos de la capa gratuita para mejorar sus productos | Un solo proveedor (no permitiría mostrar el cambio en vivo); un SDK (rompe «ningún SDK fuera de la capa») |
 | Los cuatro límites | Valores iniciales, que se calibran con las primeras trazas y se justifican en `decisiones/semana06.md`: 8 iteraciones, 50 000 tokens por solicitud, 5 s por herramienta (son lecturas locales; la llamada al modelo tiene su propio tiempo máximo) y confirmación humana: la única escritura del agente es el borrador en `PENDIENTE_REVISION`; no tiene herramienta ni permiso para aprobar | Límites sin valor o sin razón: sin límite no hay entrega |
 | Herramientas (siete como máximo, ninguna de salida) | `list_patient_weeks`, `get_week_entries`, `get_week_metrics`, `compare_weeks`, `get_symptom_days`, `save_draft` y, solo en el mensual, `get_approved_weekly_reports`. Se afinan y se registran dos versiones de cada descripción en E10 | Una herramienta que devuelva todo el historial: gasta tokens y quita decisiones al agente |
 | Usuario elegido | Cabecera `X-Demo-User` con el id; parámetro `demoUser` solo en la ruta SSE; un filtro lo valida y deja rol e identidad; `/api/demo-users` y `/api/system/status` son públicos | `fetch` en streaming: más código sin ganancia en el Momento 2 (D24 prevé pasar a `fetch` con el token en el Momento 3) |
@@ -169,7 +169,7 @@ Solo hay una tarea: primero se retiran el manifiesto y el workflow, junto con su
 | Variables | `.env.example` lista `DATABASE_URL`, `DB_*`, `GEMINI_API_KEY`, `GROQ_API_KEY`, `LLM_PROVIDER`, `LLM_FALLBACK`, `GEMINI_MODEL`, `GROQ_MODEL`, `LLM_FAULT`, `APP_SEED_DEMO`, `SPRING_PROFILES_ACTIVE` y los puertos del host. Criterio: cada `${VAR}` de los yml y del compose figura en `.env.example` (lo compruebo con un `grep`) | — |
 | Puertos | La base no se publica al host (no puede chocar); el frontend y el backend usan puertos configurables y `run.sh` avisa si están ocupados | Publicar el 5432: choca con cualquier Postgres local, como el de esta máquina |
 | Fallos forzables | **Descartado por el equipo el 2026-10-28: no se construye `LLM_FAULT` ni fallos en vivo.** Propuesta original: `LLM_FAULT` = `none` (por defecto), `timeout`, `rate_limit` o `invalid_output`, leída solo dentro de la capa de proveedor y solo sobre el principal, de modo que el respaldo real entra en vivo. No es un modo simulado: la ruta normal siempre llama al proveedor real. **Lo construyo solo si lo confirmas** (pregunta 5) | Un adaptador de repetición de respuestas: es el modo simulado descartado en D16 |
-| Cambio de proveedor en vivo | `LLM_PROVIDER=groq docker compose up -d backend`, escrito en el README y probado en E8 | — |
+| Cambio de proveedor en vivo | `LLM_PROVIDER=gemini docker compose up -d backend` (el principal por defecto es Groq), escrito en el README y probado en E8 | — |
 | Ejecuciones huérfanas | Al arrancar (`ApplicationReadyEvent`), toda ejecución `EN_COLA` o `EN_CURSO` pasa a `FALLIDA` con «Interrumpida por un reinicio» | Dejarlas en curso: la pantalla esperaría para siempre |
 | Semana en curso | No se puede pedir; solo semanas completas con entradas (propuesta del prompt). «Hoy» se calcula en `America/Bogota` | — |
 | Informes sembrados | Escritos a mano con las cifras que calcula el módulo de métricas y revisados uno por uno; no dependen de la llave. Se archivan como JSON en `backend/src/main/resources/seed/` | Generarlos con el agente: la semilla dependería de que E10 funcione |
@@ -202,6 +202,7 @@ Solo hay una tarea: primero se retiran el manifiesto y el workflow, junto con su
 | 4 | D26 confirmada | `docs/SPEC.md` D26 pasa a «Decidida»; D27 y el §4.4 se preguntan en E9 |
 | 5 | Sin fallos en vivo | No se construye `LLM_FAULT`. Los tres fallos (tiempo agotado, salida inválida, 429 o caída) se verifican con pruebas automáticas con dobles de prueba, no en la demo |
 | 6 | Dependencias aprobadas (cero librerías, imágenes de Docker) y `run.sh` en copia temporal | Sin cambios |
+| 7 (28-oct, por la noche) | **Groq es el proveedor principal y Gemini el de respaldo** | Se invierte la propuesta de D15. Cambian: `SPEC.md` D15, `run.sh` (pide y exige `GROQ_API_KEY`), `.env.example` y el compose (orden), y el diseño de E8: el principal por defecto es Groq y el límite de tokens por minuto de Groq pasa a ser el riesgo del bucle del agente, no del respaldo |
 
 ## 8. Qué se entrega al final
 
@@ -650,3 +651,69 @@ Si W-1 no tiene ninguna entrada, no se puede decir que un síntoma «dejó de es
       Produce: definiciones en `docs/decisiones.md`; estructura de `metrics` en el diccionario si cambia
       Se comprueba: sin contradicciones con RF-07 y RN-04
   > Las definiciones son propuesta: quedan marcadas así en `docs/decisiones.md` para que el equipo las confirme.
+
+---
+
+# E8 — Capa de proveedor del LLM
+
+> **Estado:** cerrada · **EDT:** 7.1 a 7.6 y 1.7 (12,5 h) · **Depende de:** E1 · **Cambio de entrada:** el equipo invirtió el orden el 2026-10-28: **Groq es el principal y Gemini el respaldo**.
+
+## Lo medido con las llaves reales (2026-10-28)
+
+| Dato | Resultado |
+|---|---|
+| Límites de Groq en esta cuenta (encabezados y documentación) | `openai/gpt-oss-120b` y `openai/gpt-oss-20b`: **30 solicitudes/min, 1 000/día, 8 000 tokens/min, 200 000 tokens/día**, cada modelo con su propia cuota. En un 429 llega `retry-after` en segundos |
+| Límites de Gemini | Google no los publica por modelo (solo se ven en la consola de AI Studio). **No verificados**; se tratará el 429 como en Groq |
+| Groq, salida estructurada | Con `json_schema` estricto devuelve el catálogo y los valores correctos; con `json_object` suelto devolvió «dolor de cabeza» y «intensa», fuera del catálogo. Se usa el esquema estricto |
+| Groq, herramientas y razonamiento | Llama a la herramienta con los argumentos correctos. `gpt-oss` gasta tokens en razonar (330 a 536 en una tarea corta); con `reasoning_effort: low` bajó a 7 a 20 |
+| Gemini | `gemini-3.5-flash-lite`: 0,7 s, herramientas y esquema correctos. `gemini-3.8-flash`: un 503 y un tiempo agotado a los 40 s; `gemini-3.5-flash`: 22 s para «ok». Se usa `gemini-3.5-flash-lite` |
+| Respaldo a mitad de un bucle | Gemini responde 400 si una llamada a herramienta del historial no trae firma de pensamiento (porque la hizo otro proveedor); con el valor comodín documentado `skip_thought_signature_validator` funciona |
+| Esquemas | Los dos proveedores aceptan JSON Schema estándar (`response_format` en Groq; `responseJsonSchema` y `parametersJsonSchema` en Gemini): un solo esquema para ambos |
+| Precios de referencia (USD por millón de tokens, entrada/salida) | Groq `gpt-oss-120b` 0,15/0,60; `gpt-oss-20b` 0,075/0,30; Gemini 3.5 Flash-Lite 0,30/2,50 (de pago; la capa gratuita no cobra). El «costo» que se registra es el equivalente a precio de lista |
+
+**Consecuencia para el agente (E10).** El tope de 8 000 tokens por minuto de Groq obliga a que cada llamada del bucle sea pequeña y a que la pasarela espere o conmute en un 429; se vigila en E10.
+
+## Encargo
+
+**En una frase.** Una capa que desacopla el modelo del resto de la aplicación: un puerto, un adaptador de Groq (principal) y uno de Gemini (respaldo) por HTTP sin SDK, selección por configuración, reintentos con espera de 1, 2 y 4 s, conmutación al respaldo, mensajes honestos, validación de la salida con un reintento y registro de proveedor, modelo, tokens y costo.
+
+**Criterio de aceptación.**
+- ¿Una llamada real a Groq y otra a Gemini devuelven JSON que valida contra el esquema, y una llamada con herramientas devuelve la herramienta pedida?
+- ¿Cambiar `LLM_PROVIDER` y `LLM_FALLBACK` cambia el orden de los proveedores sin tocar código, con el procedimiento escrito?
+- ¿Cada uno de los tres fallos se prueba con una prueba automática y se comporta así: 429 o caída reintenta con 1, 2 y 4 s y conmuta; tiempo agotado reintenta y conmuta; salida inválida se corrige una vez y, si vuelve a fallar, avisa para degradar a texto plano?
+- ¿Un fallo llega a quien llama con un mensaje honesto en español, sin rastro de pila ni cuerpo crudo del proveedor?
+- ¿Sin llave de ningún proveedor la aplicación arranca, un endpoint lo dice y una llamada falla con un mensaje claro en vez de un error crudo?
+- ¿Cada llamada deja proveedor, modelo, tokens de entrada y salida, costo, latencia y los intentos (para `agent_runs` y `agent_steps`)?
+
+**Queda fuera.** Fallos forzables en vivo y `LLM_FAULT` (decisión del equipo), las instrucciones y el esquema de cada tarea (E9 y E10), el bucle del agente, voz (Whisper) y cualquier SDK de proveedor.
+
+## Plan
+
+- [x] 1. Contrato de la capa
+      Produce: paquete `llm` con el puerto `LlmClient`, mensajes, herramientas, esquema, respuesta, `LlmException` con sus clases de fallo y mensajes en español, y `LlmProperties`
+      Se comprueba: compila y la configuración enlaza con valores por defecto sin llave
+  > Mensajes, historial y herramientas no llevan nada de un proveedor. `Attempt` y `LlmResult` traen lo que piden `agent_runs` y `agent_steps`.
+- [x] 2. Adaptador de Groq
+      Produce: `GroqClient` (compatible con OpenAI, `json_schema` estricto, herramientas, `reasoning_effort`)
+      Se comprueba: pruebas contra un servidor HTTP local de la JDK: éxito, herramientas, 429 con `retry-after`, 5xx, tiempo agotado real, salida inválida (`json_validate_failed`), llave rechazada
+  > 12 pruebas. El tiempo agotado es real: el servidor tarda 800 ms y el cliente espera 150. Un 413 por exceso de tokens por minuto no se reintenta.
+- [x] 3. Adaptador de Gemini
+      Produce: `GeminiClient` (`generateContent`, firma comodín para historiales de otro proveedor)
+      Se comprueba: las mismas pruebas, más el historial con herramientas sin firma
+  > 11 pruebas. Varias respuestas de herramienta seguidas se agrupan en un turno del usuario, como pide Gemini.
+- [x] 4. Pasarela
+      Produce: `LlmGateway` con reintentos 1, 2 y 4 s (respeta `retry-after` hasta un tope), conmutación, intentos registrados, costo y salida estructurada con un reintento corregido
+      Se comprueba: pruebas con adaptadores de prueba y un reloj falso: cada uno de los tres fallos, sin llave, y los dos proveedores caídos
+  > 23 pruebas. Con 429, caída o tiempo agotado el principal se intenta 4 veces con esperas de 1, 2 y 4 s y luego pasa el respaldo; con `retry-after` de 30 s conmuta sin esperar; con 3 s espera 3 s.
+- [x] 5. Estado y variables
+      Produce: `GET /api/llm/status`, `LLM_PROVIDER`, `LLM_FALLBACK` y los modelos en `application.yml`, `.env.example` y el compose
+      Se comprueba: `scripts/check-env-example.sh`; el endpoint no devuelve llaves; sin llave dice qué falta
+  > 7 pruebas. El `.env.example`, el compose y el `application.yml` quedaron con las mismas variables (24 revisadas por el script).
+- [x] 6. Verificación con llaves reales
+      Produce: una prueba opcional (solo con llave) y la corrida de las llamadas reales por la propia capa
+      Se comprueba: JSON válido de Groq y de Gemini, herramientas, y el cambio de orden por variable
+  > `LlmLiveTest`, 7 de 7 con llamadas reales. Una primera corrida falló: con `gpt-oss-20b` la estructuración omitía «comió poco». Medí 14 de 14 con `gpt-oss-120b` en razonamiento medio y cambié el modelo por defecto. Reinicié el backend con las dos órdenes de proveedor y sin llaves: el estado lo refleja y las llaves no aparecen en los registros.
+- [x] 7. Documentos y cierre
+      Produce: `docs/decisiones.md` (proveedor, modelos, razón, límites, alternativas) y procedimiento de cambio de proveedor
+      Se comprueba: cada cifra con su origen y fecha; lo no verificado, dicho
+  > Quedan escritos el procedimiento de cambio, el riesgo de la cuota compartida y que los límites de Gemini no están verificados.

@@ -121,7 +121,7 @@ skills/               # los cuatro skills del curso: especifica-encargo, planea-
 
 ## PENDIENTE (preguntar al dueño)
 - **Justificación de D9 (stack con Java 17):** el stack está decidido (Spring Boot 3.4, Angular 19 y Java 17, que es LTS y el mínimo de Spring Boot 3.x). Falta escribir en `docs/decisiones.md` por qué se queda en 17 aunque la página de entrega cita 21 (estabilidad, pom, Dockerfile y CI ya en 17) y por qué Spring Boot y Angular: el profesor la va a preguntar.
-- **Proveedor y modelo del LLM (D15)** y su capa de abstracción: aún no hay ninguno. Verificar los modelos vigentes (la página de entrega cita modelos que pueden estar desactualizados) y registrar la justificación en `docs/decisiones.md`.
+- **Proveedor y modelo del LLM (D15):** decidido el 28-oct. Groq es el principal (`openai/gpt-oss-120b`) y Gemini el de respaldo (`gemini-3.5-flash-lite`); la capa y su justificación están en `docs/decisiones.md` (E8). Falta confirmar los límites gratuitos de Gemini, que Google no publica.
 - **Estrategia de datos (D8):** decidida: consulta directa a la BD; RAG solo si se mide que hace falta. Falta escribir `docs/decisiones/semana08.md`; el profesor preguntará por qué RAG o por qué no.
 - **Visibilidad al médico (D6):** el supuesto es que solo ve informes aprobados (el deck lo dice; la descripción inicial decía que también podría revisarlos directamente). Confirmar; si ve borradores, se marcan (ver reglas del producto).
 - **Patrón de integración (D24):** decidido: asíncrono, con eventos de progreso por SSE (SPEC §7). Falta escribir su entrada en `docs/decisiones.md`: el profesor preguntará «¿síncrono o asíncrono, y por qué?».

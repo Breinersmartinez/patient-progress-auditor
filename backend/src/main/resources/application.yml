@@ -28,6 +28,18 @@ app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200}
 
+# Capa de proveedor del LLM (docs/decisiones.md, E8). Las llaves vienen del entorno y nunca llevan valor por defecto.
+llm:
+  primary: ${LLM_PROVIDER:groq}
+  fallback: ${LLM_FALLBACK:gemini}
+  groq:
+    api-key: ${GROQ_API_KEY:}
+    agent-model: ${GROQ_MODEL:openai/gpt-oss-120b}
+    structuring-model: ${GROQ_STRUCTURING_MODEL:openai/gpt-oss-120b}
+  gemini:
+    api-key: ${GEMINI_API_KEY:}
+    model: ${GEMINI_MODEL:gemini-3.5-flash-lite}
+
 server:
   port: ${PORT:8080}
   error:
