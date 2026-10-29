@@ -290,7 +290,7 @@ La versión 1 es la que escribió el modelo y no se toca; cada edición de enfer
 | Clave | Qué contiene | Origen |
 |---|---|---|
 | `summary` | Resumen en lenguaje claro | RF-11, RNF-09 |
-| `metrics` | Las cifras de la semana o del mes, copiadas del módulo de métricas: el validador rechaza el informe si una cifra no coincide | RF-07, RF-13, RN-04 |
+| `metrics` | Las cifras de la semana o del mes, copiadas del módulo de métricas (`WeeklyMetrics`, E7; definiciones en `docs/decisiones.md`): el validador rechaza el informe si una cifra no coincide | RF-07, RF-13, RN-04 |
 | `changes_vs_previous` | Cambios frente a la semana anterior; en el mensual, la evolución semana a semana | RF-11, RF-36 |
 | `recurring_patterns` | Síntomas que reaparecen o persisten | RF-11, OBJ-02 |
 | `insufficient_data` | Semanas, días o entradas sin información suficiente, declarados sin rellenar; incluye las entradas `SIN_ESTRUCTURAR` | RF-14, RF-41, RN-08 |

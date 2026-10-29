@@ -152,7 +152,7 @@ Solo hay una tarea: primero se retiran el manifiesto y el workflow, junto con su
 
 ### Seguimiento
 
-- [x] E1 · [x] E2 · [x] E3 · [x] E4 · [x] E5 · [x] E6 · [ ] E7 · [ ] E8 · [ ] E9 · [ ] E10 · [ ] E11 · [ ] E12a · [ ] E12b · [ ] E14 · [ ] E15
+- [x] E1 · [x] E2 · [x] E3 · [x] E4 · [x] E5 · [x] E6 · [x] E7 · [ ] E8 · [ ] E9 · [ ] E10 · [ ] E11 · [ ] E12a · [ ] E12b · [ ] E14 · [ ] E15
 - [ ] E12c (fuera por decisión del 28-oct) · [ ] E13 (al final, solo si sobra tiempo) · [ ] E16 (fuera)
 
 ## 5. Propuestas del §4.2 del prompt, cerradas para tu aprobación
@@ -602,3 +602,51 @@ El 1: un orden equivocado de filtros deja pasar sin usuario o bloquea la petici�
       Produce: capturas del mockup y de la app a 1280×800 y a 390×844 de las cuatro pantallas, fuera del repositorio; documentos al día
       Se comprueba: diferencias listadas; `mvn -B verify` y `ng test` verdes
   > Con backend real, datos sembrados y `ng serve`. Para ver la tarjeta «Último informe» inserté dos informes a mano en la base desechable y los borré al terminar (la semilla de informes llega en E14). Una diferencia real, la fecha partida en dos líneas en el historial, se corrigió con `nowrap` en la celda. `mvn -B verify`: 69 pruebas, 0 fallos.
+
+---
+
+# E7 — Métricas por semana
+
+> **Estado:** cerrada · **EDT:** 6.1 a 6.3 (6 h) · **Depende de:** E3 (hecha) · **Riesgo del plan maestro:** «reaparecido» sin definición exacta.
+
+## Encargo
+
+**En una frase.** Calcular en código, por paciente y por semana (lunes a domingo), las cifras que el informe va a citar: días con y sin entrada, eventos por síntoma, días con cada síntoma, variación frente a la semana anterior y síntomas nuevos, persistentes, desaparecidos y reaparecidos (RF-07, RN-04).
+
+**Criterio de aceptación.**
+- ¿Las cifras de cada semana de los cinco pacientes sembrados coinciden con las de un cálculo independiente hecho a partir del JSON de la semilla, incluido el síntoma que reaparece en P-014 (náuseas: 2·0·3·0·4 días)?
+- ¿Una semana sin entradas, o con la anterior sin entradas, declara que no se puede comparar en vez de inventar «desaparecidos»?
+- ¿Las entradas `SIN_ESTRUCTURAR` se cuentan aparte, para que el informe las declare (RN-08)?
+- ¿Ninguna cifra la calcula el modelo ni sale de un texto (RN-04), y una fecha que no es lunes se rechaza?
+
+**Definiciones (propuesta, no estaban en ningún documento).** Un síntoma está *presente* en una semana si tiene al menos un evento confirmado en algún día de ella. Frente a la semana anterior W-1:
+- *persistente*: presente en W y en W-1;
+- *desaparecido*: presente en W-1 y no en W;
+- *nuevo*: presente en W, ausente en W-1 y nunca antes en el historial del paciente;
+- *reaparecido*: presente en W, ausente en W-1 y presente en alguna semana anterior a W-1.
+Si W-1 no tiene ninguna entrada, no se puede decir que un síntoma «dejó de estar»: la comparación queda `comparable = false` y las cuatro listas vacías.
+
+**Queda fuera.** Endpoint HTTP (las usan el agente en E10 y los informes en E12; no hay requisito de exponerlas), la lista de semanas con entradas (E10/E12a), el informe mensual (suma semanas ya calculadas) y la intensidad más allá del máximo de la semana.
+
+## Plan
+
+- [x] 1. Cálculo puro
+      Produce: paquete `metrics` con `WeeklyMetrics` (registros) y `MetricsCalculator`, sin base de datos ni reloj
+      Se comprueba: pruebas unitarias con casos pequeños hechos a mano (nuevo, persistente, desaparecido, reaparecido, hueco, no comparable, sin estructurar, lunes)
+  > 12 pruebas, 0 fallos. Un caso extra: dos eventos del mismo síntoma el mismo día son 1 día y 2 eventos.
+- [x] 2. Lectura de datos y servicio
+      Produce: consultas en `EntryEventRepository` y `MetricsService.weekly(patientId, weekStart)`
+      Se comprueba: paciente inexistente y fecha que no es lunes se rechazan
+  > Dos consultas por llamada más una de historial; `weekly` lee la semana y la anterior y los síntomas de antes de ella.
+- [x] 3. Cálculo independiente de referencia
+      Produce: `scripts/expected_metrics.py` (otro lenguaje, lee solo el JSON de la semilla) y su salida como fixture de pruebas
+      Se comprueba: la tabla de P-014 se revisa a ojo contra 2·0·3·0·4
+  > P-014: 2, 0, 3, 0, 4 días con náuseas; «reaparecido» en las semanas 3 y 5 y «desaparecido» en la 2 y la 4. Son 18 semanas-paciente (5, 4, 3, 4 y 2). La primera semana de cada paciente no es comparable.
+- [x] 4. Prueba contra los cinco pacientes
+      Produce: prueba de integración que compara cada semana de cada paciente sembrado con el fixture
+      Se comprueba: 18 semanas-paciente iguales; `mvn -B verify` verde
+  > 5 pruebas de integración, 0 fallos. Comprobé que fallan si se rompe la regla de «reaparecido» (4 fallos) y restauré el código.
+- [x] 5. Documentos y cierre
+      Produce: definiciones en `docs/decisiones.md`; estructura de `metrics` en el diccionario si cambia
+      Se comprueba: sin contradicciones con RF-07 y RN-04
+  > Las definiciones son propuesta: quedan marcadas así en `docs/decisiones.md` para que el equipo las confirme.

@@ -94,6 +94,19 @@
 | En el historial, la fecha de cada fila lleva `white-space: nowrap` dentro de la celda | Hallazgo de F8: con los textos sembrados, más largos que los del mockup, la tabla de ancho automático partía «dom 25» en dos líneas. No se toca el CSS copiado; es un estilo local de la celda | Cambiar `.tabla` en `styles.css` (rompe F1) |
 | `PATIENTS_UPDATE` y `ENTRIES_UPDATE` no se usan todavía | No hay editar paciente ni corregir entrada en el núcleo (RF-03 es M2-S) | — |
 
+## E7 — Métricas por semana (2026-10-28)
+
+| Decisión | Razón | Alternativa descartada |
+|---|---|---|
+| Definiciones de las clases de síntoma, frente a la semana anterior W-1: **persistente** (en W y W-1), **desaparecido** (en W-1 y no en W), **nuevo** (en W, no en W-1 y nunca antes) y **reaparecido** (en W, no en W-1 y sí en alguna semana anterior). Un síntoma «está» en una semana si tiene un evento confirmado en algún día de ella | Ningún documento las definía (era el riesgo de E7). Separan lo que el equipo quiere ver, el síntoma que vuelve tras semanas sin él (OBJ-02), de uno que aparece por primera vez. **Propuesta: el equipo debe confirmarlas.** | Contar «reaparecido» por días sueltos sin síntoma: con un solo día libre casi todo sería «reaparecido» |
+| Si la semana anterior no tiene entradas, la comparación es `comparable = false` y las cuatro listas quedan vacías | Sin entradas no se sabe si el síntoma «dejó de estar» o solo no se registró (RN-08). Inventar un «desaparecido» sería rellenar | Tratar la semana vacía como «sin síntomas» |
+| Las entradas `SIN_ESTRUCTURAR` se cuentan aparte (también las de la semana anterior) y no cuentan como «sin síntomas» | RN-08 y RF-41: el informe debe declararlas. Sus síntomas son desconocidos, no ausentes | Ignorarlas |
+| Por síntoma: `days` (días distintos), `events` (uno por entrada y síntoma), `occurrences` (suma de las veces indicadas; `null` si nadie las indicó) y `maxIntensity` (la mayor indicada; `null` si ninguna) | Dar al informe lo que puede afirmar sin inventar: un `null` es «no indicado», no cero | Rellenar con 0 o con `SIN_INDICAR` |
+| El cálculo es una función pura (`MetricsCalculator`) y la lectura de datos va aparte (`MetricsService`) | Se prueba con casos hechos a mano sin base de datos y el agente y los informes comparten un único cálculo (RN-04) | Mezclar consultas y cálculo |
+| No hay endpoint HTTP de métricas en E7 | Ningún requisito lo pide: lo usan el agente (E10) y los informes (E12). Menos superficie | Exponerlo «por si acaso» |
+| El cálculo de referencia está hecho en Python (`scripts/expected_metrics.py`), con otro método, y su salida es el fixture de la prueba | Si la interpretación de una regla estuviera mal en Java, estaría igual de mal en una prueba escrita por la misma persona y el mismo método. La prueba compara las 18 semanas-paciente; se comprobó que falla si se rompe la regla de «reaparecido» | Escribir las cifras esperadas a mano en la prueba; calcular el esperado con el mismo código |
+| Las fechas son `DATE` de la propia entrada: no hay conversión de zona horaria en las métricas | Evita el riesgo de límites de semana que el plan señalaba: la zona solo interviene al decidir «hoy» | Convertir `created_at` a fecha |
+
 ## Decisiones del equipo (2026-10-28)
 
 | Decisión | Razón | Alternativa descartada |
