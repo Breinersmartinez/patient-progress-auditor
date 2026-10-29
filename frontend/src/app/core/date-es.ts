@@ -46,3 +46,8 @@ export const periodoTxt = (desde: string, hasta: string): string => {
   }
   return `${a.getDate()} de ${MESES[a.getMonth()]} al ${b.getDate()} de ${MESES[b.getMonth()]} de ${b.getFullYear()}`;
 };
+
+// El dia (YYYY-MM-DD) de un instante del servidor, en la zona de la institucion (F7): el navegador no decide que dia es.
+export const bogotaDay = (instant: string): string =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' })
+    .format(new Date(instant));

@@ -5,6 +5,7 @@ import { filter, map, startWith } from 'rxjs';
 
 import { IconComponent } from './core/icon.component';
 import { NURSING_MENU } from './core/menu';
+import { MenuMarkService } from './core/menu-mark.service';
 import { PageTitleService } from './core/page-title.service';
 import { roleLabel } from './core/roles';
 import { SessionService } from './core/session.service';
@@ -23,6 +24,7 @@ export class AppComponent {
   protected readonly toasts = inject(ToastService);
   protected readonly pageTitle = inject(PageTitleService);
   private readonly router = inject(Router);
+  private readonly menuMark = inject(MenuMarkService);
 
   protected readonly menu = NURSING_MENU;
 
@@ -41,7 +43,7 @@ export class AppComponent {
     return this.router.url.split('?')[0];
   });
 
-  protected readonly menuPath = computed(() => (this.navigation()['menu'] as string | undefined) ?? this.currentPath());
+  protected readonly menuPath = computed(() => this.menuMark.path() ?? (this.navigation()['menu'] as string | undefined) ?? this.currentPath());
 
   protected readonly sidebarUser = computed<SidebarUser>(() => {
     const current = this.session.session();

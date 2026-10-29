@@ -152,7 +152,7 @@ Solo hay una tarea: primero se retiran el manifiesto y el workflow, junto con su
 
 ### Seguimiento
 
-- [x] E1 · [x] E2 · [x] E3 · [x] E4 · [x] E5 · [x] E6 · [x] E7 · [x] E8 · [x] E9 · [x] E10 · [x] E11 · [x] E12a · [ ] E12b · [ ] E14 · [ ] E15
+- [x] E1 · [x] E2 · [x] E3 · [x] E4 · [x] E5 · [x] E6 · [x] E7 · [x] E8 · [x] E9 · [x] E10 · [x] E11 · [x] E12a · [x] E12b · [ ] E14 · [ ] E15
 - [ ] E12c (fuera por decisión del 28-oct) · [ ] E13 (al final, solo si sobra tiempo) · [ ] E16 (fuera)
 
 ## 5. Propuestas del §4.2 del prompt, cerradas para tu aprobación
@@ -955,3 +955,63 @@ Si W-1 no tiene ninguna entrada, no se puede decir que un síntoma «dejó de es
       Produce: contrato de la API en este plan y entrada en `docs/decisiones.md`
       Se comprueba: `mvn -B verify`
   > Entrada E12a en `docs/decisiones.md` con el contrato. `mvn -B verify`: ver el reporte de la etapa.
+
+---
+
+# E12b — Informes: pantallas
+
+> **Estado:** cerrada · **EDT:** 9.5 a 9.9 (10 h) · **Depende de:** E12a y E5 (hechas) · **Mockup:** `vInfGenerar`, `vInfLista`, `vInfVer`, `hojaHTML` de `auditor.html` (F8 a 1280×800 y 390×844) · **Diferencias permitidas:** tabla 3.3 y 3.4 del prompt.
+
+## Encargo
+
+**En una frase.** Que enfermería pueda, en el navegador, pedir un informe viendo el progreso real del agente, encontrarlo en «En revisión», leerlo con la evidencia a un clic, corregirlo (texto, criterio y fuentes), aprobarlo o rechazarlo, y ver cómo se generó.
+
+**Criterio de aceptación.**
+- ¿Se recorre en el navegador, con el backend real, generar → revisar → editar → aprobar, y el informe aprobado pasa de «En revisión» a «Aprobados»?
+- ¿Mientras el agente trabaja, la pantalla muestra los pasos reales que llegan por SSE (no una animación) y al terminar redirige al informe?
+- ¿Cada `[n]` del resumen lleva a su fila de «Fuentes» y cada fuente muestra la fecha y el texto original de la entrada y enlaza a la ficha del paciente?
+- ¿«Ver cómo se generó» abre la traza (paso, herramienta, parámetros, resultado, ms, tokens) a un clic?
+- ¿Un informe incompleto muestra su motivo y «Generar de nuevo» y no ofrece aprobar; uno rechazado muestra su motivo?
+- ¿Un error del servidor (422 con campos, 409, 503) se muestra en lenguaje claro junto al campo o en un aviso, nunca como código crudo?
+- ¿F8: la estructura de las tres pantallas coincide con el mockup a 1280 y a 390, y las diferencias son solo de contenido o de las tablas 3.3 y 3.4?
+- ¿`ng test` y `ng build` pasan?
+
+**Queda fuera.** El informe mensual y «Un mes (cuatro semanas)» (E13), la vista del médico (E12c), descargar PDF (RF-37), y la comparación con otros periodos del mockup (RN-06).
+
+## Diseño (resumen)
+
+| Pieza | Decisión |
+|---|---|
+| Servicios | `ReportsService` (lista, detalle, versión, traza, edición, aprobar, rechazar, semanas) y `RunsService` (pedir, estado, seguir por SSE). `EventSource` detrás de una fábrica inyectable para poder probarlo; el usuario va en `?demoUser=` (E4) |
+| `#/enf/informes/generar/:id?` | Paciente, «Período del informe: Una semana», semana (solo las del servidor), línea de comparación (tabla 3.3), botón «Generar con IA»; el progreso es una lista de pasos con `.est--d` y `.dot`. Si la semana ya tiene informe, se abre; si ya se genera, se engancha a esa ejecución |
+| `#/enf/informes/revision` y `aprobados` | `ListingComponent`: Paciente, Período, Generado, Estado. «En revisión» = pendientes; la otra, todo lo demás (aprobados, rechazados e incompletos), como el mockup (`estado !== 'En revisión'`) |
+| `#/enf/informes/ver/:id` | Barra de acciones, hoja (`hojaHTML`) con resumen y `[n]`, cifras, patrón, fuentes, pie; edición (resumen, texto, criterio, fuentes); aprobar; rechazar con motivo; «Ver cómo se generó»; versión de la IA |
+| Cifras | Salen de `content.metrics` (las calculó el código); la tabla compara con la semana anterior usando `vs_previous.days` |
+| Faltantes | `insufficient_data` se escribe como frase sin cita, con su fuente «dom 25: sin registro» (RN-08, sección 3.5) |
+
+## Plan
+
+- [x] 1. Servicios
+      Produce: `reports.service.ts`, `runs.service.ts`, tipos, hora de Bogotá para fechas de creación
+      Se comprueba: pruebas de las llamadas y de seguir una ejecución (pasos, fin, corte)
+  > `ReportsService`, `RunsService` (con `EventSource` detrás de una fábrica) y la fecha de Bogotá. `runs.service.spec` (4): pedir, seguir por SSE, corte con consulta de estado y cierre manual.
+- [x] 2. Generar con progreso
+      Produce: `ReportGenerateComponent` y la ruta
+      Se comprueba: pruebas: semanas, ya existe, progreso, fin → redirige, fallo y semana en curso
+  > 9 pruebas: semanas, pasos reales en orden, fin → abre el informe, ya existe, ya se genera, fallida, incompleta, 503 y sin semanas.
+- [x] 3. Listas
+      Produce: `ReportListComponent` (revisión y aprobados)
+      Se comprueba: filtro por estado, fila navegable, vacío
+  > 3 pruebas: «En revisión» solo pendientes, «Aprobados» el resto, vacío con camino a generar.
+- [x] 4. El informe
+      Produce: `ReportViewComponent` con la hoja, las fuentes a un clic, la traza, aprobar, rechazar y editar
+      Se comprueba: pruebas de cada estado, edición con errores por campo, aprobar y rechazar
+  > 15 pruebas: hoja completa, `[n]` a su fuente, cada estado, aprobar y su 409, rechazar con motivo, edición (formulario, guardar, 422 por campo, cancelar), traza, versión de la IA, texto sin validar y 404.
+- [x] 5. F8
+      Produce: capturas del mockup y de la app, con backend real y llaves reales, a 1280 y 390
+      Se comprueba: diferencias listadas
+  > Con backend y proveedores reales y Chrome por su protocolo de depuración. Estructura igual en las tres pantallas y las listas a 1280 y 390; se corrigieron la traza que se recortaba, el color de los enlaces de las fuentes y la opción del menú marcada.
+- [x] 6. Recorrido real y documentos
+      Produce: generar → editar → aprobar en el navegador real; `docs/decisiones.md`
+      Se comprueba: `ng test`, `ng build`, `mvn -B verify`
+  > Generar → progreso → informe → traza → editar → aprobar, y en otro editar → versión de la IA → rechazar con motivo, todo en el navegador real; la base quedó con la versión 1 del modelo intacta y la 2 de enfermería. `ng test` 105 de 105 y `ng build` verdes (372 kB).

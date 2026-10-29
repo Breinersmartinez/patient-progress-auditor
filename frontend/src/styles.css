@@ -279,6 +279,13 @@
     background: color-mix(in srgb, var(--color-primary) 8%, var(--surface)); margin-bottom: 16px; }
   .aviso .icon { margin-top: 3px; color: var(--color-primary); }
 
+  /* Traza de una ejecucion (RF-22): los resultados son JSON sin espacios; sin esto la tabla se sale y se recorta. */
+  .tabla--traza td, .tabla--traza th { overflow-wrap: anywhere; font-size: 13px; }
+  @media (min-width: 701px) { .tabla--traza { table-layout: fixed; } }
+
+  /* Progreso de la generacion (D24): una fila por paso real de la traza, con el chip denso y el punto del mockup. */
+  .pasos { display: grid; gap: 6px; margin-bottom: 16px; }
+
   .acciones { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
     padding: 12px 0; margin-bottom: 8px; background: var(--bg); }
   .acciones .izq { margin-right: auto; display: grid; gap: 2px; }
@@ -301,6 +308,7 @@
   .hoja .nota { font-size: 12px; color: #5F5E5A; margin-top: 6px; }
   .hoja ol { padding-left: 0; list-style: none; font-size: 13px; margin: 0; }
   .hoja ol li { margin-bottom: 4px; }
+  .hoja ol a { color: inherit; cursor: pointer; }
   .hoja .pie { margin-top: 32px; padding-top: 12px; border-top: 1px solid var(--divider); font-size: 13px; color: #5F5E5A; display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
   [contenteditable="true"] { outline: 2px dashed var(--color-primary); outline-offset: 2px; }
 
