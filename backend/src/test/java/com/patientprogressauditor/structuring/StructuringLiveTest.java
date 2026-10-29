@@ -43,7 +43,7 @@ class StructuringLiveTest {
                 StructuringPrompt.schema(MAPPER), null, p.getStructuringBudget());
         StructuredResult result = gateway.structured(request, StructuringPrompt::problems);
         assertThat(result.result().provider()).as("proveedor que respondió").isEqualTo(primary);
-        return StructuringPrompt.proposals(result.json());
+        return StructuringPrompt.screen(result.json(), note).kept();
     }
 
     private static void everyProvider(String note, List<EventProposal> expected) {

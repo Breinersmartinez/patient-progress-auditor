@@ -182,6 +182,63 @@ class EntryConfirmApiTest {
                 Integer.class, patient)).isZero();
     }
 
+    // --- sintomas fuera del catalogo (E18) ---
+
+    @Test
+    void anOpenSymptomTypedByHandIsSavedWithItsLabelAndListedLikeTheOthers() throws Exception {
+        confirm(NURSE, """
+                {"entryDate":"2026-10-27","body":"Le duele la garganta y tiene picazón.","events":[
+                  {"symptom":"dolor de garganta","intensity":"MODERADO","occurrences":null,"origin":"MANUAL"},
+                  {"symptom":"OTRO","label":"picazón en los brazos","origin":"IA"},
+                  {"symptom":"FIEBRE","label":"lo que sea","origin":"MANUAL"}]}""")
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.symptoms.length()").value(3))
+                .andExpect(jsonPath("$.symptoms[0].symptom").value("DOLOR_DE_GARGANTA"))
+                .andExpect(jsonPath("$.symptoms[0].label").value("Dolor de garganta"))
+                .andExpect(jsonPath("$.symptoms[1].symptom").value("FIEBRE"))
+                .andExpect(jsonPath("$.symptoms[1].label").value("Fiebre"))
+                .andExpect(jsonPath("$.symptoms[2].symptom").value("PICAZON_EN_LOS_BRAZOS"));
+
+        List<java.util.Map<String, Object>> rows = jdbc.queryForList("""
+                SELECT symptom, symptom_label, origin, confirmed_by FROM entry_events
+                WHERE entry_id = (SELECT id FROM entries WHERE patient_id = ?) ORDER BY symptom""", patient);
+        assertThat(rows).extracting(r -> r.get("symptom")).containsExactly("DOLOR_DE_GARGANTA", "FIEBRE", "PICAZON_EN_LOS_BRAZOS");
+        assertThat(rows).extracting(r -> r.get("symptom_label")).containsExactly("Dolor de garganta", null, "Picazón en los brazos");
+        assertThat(rows).allSatisfy(r -> assertThat(r.get("confirmed_by").toString()).isEqualTo(NURSE));
+        mockMvc.perform(get("/api/patients/" + patient + "/entries").header("X-Demo-User", NURSE))
+                .andExpect(jsonPath("$[0].symptoms[0].label").value("Dolor de garganta"));
+    }
+
+    @Test
+    void theSameOpenSymptomTwiceOrOneThatIsTheCatalogOneAreRejectedAsRepeated() throws Exception {
+        String base = "{\"entryDate\":\"2026-10-27\",\"body\":\"Texto\",\"events\":[";
+
+        confirm(NURSE, base + "{\"symptom\":\"tos seca\"},{\"symptom\":\"Tos  Seca\"}]}")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fields.events").value("Hay un síntoma repetido. Déjelo una sola vez."));
+        confirm(NURSE, base + "{\"symptom\":\"MAREO\"},{\"symptom\":\"mareo\"}]}").andExpect(status().isBadRequest());
+        confirm(NURSE, base + "{\"symptom\":\"<script>\"}]}").andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void anOpenSymptomIsProposedWithItsLabelOnlyWhenTheNoteBacksIt() throws Exception {
+        modelAnswers("""
+                {"events":[{"symptom":"OTRO","label":"dolor de garganta","evidence":"le duele la garganta","intensity":"LEVE","occurrences":null},
+                           {"symptom":"OTRO","label":"picazón","evidence":"se rasca todo el día","intensity":"SIN_INDICAR","occurrences":null},
+                           {"symptom":"FIEBRE","label":null,"evidence":"fiebre","intensity":"SIN_INDICAR","occurrences":null}]}""");
+
+        propose(NURSE, "Le duele la garganta, leve. Tuvo fiebre.")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.events.length()").value(2))
+                .andExpect(jsonPath("$.events[0].symptom").value("DOLOR_DE_GARGANTA"))
+                .andExpect(jsonPath("$.events[0].label").value("Dolor de garganta"))
+                .andExpect(jsonPath("$.events[0].intensity").value("LEVE"))
+                .andExpect(jsonPath("$.events[1].symptom").value("FIEBRE"));
+        // la traza dice que se descarto y por que (no se esconde)
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM agent_steps WHERE message LIKE 'Se descartaron síntomas propuestos sin respaldo%'",
+                Integer.class)).isEqualTo(1);
+    }
+
     @Test
     void aMissingIntensityDefaultsToNotIndicated() throws Exception {
         confirm(NURSE, "{\"entryDate\":\"2026-10-27\",\"body\":\"Fiebre.\",\"events\":[{\"symptom\":\"FIEBRE\",\"origin\":\"MANUAL\"}]}")
@@ -194,9 +251,9 @@ class EntryConfirmApiTest {
         int entries = count("entries");
         String base = "{\"entryDate\":\"2026-10-27\",\"body\":\"Texto\",\"events\":[";
 
-        confirm(NURSE, base + "{\"symptom\":\"DIARREA\",\"origin\":\"IA\"},{\"symptom\":\"dolor de pecho\",\"origin\":\"MANUAL\"}]}")
+        confirm(NURSE, base + "{\"symptom\":\"DIARREA\",\"origin\":\"IA\"},{\"symptom\":\"12345\",\"origin\":\"MANUAL\"}]}")
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.fields.events").value("Elija un síntoma de la lista."));
+                .andExpect(jsonPath("$.fields.events").value("Escriba el nombre del síntoma con letras (hasta 60 caracteres)."));
         confirm(NURSE, base + "{\"symptom\":\"DIARREA\"},{\"symptom\":\"DIARREA\"}]}")
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.fields.events").value("Hay un síntoma repetido. Déjelo una sola vez."));

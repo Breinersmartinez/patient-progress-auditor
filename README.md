@@ -114,7 +114,7 @@ Fechas fijas: los registros terminan el domingo 25-oct-2026 y el reloj de la apl
 
 ### Recorrido de 5 minutos (necesita llave, ver §3)
 
-1. Elija **Marcela Rojas**. En **Nuevo registro diario**, elija un paciente, escriba por ejemplo `Hoy vomitó dos veces, dolor de cabeza leve, no tuvo fiebre.`, pulse **Enviar** y revise los eventos que sugiere la IA (síntoma, intensidad, veces). Nada se guarda hasta pulsar **Aprobar y guardar**; **Descartar** cierra la vista previa sin guardar.
+1. Elija **Marcela Rojas**. En **Nuevo registro diario**, elija un paciente, escriba por ejemplo `Hoy vomitó dos veces, dolor de cabeza leve, no tuvo fiebre.`, pulse **Enviar** y revise los eventos que sugiere la IA (síntoma, intensidad, veces). Nada se guarda hasta pulsar **Aprobar y guardar**; **Descartar** cierra la vista previa sin guardar. No hay lista cerrada de síntomas: pruebe también `Le duele la garganta y tiene tos seca. Sin dolor de cabeza.` y verá «Dolor de garganta» y «Tos seca» como síntomas propuestos (con la frase de la nota que los respalda), o escriba cualquier síntoma a mano con **Agregar síntoma**.
 2. En **Generar informe**, elija **P-014**, la semana del **19-oct** y pulse **Generar con IA**. La pantalla muestra los pasos reales del agente a medida que ocurren (consulta de registros, métricas, validación). No bloquea la página: la ejecución corre en segundo plano.
 3. Se abre el informe pendiente de revisión. Cada afirmación lleva un número `[n]` que lleva al registro original (fecha y texto) y el criterio de comparación; **Ver cómo se generó** muestra la herramienta, los parámetros, el resultado, los milisegundos y los tokens de cada paso.
 4. **Editar** (crea la versión 2; la versión 1 de la IA no se toca), **Rechazar** (con motivo) o **Aprobar informe**. Solo un informe aprobado llega al médico.
@@ -229,21 +229,21 @@ Decisiones que el profesor suele preguntar (todas con su razón y la alternativa
 Las pruebas del backend usan un PostgreSQL real y lo modifican: use una base desechable, no la de la aplicación.
 
 ```bash
-# Backend (313 pruebas): necesita un PostgreSQL 16 accesible y Java 17 + Maven en la máquina
+# Backend (350 pruebas): necesita un PostgreSQL 16 accesible y Java 17 + Maven en la máquina
 docker run -d --name ppa-test-pg -e POSTGRES_DB=patient_auditor -e POSTGRES_USER=patient_auditor \
   -e POSTGRES_PASSWORD=prueba -p 55432:5432 postgres:16.15-alpine
 cd backend && SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:55432/patient_auditor \
   SPRING_DATASOURCE_USERNAME=patient_auditor SPRING_DATASOURCE_PASSWORD=prueba mvn -B verify
 
-# Frontend (113 pruebas): Node 20 y Chrome
+# Frontend (121 pruebas): Node 20 y Chrome
 cd frontend && npm ci && npx ng test --watch=false --browsers=ChromeHeadless
 
-# Variables documentadas, y las 29 pruebas de la propia evaluación
+# Variables documentadas, y las 31 pruebas de la propia evaluación
 scripts/check-env-example.sh
 python3 -m unittest discover -s eval
 ```
 
-**Evaluación del agente (`eval/`)**: 8 casos dorados de informes semanales (con un rechazo, una inyección y datos insuficientes), 3 del informe mensual y 16 de estructuración, verificados a mano. Un comando corre todo contra la aplicación levantada y escribe un resultado con fecha:
+**Evaluación del agente (`eval/`)**: 8 casos dorados de informes semanales (con un rechazo, una inyección y datos insuficientes), 3 del informe mensual y 24 de estructuración (8 con síntomas fuera del catálogo), verificados a mano. Un comando corre todo contra la aplicación levantada y escribe un resultado con fecha:
 
 ```bash
 python3 eval/run_eval.py                    # contra la app en :8080 (gasta cuota de la llave)

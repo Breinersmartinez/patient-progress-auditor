@@ -145,7 +145,7 @@ class ReadToolsTest {
                 .isInstanceOf(ToolException.class).hasMessageContaining("AAAA-MM-DD");
         assertThatThrownBy(() -> weekMetrics.execute(ctx, args("{}"))).isInstanceOf(ToolException.class);
         assertThatThrownBy(() -> history.execute(ctx, args("{\"symptom\":\"dolor de pecho\",\"weeks_back\":2}")))
-                .isInstanceOf(ToolException.class).hasMessageContaining("DOLOR_CABEZA");
+                .isInstanceOf(ToolException.class).hasMessageContaining("no es un síntoma registrado para este paciente");
         assertThatThrownBy(() -> history.execute(ctx, args("{\"symptom\":\"VOMITO\",\"weeks_back\":9}")))
                 .isInstanceOf(ToolException.class).hasMessageContaining("entre 1 y 8");
     }

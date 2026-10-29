@@ -20,6 +20,8 @@ export interface Entry {
 // Lo que propone el modelo. Todavía no es un evento: lo es cuando la persona lo confirma (RN-11).
 export interface ProposedEvent {
   symptom: string;
+  // El nombre legible; en un síntoma fuera del catálogo es lo único que lo nombra bien.
+  label?: string;
   intensity: string;
   occurrences?: number;
 }
@@ -37,6 +39,8 @@ export interface Proposal {
 // Un síntoma que la persona confirma al guardar. `origin`: IA tal cual, EDITADO si lo cambió, MANUAL si lo agregó.
 export interface ConfirmedEvent {
   symptom: string;
+  // Solo para un síntoma fuera del catálogo: como lo escribió la persona. El servidor calcula el código de él.
+  label?: string;
   intensity: string;
   occurrences: number | null;
   origin: 'IA' | 'EDITADO' | 'MANUAL';

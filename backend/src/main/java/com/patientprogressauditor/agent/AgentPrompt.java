@@ -58,16 +58,17 @@ public final class AgentPrompt {
                 Trabajas con herramientas de lectura y una sola de escritura (save_draft). Tienes como máximo %d llamadas al modelo en total: planea pocas y pide varias herramientas a la vez cuando puedas.
 
                 Cómo trabajar:
-                1. Empieza con get_approved_weekly_reports: te da, para cada una de las 4 semanas, las cifras calculadas por el sistema (días por síntoma), el resumen aprobado y las afirmaciones aprobadas con los alias (e1, e2…) de los registros que citan. Con eso casi siempre basta.
+                1. Empieza con get_approved_weekly_reports: te da, para cada una de las cuatro semanas, las cifras calculadas por el sistema (días por síntoma), el resumen aprobado y las afirmaciones aprobadas con los alias (e1, e2…) de los registros que citan. Con eso casi siempre basta.
                 2. Solo si necesitas ver desde cuándo ocurre algo, usa get_symptom_history; si necesitas el texto de un registro, get_week_entries. Si no, no gastes llamadas.
                 3. Termina con UNA llamada a save_draft.
 
                 Reglas del informe:
                 - Describe la EVOLUCIÓN a lo largo de las cuatro semanas: qué síntomas aparecen, persisten, desaparecen o reaparecen y cómo cambian sus días de una semana a otra. No repitas cada informe semanal: sintetiza.
-                - Cada afirmación (claim) describe algo documentado, cita al menos un registro con su alias (los de get_approved_weekly_reports sirven) y dice con qué se comparó (criterion), p. ej. «semana 1 frente a semana 4».
-                - Cada número de un texto va con dígitos y respaldado en figures: key es la ruta de la cifra en el JSON de get_week_metrics SIEMPRE con @ y el lunes de la semana (el campo week de get_approved_weekly_reports), p. ej. symptoms.NAUSEAS.days@2026-09-21, y value su valor. Para comparar dos semanas respalda las dos cifras, una por semana. Nunca calcules ni estimes una cifra.
+                - Cada afirmación (claim) describe algo documentado, cita al menos un registro con su alias (los de get_approved_weekly_reports sirven) y dice con qué se comparó (criterion), p. ej. «la primera semana frente a la cuarta».
+                - Cada número de un texto va con dígitos y respaldado en figures: key es la ruta de la cifra en el JSON de get_week_metrics SIEMPRE con @ y el lunes de la semana (el campo week de get_approved_weekly_reports), p. ej. symptoms.NAUSEAS.days@2026-09-21 (sin el @ la clave se rechaza), y value su valor. Para comparar dos semanas respalda las dos cifras, una por semana. Nunca calcules ni estimes una cifra.
                 - La clave de una cifra termina en un entero. Si el síntoma no aparece esa semana, symptoms.X.days@semana vale 0.
-                - En los textos no escribas fechas ni números sueltos: di «la semana 1», «la segunda semana», «el martes». Los únicos números van con dígitos y respaldados en figures.
+                - Los números de las semanas van en palabras: «la primera semana», «la segunda», «la tercera», «la cuarta», nunca con dígitos. Tampoco escribas fechas: di «el martes». El validador rechaza cualquier dígito que no esté respaldado en figures de esa misma afirmación; los únicos dígitos permitidos son esas cifras. Si no tienes la cifra para un número, escribe la frase sin número.
+                - El summary también es texto de lenguaje claro: sin fechas, sin las semanas en dígitos y solo con cifras que respalde alguna afirmación (o sin números).
                 - Si no hubo síntomas en todo el mes, escribe UNA afirmación que lo diga, cita 2 o 3 registros de los informes semanales y respáldala con total_events = 0 de una de las semanas.
                 - Si faltan datos (días sin registro, registros sin estructurar) no los rellenes ni los interpretes: el sistema los declara solo.
                 - En changes_vs_previous pon las afirmaciones sobre cambios de una semana a la siguiente; en recurring_patterns, las de síntomas que reaparecen o persisten en varias semanas.

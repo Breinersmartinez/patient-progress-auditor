@@ -206,8 +206,8 @@ public final class ReadTools {
         public ToolSpec spec(DescriptionVersion version) {
             ObjectNode schema = mapper.createObjectNode().put("type", "object");
             ObjectNode props = schema.putObject("properties");
-            ArrayNode names = props.putObject("symptom").put("type", "string").putArray("enum");
-            Stream.of(Symptom.values()).forEach(s -> names.add(s.name()));
+            props.putObject("symptom").put("type", "string").put("description",
+                    "Código del síntoma tal como sale en get_week_metrics (p. ej. NAUSEAS, VOMITO, DOLOR_GARGANTA)");
             props.putObject("weeks_back").put("type", "integer").put("minimum", 1).put("maximum", MAX_WEEKS_BACK)
                     .put("description", "Cuántas semanas mirar, contando la del informe (1 a 8)");
             schema.putArray("required").add("symptom").add("weeks_back");
@@ -218,9 +218,15 @@ public final class ReadTools {
         @Override
         public String execute(AgentRunContext context, JsonNode arguments) {
             String raw = arguments.path("symptom").asText("");
-            Symptom symptom = Stream.of(Symptom.values()).filter(s -> s.name().equalsIgnoreCase(raw.trim())).findFirst()
-                    .orElseThrow(() -> new ToolException("symptom debe ser uno de: "
-                            + Stream.of(Symptom.values()).map(Enum::name).collect(Collectors.joining(", ")) + "."));
+            String code = Symptom.codeOf(raw);
+            if (code.length() < 2 || code.length() > Symptom.MAX_CODE) {
+                throw new ToolException("symptom debe ser el código de un síntoma, como sale en get_week_metrics (p. ej. NAUSEAS, DOLOR_GARGANTA).");
+            }
+            if (!Symptom.isCatalog(code) && !events.recordedFor(context.patientId(), code)) {
+                throw new ToolException("«" + raw.trim() + "» no es un síntoma registrado para este paciente. Use el código tal como sale en get_week_metrics; "
+                        + "este paciente tiene registrados: " + String.join(", ", new java.util.TreeSet<>(
+                                events.findSymptomCodesBefore(context.patientId(), context.weekEnd().plusDays(1)))) + ".");
+            }
             int back = arguments.path("weeks_back").asInt(4);
             if (back < 1 || back > MAX_WEEKS_BACK) {
                 throw new ToolException("weeks_back debe estar entre 1 y " + MAX_WEEKS_BACK + ".");
@@ -231,7 +237,7 @@ public final class ReadTools {
                 perWeek.put(w, new ArrayList<>());
             }
             events.findRows(context.patientId(), first, context.weekEnd()).stream()
-                    .filter(r -> r.getSymptom() == symptom)
+                    .filter(r -> r.getSymptomCode().equals(code))
                     .sorted(java.util.Comparator.comparing(r -> r.getEntryDate()))
                     .forEach(r -> {
                         ObjectNode node = mapper.createObjectNode();
@@ -243,7 +249,7 @@ public final class ReadTools {
                         }
                         perWeek.get(r.getEntryDate().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))).add(node);
                     });
-            ObjectNode out = mapper.createObjectNode().put("symptom", symptom.name());
+            ObjectNode out = mapper.createObjectNode().put("symptom", code);
             ArrayNode weeks = out.putArray("weeks");
             perWeek.forEach((week, nodes) -> {
                 ObjectNode w = weeks.addObject().put("week", week.toString());

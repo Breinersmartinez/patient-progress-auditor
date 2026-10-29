@@ -6,7 +6,6 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -38,13 +37,13 @@ public class EntryService {
     private static final LocalDate FIRST_DAY = LocalDate.of(1900, 1, 1);
     private static final LocalDate LAST_DAY = LocalDate.of(9999, 12, 31);
 
-    public record SymptomView(String symptom, String intensity, Short occurrences) {
+    public record SymptomView(String symptom, String intensity, Short occurrences, String label) {
     }
 
     // `body` es el texto tal como se escribio: la fuente que citan los informes (RN-05, RN-07).
     // Un evento que la persona confirmo al guardar. `origin`: IA (tal como lo propuso el modelo), EDITADO (lo cambio) o
     // MANUAL (lo agrego ella). Lo informa la pantalla; no es un control de seguridad (D26).
-    public record ConfirmedEvent(String symptom, String intensity, Integer occurrences, String origin) {
+    public record ConfirmedEvent(String symptom, String intensity, Integer occurrences, String origin, String label) {
     }
 
     public record EntryView(UUID id, UUID patientId, String patientAlias, LocalDate entryDate, String body,
@@ -91,20 +90,38 @@ public class EntryService {
         events.saveAllAndFlush(confirmed);
         return new EntryView(entry.getId(), patientId, patient.getAlias(), entryDate, body, principal.displayName(),
                 entry.getStructuringStatus().name(), entry.getCreatedAt(),
-                confirmed.stream().sorted(Comparator.comparing(e -> e.getSymptom().name()))
-                        .map(e -> new SymptomView(e.getSymptom().name(), e.getIntensity().name(), e.getOccurrences())).toList());
+                confirmed.stream().sorted(Comparator.comparing(EntryService::byCode)).map(EntryService::view).toList());
     }
 
-    // Valida lo que la persona confirma contra el catalogo cerrado (D18) y deja quien lo confirmo y cuando.
+    // El orden de siempre: alfabetico por codigo.
+    private static String byCode(EntryEvent e) {
+        return e.getSymptom().code();
+    }
+
+    private static SymptomView view(EntryEvent e) {
+        return new SymptomView(e.getSymptom().name(), e.getIntensity().name(), e.getOccurrences(), e.getSymptom().label());
+    }
+
+    // El sintoma que la persona confirma: uno del catalogo por su codigo, o cualquier otro por su nombre escrito (E18). El
+    // codigo de uno nuevo lo calcula el servidor del nombre, no se confia en el que mande el cliente.
+    private static Symptom symptomOf(ConfirmedEvent requested) {
+        String code = requested.symptom() == null ? "" : requested.symptom().trim();
+        if (Symptom.isCatalog(code)) {
+            return Symptom.of(code, null);
+        }
+        String typed = requested.label() != null && !requested.label().isBlank() ? requested.label() : code;
+        return Symptom.fromTyped(typed).orElseThrow(() -> new FieldException(HttpStatus.BAD_REQUEST, "events",
+                "Escriba el nombre del síntoma con letras (hasta " + Symptom.MAX_LABEL + " caracteres)."));
+    }
+
+    // Valida lo que la persona confirma y deja quien lo confirmo y cuando. Un sintoma puede ser cualquiera con forma de sintoma (E18).
+    
     private List<EntryEvent> toEvents(List<ConfirmedEvent> requested, DemoPrincipal principal) {
         List<EntryEvent> out = new ArrayList<>();
-        Set<Symptom> seen = EnumSet.noneOf(Symptom.class);
+        Set<Symptom> seen = new java.util.HashSet<>();
         Instant now = clock.instant();
         for (ConfirmedEvent requestedEvent : requested) {
-            Symptom symptom = parse(Symptom.class, requestedEvent.symptom());
-            if (symptom == null) {
-                throw new FieldException(HttpStatus.BAD_REQUEST, "events", "Elija un síntoma de la lista.");
-            }
+            Symptom symptom = symptomOf(requestedEvent);
             if (!seen.add(symptom)) {
                 throw new FieldException(HttpStatus.BAD_REQUEST, "events", "Hay un síntoma repetido. Déjelo una sola vez.");
             }
@@ -170,10 +187,8 @@ public class EntryService {
     private List<EntryView> views(List<Entry> found, Map<UUID, Patient> patientsById) {
         Collection<UUID> ids = found.stream().map(Entry::getId).toList();
         Map<UUID, List<SymptomView>> symptoms = ids.isEmpty() ? Map.of() : events.findByEntryIdIn(ids).stream()
-                .sorted(Comparator.comparing(e -> e.getSymptom().name()))
-                .collect(Collectors.groupingBy(EntryEvent::getEntryId, Collectors.mapping(
-                        e -> new SymptomView(e.getSymptom().name(), e.getIntensity().name(), e.getOccurrences()),
-                        Collectors.toList())));
+                .sorted(Comparator.comparing(EntryService::byCode))
+                .collect(Collectors.groupingBy(EntryEvent::getEntryId, Collectors.mapping(EntryService::view, Collectors.toList())));
         Map<UUID, String> authors = users.findAllById(found.stream().map(Entry::getAuthorId).collect(Collectors.toSet()))
                 .stream().collect(Collectors.toMap(AppUser::getId, AppUser::getDisplayName));
         return found.stream().map(e -> new EntryView(e.getId(), e.getPatientId(), patientsById.get(e.getPatientId()).getAlias(),

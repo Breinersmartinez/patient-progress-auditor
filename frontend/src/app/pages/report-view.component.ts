@@ -7,7 +7,7 @@ import { EntriesService } from '../core/entries.service';
 import { IconComponent } from '../core/icon.component';
 import { MenuMarkService } from '../core/menu-mark.service';
 import { Claim, CitedEntry, MonthlyMetrics, ReportContent, ReportDetail, ReportMetrics, ReportsService, TraceStep, VersionView } from '../core/reports.service';
-import { SYMPTOM_LABELS } from '../core/symptoms';
+import { symptomName } from '../core/symptoms';
 import { ToastService } from '../core/toast.service';
 import { EmptyStateComponent } from '../ui/empty-state.component';
 import { ProcessButtonComponent } from '../ui/process-button.component';
@@ -355,7 +355,7 @@ export class ReportViewComponent implements OnInit, OnDestroy {
     return [
       { name: 'Registros', cells: weeks.map((week) => String(week.entries)) },
       ...names.map((code) => ({
-        name: SYMPTOM_LABELS[code] ?? code,
+        name: symptomName(code, weeks.map((week) => week.symptoms[code]?.label).find(Boolean)),
         cells: weeks.map((week) => days(week.symptoms[code]?.days ?? 0)),
       })),
     ];
@@ -374,7 +374,7 @@ export class ReportViewComponent implements OnInit, OnDestroy {
         const now = m.symptoms[code];
         const times = now?.occurrences && now.occurrences > now.days ? `, ${now.occurrences} veces` : '';
         return {
-          name: SYMPTOM_LABELS[code] ?? code,
+          name: symptomName(code, now?.label),
           previous: comparable ? days(m.vs_previous.days[code]?.[0] ?? 0) : 'Sin datos',
           current: now && now.days > 0 ? days(now.days) + times : 'No registrado',
         };

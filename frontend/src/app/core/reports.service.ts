@@ -30,6 +30,8 @@ export interface Claim {
 }
 
 export interface SymptomMetric {
+  // Solo en un síntoma fuera del catálogo.
+  label?: string;
   days: number;
   dates: string[];
   events: number;

@@ -1,0 +1,1095 @@
+{
+ "date": "2026-10-29T12:09:10",
+ "nota": "E18. Sistema real, un solo proveedor (Groq: la llave de Gemini del .env estaba vacia), 2 repeticiones por caso. SOLO estan los casos S1-S11 y S13-S15 (los que se contestaron): desde S16 el limite diario de Groq (200 000 tokens por dia por modelo) se agoto y las llamadas fallaron con 429 sin respaldo; esas llamadas NO se cuentan. Los casos S12 y S16-S24 (los nuevos, de sintomas fuera del catalogo) quedan sin medir con la version final del codigo.",
+ "casos_no_medidos_con_la_version_final": [
+  "S12-lista-cerrada",
+  "S16-desanimada",
+  "S17-abierto-garganta",
+  "S18-abierto-con-detalles",
+  "S19-dos-abiertos-y-uno-del-catalogo",
+  "S20-negacion-de-abiertos",
+  "S21-diagnostico-medicamento-signos",
+  "S22-inyeccion-con-sintoma-inventado",
+  "S23-abierto-y-parafrasis-del-catalogo",
+  "S24-abierto-con-leve-y-una-vez"
+ ],
+ "structuring_system": {
+  "figures": {
+   "n": 28,
+   "exact": 28,
+   "exact_rate": 1.0,
+   "false_positives": 0,
+   "missed": 0,
+   "details_ok": 16,
+   "details_asked": 16,
+   "failed_calls": 0,
+   "median_latency_s": 1.1356187030032743,
+   "median_cost_usd": 0.00031150000000000004
+  },
+  "records": [
+   {
+    "case": "S1-ejemplo-del-prompt",
+    "latency_s": 9.206682064992492,
+    "proposed": [
+     {
+      "symptom": "VOMITO",
+      "intensity": "SIN_INDICAR",
+      "occurrences": 2,
+      "label": "Vómito"
+     },
+     {
+      "symptom": "DIARREA",
+      "intensity": "INTENSO",
+      "label": "Diarrea"
+     },
+     {
+      "symptom": "ANIMO_DECAIDO",
+      "intensity": "SIN_INDICAR",
+      "label": "Ánimo decaído"
+     }
+    ],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 2,
+     "details_ok": 2
+    },
+    "cost_usd": 0.000477,
+    "tokens": 1591
+   },
+   {
+    "case": "S1-ejemplo-del-prompt",
+    "latency_s": 1.7268237539974507,
+    "proposed": [
+     {
+      "symptom": "VOMITO",
+      "intensity": "SIN_INDICAR",
+      "occurrences": 2,
+      "label": "Vómito"
+     },
+     {
+      "symptom": "DIARREA",
+      "intensity": "INTENSO",
+      "label": "Diarrea"
+     },
+     {
+      "symptom": "ANIMO_DECAIDO",
+      "intensity": "SIN_INDICAR",
+      "label": "Ánimo decaído"
+     }
+    ],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 2,
+     "details_ok": 2
+    },
+    "cost_usd": 0.000428,
+    "tokens": 1509
+   },
+   {
+    "case": "S2-negacion",
+    "latency_s": 1.938602936003008,
+    "proposed": [],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "cost_usd": 0.000228,
+    "tokens": 1173
+   },
+   {
+    "case": "S2-negacion",
+    "latency_s": 1.0493252570013283,
+    "proposed": [],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "cost_usd": 0.000228,
+    "tokens": 1173
+   },
+   {
+    "case": "S3-sin-sintomas",
+    "latency_s": 0.9761074840062065,
+    "proposed": [],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "cost_usd": 0.000211,
+    "tokens": 1144
+   },
+   {
+    "case": "S3-sin-sintomas",
+    "latency_s": 0.7246707269951003,
+    "proposed": [],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "cost_usd": 0.000211,
+    "tokens": 1144
+   },
+   {
+    "case": "S4-negacion-y-sintoma",
+    "latency_s": 1.0106797390035354,
+    "proposed": [
+     {
+      "symptom": "NAUSEAS",
+      "intensity": "LEVE",
+      "label": "Náuseas"
+     }
+    ],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 1,
+     "details_ok": 1
+    },
+    "cost_usd": 0.0003,
+    "tokens": 1294
+   },
+   {
+    "case": "S4-negacion-y-sintoma",
+    "latency_s": 1.0792223690077662,
+    "proposed": [
+     {
+      "symptom": "NAUSEAS",
+      "intensity": "LEVE",
+      "label": "Náuseas"
+     }
+    ],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 1,
+     "details_ok": 1
+    },
+    "cost_usd": 0.000377,
+    "tokens": 1806
+   },
+   {
+    "case": "S5-intensidad-moderada",
+    "latency_s": 1.4842155020014616,
+    "proposed": [
+     {
+      "symptom": "DOLOR_HUESO",
+      "intensity": "MODERADO",
+      "label": "Dolor de hueso"
+     },
+     {
+      "symptom": "MAREO",
+      "intensity": "SIN_INDICAR",
+      "label": "Mareo"
+     }
+    ],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 1,
+     "details_ok": 1
+    },
+    "cost_usd": 0.000455,
+    "tokens": 1554
+   },
+   {
+    "case": "S5-intensidad-moderada",
+    "latency_s": 1.1969689419929637,
+    "proposed": [
+     {
+      "symptom": "DOLOR_HUESO",
+      "intensity": "MODERADO",
+      "label": "Dolor de hueso"
+     },
+     {
+      "symptom": "MAREO",
+      "intensity": "SIN_INDICAR",
+      "label": "Mareo"
+     }
+    ],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 1,
+     "details_ok": 1
+    },
+    "cost_usd": 0.000298,
+    "tokens": 1293
+   },
+   {
+    "case": "S6-veces",
+    "latency_s": 0.9367952629982028,
+    "proposed": [
+     {
+      "symptom": "VOMITO",
+      "intensity": "SIN_INDICAR",
+      "occurrences": 3,
+      "label": "Vómito"
+     }
+    ],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 1,
+     "details_ok": 1
+    },
+    "cost_usd": 0.000298,
+    "tokens": 1287
+   },
+   {
+    "case": "S6-veces",
+    "latency_s": 1.0346380550035974,
+    "proposed": [
+     {
+      "symptom": "VOMITO",
+      "intensity": "SIN_INDICAR",
+      "occurrences": 3,
+      "label": "Vómito"
+     }
+    ],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 1,
+     "details_ok": 1
+    },
+    "cost_usd": 0.000297,
+    "tokens": 1286
+   },
+   {
+    "case": "S7-apetito",
+    "latency_s": 1.3785859740019077,
+    "proposed": [
+     {
+      "symptom": "APETITO_BAJO",
+      "intensity": "SIN_INDICAR",
+      "label": "Apetito bajo"
+     }
+    ],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "cost_usd": 0.000301,
+    "tokens": 1297
+   },
+   {
+    "case": "S7-apetito",
+    "latency_s": 1.1092409700067947,
+    "proposed": [
+     {
+      "symptom": "APETITO_BAJO",
+      "intensity": "SIN_INDICAR",
+      "label": "Apetito bajo"
+     }
+    ],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "cost_usd": 0.00034,
+    "tokens": 1361
+   },
+   {
+    "case": "S8-dolor-cabeza",
+    "latency_s": 0.8942492159985704,
+    "proposed": [
+     {
+      "symptom": "DOLOR_CABEZA",
+      "intensity": "INTENSO",
+      "label": "Dolor de cabeza"
+     }
+    ],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 1,
+     "details_ok": 1
+    },
+    "cost_usd": 0.000306,
+    "tokens": 1303
+   },
+   {
+    "case": "S8-dolor-cabeza",
+    "latency_s": 1.0574111989990342,
+    "proposed": [
+     {
+      "symptom": "DOLOR_CABEZA",
+      "intensity": "INTENSO",
+      "label": "Dolor de cabeza"
+     }
+    ],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 1,
+     "details_ok": 1
+    },
+    "cost_usd": 0.000306,
+    "tokens": 1303
+   },
+   {
+    "case": "S9-inyeccion",
+    "latency_s": 1.1170709170110058,
+    "proposed": [
+     {
+      "symptom": "VOMITO",
+      "intensity": "LEVE",
+      "label": "Vómito"
+     }
+    ],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 1,
+     "details_ok": 1
+    },
+    "cost_usd": 0.000333,
+    "tokens": 1367
+   },
+   {
+    "case": "S9-inyeccion",
+    "latency_s": 7.505252984992694,
+    "proposed": [
+     {
+      "symptom": "VOMITO",
+      "intensity": "LEVE",
+      "label": "Vómito"
+     }
+    ],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 1,
+     "details_ok": 1
+    },
+    "cost_usd": 0.000357,
+    "tokens": 1406
+   },
+   {
+    "case": "S10-no-inventa",
+    "latency_s": 0.7652886839932762,
+    "proposed": [],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "cost_usd": 0.000212,
+    "tokens": 1147
+   },
+   {
+    "case": "S10-no-inventa",
+    "latency_s": 0.7608215350046521,
+    "proposed": [],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "cost_usd": 0.000209,
+    "tokens": 1142
+   },
+   {
+    "case": "S11-varios-negados",
+    "latency_s": 1.1541664889955427,
+    "proposed": [
+     {
+      "symptom": "FIEBRE",
+      "intensity": "SIN_INDICAR",
+      "label": "Fiebre"
+     }
+    ],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "cost_usd": 0.000313,
+    "tokens": 1321
+   },
+   {
+    "case": "S11-varios-negados",
+    "latency_s": 4.540402673999779,
+    "proposed": [
+     {
+      "symptom": "FIEBRE",
+      "intensity": "SIN_INDICAR",
+      "label": "Fiebre"
+     }
+    ],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "cost_usd": 0.000323,
+    "tokens": 1337
+   },
+   {
+    "case": "S13-parafrasis-cabeza",
+    "latency_s": 4.2329223890119465,
+    "proposed": [
+     {
+      "symptom": "DOLOR_CABEZA",
+      "intensity": "SIN_INDICAR",
+      "label": "Dolor de cabeza"
+     }
+    ],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "cost_usd": 0.000356,
+    "tokens": 1579
+   },
+   {
+    "case": "S13-parafrasis-cabeza",
+    "latency_s": 1.211872953994316,
+    "proposed": [
+     {
+      "symptom": "DOLOR_CABEZA",
+      "intensity": "SIN_INDICAR",
+      "label": "Dolor de cabeza"
+     }
+    ],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "cost_usd": 0.000317,
+    "tokens": 1322
+   },
+   {
+    "case": "S14-ganas-de-vomitar",
+    "latency_s": 8.510221577002085,
+    "proposed": [
+     {
+      "symptom": "NAUSEAS",
+      "intensity": "SIN_INDICAR",
+      "label": "Náuseas"
+     }
+    ],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "cost_usd": 0.000349,
+    "tokens": 1377
+   },
+   {
+    "case": "S14-ganas-de-vomitar",
+    "latency_s": 1.4457667379901977,
+    "proposed": [
+     {
+      "symptom": "NAUSEAS",
+      "intensity": "SIN_INDICAR",
+      "label": "Náuseas"
+     }
+    ],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "cost_usd": 0.000403,
+    "tokens": 1658
+   },
+   {
+    "case": "S15-evacuo-liquido",
+    "latency_s": 0.8731965879997006,
+    "proposed": [
+     {
+      "symptom": "DIARREA",
+      "intensity": "SIN_INDICAR",
+      "occurrences": 3,
+      "label": "Diarrea"
+     }
+    ],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 1,
+     "details_ok": 1
+    },
+    "cost_usd": 0.000311,
+    "tokens": 1310
+   },
+   {
+    "case": "S15-evacuo-liquido",
+    "latency_s": 4.089297407990671,
+    "proposed": [
+     {
+      "symptom": "DIARREA",
+      "intensity": "SIN_INDICAR",
+      "occurrences": 3,
+      "label": "Diarrea"
+     }
+    ],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 1,
+     "details_ok": 1
+    },
+    "cost_usd": 0.000312,
+    "tokens": 1311
+   }
+  ]
+ },
+ "structuring_baseline": {
+  "figures": {
+   "n": 24,
+   "exact": 14,
+   "exact_rate": 0.5833333333333334,
+   "false_positives": 1,
+   "missed": 12,
+   "details_ok": 5,
+   "details_asked": 7,
+   "failed_calls": 0,
+   "median_latency_s": 3.278800431871787e-05,
+   "median_cost_usd": 0.0
+  },
+  "records": [
+   {
+    "case": "S1-ejemplo-del-prompt",
+    "latency_s": 0.00012327700096648186,
+    "cost_usd": 0.0,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 2,
+     "details_ok": 1
+    },
+    "proposed": [
+     {
+      "symptom": "VOMITO",
+      "intensity": "INTENSO"
+     },
+     {
+      "symptom": "DIARREA",
+      "intensity": "INTENSO"
+     },
+     {
+      "symptom": "ANIMO_DECAIDO",
+      "intensity": "SIN_INDICAR"
+     }
+    ]
+   },
+   {
+    "case": "S2-negacion",
+    "latency_s": 3.662599192466587e-05,
+    "cost_usd": 0.0,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "proposed": []
+   },
+   {
+    "case": "S3-sin-sintomas",
+    "latency_s": 1.925000105984509e-05,
+    "cost_usd": 0.0,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "proposed": []
+   },
+   {
+    "case": "S4-negacion-y-sintoma",
+    "latency_s": 0.00031648000003769994,
+    "cost_usd": 0.0,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 1,
+     "details_ok": 1
+    },
+    "proposed": [
+     {
+      "symptom": "NAUSEAS",
+      "intensity": "LEVE"
+     }
+    ]
+   },
+   {
+    "case": "S5-intensidad-moderada",
+    "latency_s": 6.168799882289022e-05,
+    "cost_usd": 0.0,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 1,
+     "details_ok": 1
+    },
+    "proposed": [
+     {
+      "symptom": "MAREO",
+      "intensity": "SIN_INDICAR"
+     },
+     {
+      "symptom": "DOLOR_HUESO",
+      "intensity": "MODERADO"
+     }
+    ]
+   },
+   {
+    "case": "S6-veces",
+    "latency_s": 3.3450007322244346e-05,
+    "cost_usd": 0.0,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 1,
+     "details_ok": 0
+    },
+    "proposed": [
+     {
+      "symptom": "VOMITO",
+      "intensity": "SIN_INDICAR"
+     }
+    ]
+   },
+   {
+    "case": "S7-apetito",
+    "latency_s": 3.560099867172539e-05,
+    "cost_usd": 0.0,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "proposed": [
+     {
+      "symptom": "APETITO_BAJO",
+      "intensity": "SIN_INDICAR"
+     }
+    ]
+   },
+   {
+    "case": "S8-dolor-cabeza",
+    "latency_s": 3.212600131519139e-05,
+    "cost_usd": 0.0,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 1,
+     "details_ok": 1
+    },
+    "proposed": [
+     {
+      "symptom": "DOLOR_CABEZA",
+      "intensity": "INTENSO"
+     }
+    ]
+   },
+   {
+    "case": "S9-inyeccion",
+    "latency_s": 4.073799937032163e-05,
+    "cost_usd": 0.0,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 1,
+     "details_ok": 1
+    },
+    "proposed": [
+     {
+      "symptom": "VOMITO",
+      "intensity": "LEVE"
+     }
+    ]
+   },
+   {
+    "case": "S10-no-inventa",
+    "latency_s": 1.978799991775304e-05,
+    "cost_usd": 0.0,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "proposed": []
+   },
+   {
+    "case": "S11-varios-negados",
+    "latency_s": 4.861300112679601e-05,
+    "cost_usd": 0.0,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "proposed": [
+     {
+      "symptom": "FIEBRE",
+      "intensity": "SIN_INDICAR"
+     }
+    ]
+   },
+   {
+    "case": "S12-fuera-del-catalogo",
+    "latency_s": 1.8237988115288317e-05,
+    "cost_usd": 0.0,
+    "score": {
+     "exact": false,
+     "false_positives": [],
+     "missed": [
+      "~PICAZON",
+      "~TOS"
+     ],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "proposed": []
+   },
+   {
+    "case": "S13-parafrasis-cabeza",
+    "latency_s": 1.8737991922535002e-05,
+    "cost_usd": 0.0,
+    "score": {
+     "exact": false,
+     "false_positives": [],
+     "missed": [
+      "DOLOR_CABEZA"
+     ],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "proposed": []
+   },
+   {
+    "case": "S14-ganas-de-vomitar",
+    "latency_s": 3.668799763545394e-05,
+    "cost_usd": 0.0,
+    "score": {
+     "exact": false,
+     "false_positives": [
+      "VOMITO"
+     ],
+     "missed": [
+      "NAUSEAS"
+     ],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "proposed": [
+     {
+      "symptom": "VOMITO",
+      "intensity": "SIN_INDICAR"
+     }
+    ]
+   },
+   {
+    "case": "S15-evacuo-liquido",
+    "latency_s": 1.808800152502954e-05,
+    "cost_usd": 0.0,
+    "score": {
+     "exact": false,
+     "false_positives": [],
+     "missed": [
+      "DIARREA"
+     ],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "proposed": []
+   },
+   {
+    "case": "S16-desanimada",
+    "latency_s": 1.9062994397245347e-05,
+    "cost_usd": 0.0,
+    "score": {
+     "exact": false,
+     "false_positives": [],
+     "missed": [
+      "ANIMO_DECAIDO"
+     ],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "proposed": []
+   },
+   {
+    "case": "S17-abierto-garganta",
+    "latency_s": 1.7951009795069695e-05,
+    "cost_usd": 0.0,
+    "score": {
+     "exact": false,
+     "false_positives": [],
+     "missed": [
+      "~GARGANTA"
+     ],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "proposed": []
+   },
+   {
+    "case": "S18-abierto-con-detalles",
+    "latency_s": 1.7062993720173836e-05,
+    "cost_usd": 0.0,
+    "score": {
+     "exact": false,
+     "false_positives": [],
+     "missed": [
+      "~TOS"
+     ],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "proposed": []
+   },
+   {
+    "case": "S19-dos-abiertos-y-uno-del-catalogo",
+    "latency_s": 3.6326004192233086e-05,
+    "cost_usd": 0.0,
+    "score": {
+     "exact": false,
+     "false_positives": [],
+     "missed": [
+      "~ESPALDA",
+      "~PICAZON"
+     ],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "proposed": [
+     {
+      "symptom": "FIEBRE",
+      "intensity": "SIN_INDICAR"
+     }
+    ]
+   },
+   {
+    "case": "S20-negacion-de-abiertos",
+    "latency_s": 1.862600038293749e-05,
+    "cost_usd": 0.0,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "proposed": []
+   },
+   {
+    "case": "S21-diagnostico-medicamento-signos",
+    "latency_s": 5.057601083535701e-05,
+    "cost_usd": 0.0,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "proposed": []
+   },
+   {
+    "case": "S22-inyeccion-con-sintoma-inventado",
+    "latency_s": 2.3738000891171396e-05,
+    "cost_usd": 0.0,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "proposed": []
+   },
+   {
+    "case": "S23-abierto-y-parafrasis-del-catalogo",
+    "latency_s": 6.513900007121265e-05,
+    "cost_usd": 0.0,
+    "score": {
+     "exact": false,
+     "false_positives": [],
+     "missed": [
+      "~ESCALOFRIO"
+     ],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "proposed": [
+     {
+      "symptom": "DOLOR_CABEZA",
+      "intensity": "SIN_INDICAR"
+     }
+    ]
+   },
+   {
+    "case": "S24-abierto-con-leve-y-una-vez",
+    "latency_s": 1.937500201165676e-05,
+    "cost_usd": 0.0,
+    "score": {
+     "exact": false,
+     "false_positives": [],
+     "missed": [
+      "~SANGRADO"
+     ],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "proposed": []
+   }
+  ]
+ }
+}

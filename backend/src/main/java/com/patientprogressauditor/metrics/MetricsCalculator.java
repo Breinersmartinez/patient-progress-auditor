@@ -4,11 +4,10 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.EnumMap;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.function.Function;
@@ -84,7 +83,7 @@ public final class MetricsCalculator {
         List<Symptom> fresh = ordered(now, s -> !before.contains(s) && !earlier.contains(s));
         List<Symptom> reappeared = ordered(now, s -> !before.contains(s) && earlier.contains(s));
 
-        Set<Symptom> either = EnumSet.noneOf(Symptom.class);
+        Set<Symptom> either = new TreeSet<>();
         either.addAll(now);
         either.addAll(before);
         List<DaysChange> changes = new ArrayList<>();
@@ -107,7 +106,7 @@ public final class MetricsCalculator {
     }
 
     private static Map<Symptom, List<EventFact>> group(List<EventFact> events) {
-        Map<Symptom, List<EventFact>> grouped = new EnumMap<>(Symptom.class);
+        Map<Symptom, List<EventFact>> grouped = new TreeMap<>();
         events.forEach(e -> grouped.computeIfAbsent(e.symptom(), s -> new ArrayList<>()).add(e));
         return grouped;
     }

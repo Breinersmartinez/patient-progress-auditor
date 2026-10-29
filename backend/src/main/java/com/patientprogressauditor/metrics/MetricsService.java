@@ -48,7 +48,8 @@ public class MetricsService {
         List<EventFact> eventFacts = events.findRows(patientId, previousStart, weekEnd).stream()
                 .map(r -> new EventFact(r.getEntryId(), r.getEntryDate(), r.getSymptom(), r.getIntensity(), r.getOccurrences()))
                 .toList();
-        Set<Symptom> earlier = events.findSymptomsBefore(patientId, previousStart);
+        Set<Symptom> earlier = events.findSymptomCodesBefore(patientId, previousStart).stream()
+                .map(code -> Symptom.of(code, null)).collect(java.util.stream.Collectors.toSet());
 
         return MetricsCalculator.compute(patientId, weekStart, entryFacts, eventFacts, earlier);
     }

@@ -7,7 +7,7 @@ import { IconComponent } from '../core/icon.component';
 import { LlmStatus, LlmStatusService } from '../core/llm-status.service';
 import { Patient, PatientsService } from '../core/patients.service';
 import { SessionService } from '../core/session.service';
-import { INTENSITY_OPTIONS, SYMPTOM_CODES, SYMPTOM_LABELS, symptomCode } from '../core/symptoms';
+import { INTENSITY_OPTIONS, SYMPTOM_CODES, SYMPTOM_LABELS, looksLikeSymptom, normalizeCode, symptomCode } from '../core/symptoms';
 import { ToastService } from '../core/toast.service';
 import { ProcessButtonComponent } from '../ui/process-button.component';
 
@@ -78,7 +78,7 @@ const WHAT_NEXT = ' Puede guardar solo el texto o agregar los síntomas a mano.'
                   @for (row of turn.rows; track row) {
                     <div class="fila-sint">
                       <div class="campo"><label>Síntoma</label>
-                        <input class="inp" data-s="n" list="catalogo" placeholder="Ej.: Diarrea" [value]="row.symptom"
+                        <input class="inp" data-s="n" list="catalogo" placeholder="Ej.: Diarrea, o escriba otro síntoma" [value]="row.symptom"
                                (input)="row.symptom = $any($event.target).value">
                       </div>
                       <div class="campo"><label>Intensidad</label>
@@ -209,7 +209,7 @@ export class EntryNewComponent implements OnInit {
         t.state = 'preview';
         t.failure = proposal.failure ?? null;
         t.rows = proposal.events.map((e) => ({
-          symptom: SYMPTOM_LABELS[e.symptom] ?? e.symptom,
+          symptom: SYMPTOM_LABELS[e.symptom] ?? e.label ?? e.symptom,
           intensity: e.intensity,
           occurrences: e.occurrences ? String(e.occurrences) : '',
           original: e,
@@ -289,10 +289,12 @@ export class EntryNewComponent implements OnInit {
       if (!typed) {
         continue; // una fila vacía se ignora, como en el mockup
       }
-      const code = symptomCode(typed);
-      if (!code) {
-        return { events: [], error: 'Elija un síntoma de la lista.' };
+      // Uno del catálogo va por su código; cualquier otro, por el nombre que se escribió (el servidor calcula su código, E18).
+      const catalogCode = symptomCode(typed);
+      if (!catalogCode && !looksLikeSymptom(typed)) {
+        return { events: [], error: 'Escriba el nombre del síntoma con letras (hasta 60 caracteres).' };
       }
+      const code = catalogCode ?? normalizeCode(typed);
       if (seen.has(code)) {
         return { events: [], error: 'Hay un síntoma repetido. Déjelo una sola vez.' };
       }
@@ -305,7 +307,8 @@ export class EntryNewComponent implements OnInit {
       const original = row.original;
       const unchanged = original !== null && original.symptom === code && original.intensity === row.intensity
         && (original.occurrences ?? null) === occurrences;
-      events.push({ symptom: code, intensity: row.intensity, occurrences, origin: original === null ? 'MANUAL' : unchanged ? 'IA' : 'EDITADO' });
+      events.push({ symptom: code, ...(catalogCode ? {} : { label: typed.replace(/\s+/g, ' ') }), intensity: row.intensity, occurrences,
+        origin: original === null ? 'MANUAL' : unchanged ? 'IA' : 'EDITADO' });
     }
     return { events, error: '' };
   }

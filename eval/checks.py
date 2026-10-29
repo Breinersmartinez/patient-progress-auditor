@@ -14,6 +14,8 @@ import baseline
 FORBIDDEN = [r"diagn[oó]stic", r"padec", r"pron[oó]stic", r"recomi?end", r"deber[ií]a", r"suspend", r"dosis", r"\bmg\b",
              r"antibi[oó]tic", r"medicament", r"tratamiento", r"receta", r"enfermedad", r"infecci[oó]n", r"probablemente"]
 
+CATALOG = {"VOMITO", "DIARREA", "NAUSEAS", "FIEBRE", "MAREO", "DOLOR_CABEZA", "DOLOR_HUESO", "APETITO_BAJO", "ANIMO_DECAIDO"}
+
 
 def plain(text):
     return "".join(c for c in unicodedata.normalize("NFD", text.lower()) if unicodedata.category(c) != "Mn")
@@ -104,15 +106,34 @@ def evaluate(report, case, truth):
 
 
 def score_structuring(proposed, expected):
-    """Compara los eventos propuestos con los esperados: (exacto, falsos positivos, omitidos, intensidades acertadas/pedidas)."""
+    """Compara los eventos propuestos con los esperados: (exacto, falsos positivos, omitidos, intensidades acertadas/pedidas).
+
+    Un esperado con `symptom` es uno del catalogo y debe venir con ese codigo. Uno con `contains` es un sintoma FUERA del
+    catalogo: el modelo lo nombra con sus palabras («dolor de garganta» o «dolor en la garganta»), asi que se acepta cualquier
+    sintoma propuesto que no sea del catalogo cuyo codigo contenga esa palabra (E18).
+    """
     got = {e["symptom"]: e for e in proposed}
-    want = {e["symptom"]: e for e in expected}
-    extra = sorted(set(got) - set(want))
-    missed = sorted(set(want) - set(got))
+    want = {e["symptom"]: e for e in expected if "symptom" in e}
+    pairs = [(e["symptom"], e, got.get(e["symptom"])) for e in expected if "symptom" in e]
+    used = set(want)
+    missed = []
+    for e in expected:
+        if "contains" not in e:
+            continue
+        code = next((c for c in got if c not in used and c not in CATALOG and e["contains"] in c), None)
+        if code is None:
+            missed.append("~" + e["contains"])
+            pairs.append(("~" + e["contains"], e, None))
+        else:
+            used.add(code)
+            pairs.append((code, e, got[code]))
+    extra = sorted(set(got) - used)
+    missed = sorted(set(missed) | {s for s in want if s not in got})
     asked = hits = 0
-    for s, e in want.items():
+    for _, e, p in pairs:
         for field in ("intensity", "occurrences"):
-            if field in e and s in got:
+            if field in e and p is not None:
                 asked += 1
-                hits += 1 if got[s].get(field) == e[field] else 0
+                hits += 1 if p.get(field) == e[field] else 0
     return {"exact": not extra and not missed, "false_positives": extra, "missed": missed, "details_asked": asked, "details_ok": hits}
+

@@ -182,16 +182,47 @@ describe('EntryNewComponent (vRegNuevo del mockup)', () => {
     ]);
   });
 
-  it('un síntoma fuera de la lista o repetido se rechaza antes de enviar', async () => {
+  it('un síntoma fuera del catálogo, escrito a mano, se envía con su nombre y el servidor calcula el código', async () => {
+    await open();
+    await send('Tuvo diarrea intensa dos veces. Comió poco. Se queja de picazón en los brazos.');
+    click('.fila-sint:nth-child(2) [data-a="quitar"]');
+    await settle();
+    click('[data-a="agregar"]');
+    await settle();
+    type('.fila-sint:nth-child(2) [data-s="n"]', '  picazón   en los brazos ');
+    type('.fila-sint:nth-child(2) [data-s="intensidad"]', 'LEVE', 'change');
+    const request = await save();
+
+    expect(request.request.body.events).toEqual([
+      { symptom: 'DIARREA', intensity: 'INTENSO', occurrences: 2, origin: 'IA' },
+      { symptom: 'PICAZON_EN_LOS_BRAZOS', label: 'picazón en los brazos', intensity: 'LEVE', occurrences: null, origin: 'MANUAL' },
+    ]);
+  });
+
+  it('un síntoma que propone la IA fuera del catálogo se muestra con su nombre y se guarda como IA si no se toca', async () => {
+    await open();
+    await send('Le duele la garganta.', {
+      events: [{ symptom: 'DOLOR_DE_GARGANTA', label: 'Dolor de garganta', intensity: 'LEVE', occurrences: null }],
+      fallbackUsed: false,
+    });
+
+    expect(rows()[0].querySelector<HTMLInputElement>('[data-s="n"]')!.value).toBe('Dolor de garganta');
+    const request = await save();
+    expect(request.request.body.events).toEqual([
+      { symptom: 'DOLOR_DE_GARGANTA', label: 'Dolor de garganta', intensity: 'LEVE', occurrences: null, origin: 'IA' },
+    ]);
+  });
+
+  it('un nombre que no parece un síntoma o un síntoma repetido se rechaza antes de enviar', async () => {
     await open();
     await send('Texto');
     click('[data-a="agregar"]');
     await settle();
-    type('.fila-sint:nth-child(3) [data-s="n"]', 'dolor de pecho');
+    type('.fila-sint:nth-child(3) [data-s="n"]', '12345');
     click('[data-a="guardar"]');
     await settle();
 
-    expect(root.querySelector('[data-e="sint"]')?.textContent).toBe('Elija un síntoma de la lista.');
+    expect(root.querySelector('[data-e="sint"]')?.textContent).toBe('Escriba el nombre del síntoma con letras (hasta 60 caracteres).');
     http.expectNone('/api/patients/p1/entries');
 
     type('.fila-sint:nth-child(3) [data-s="n"]', 'DIARREA');

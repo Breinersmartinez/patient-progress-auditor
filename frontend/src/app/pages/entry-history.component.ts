@@ -49,7 +49,7 @@ export class EntryHistoryComponent implements OnInit {
   protected readonly error = signal<string | null>(null);
   protected readonly dCorto = dCorto;
 
-  protected readonly symptomNames = (e: Entry) => e.symptoms.map((s) => symptomName(s.symptom)).join(', ');
+  protected readonly symptomNames = (e: Entry) => e.symptoms.map((s) => symptomName(s.symptom, s.label)).join(', ');
   protected readonly searchText = (e: Entry) =>
     `${e.patientAlias} ${e.body} ${e.entryDate} ${this.symptomNames(e)}`;
   protected readonly href = (e: Entry) => `/enf/pacientes/ficha/${e.patientId}`;

@@ -74,8 +74,13 @@ public class StructuringService {
 
         try {
             StructuredResult result = gateway.structured(request, StructuringPrompt::problems);
-            List<EventProposal> events = StructuringPrompt.proposals(result.json());
+            StructuringPrompt.Screened screened = StructuringPrompt.screen(result.json(), text);
+            List<EventProposal> events = screened.kept();
             addAttempts(trace, result.attempts());
+            if (!screened.dropped().isEmpty()) {
+                trace.add(new StepDraft(AgentStep.Type.VALIDACION, "Se descartaron síntomas propuestos sin respaldo en la nota: "
+                        + String.join("; ", screened.dropped()), false, null, 0, 0));
+            }
             if (result.corrected()) {
                 trace.add(new StepDraft(AgentStep.Type.VALIDACION, "La primera salida no validó (" + String.join("; ", result.firstProblems())
                         + "); se reintentó una vez con el error", false, null, 0, 0));

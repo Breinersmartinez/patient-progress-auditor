@@ -149,7 +149,7 @@ class DraftValidatorTest {
     @Test
     void figuresMustExistBeResolvableAndNotLookAhead() throws Exception {
         assertThat(check("x", "[\"" + nauseaAlias + "\"]", "[{\"key\":\"FOO.days\",\"value\":1}]").problems())
-                .anyMatch(p -> p.contains("FOO") && p.contains("catálogo"));
+                .anyMatch(p -> p.contains("FOO") && p.contains("registrado"));
         assertThat(check("x", "[\"" + nauseaAlias + "\"]", "[{\"key\":\"NAUSEAS.days@2026-10-26\",\"value\":1}]").problems())
                 .anyMatch(p -> p.contains("posterior"));
         assertThat(check("x", "[\"" + nauseaAlias + "\"]", "[{\"key\":\"entries\",\"value\":\"siete\"}]").problems())
@@ -328,6 +328,62 @@ class DraftValidatorTest {
         DraftValidator.Checked c = validator.check(monthlyDraft("Hay registros los 7 días de la primera semana.", "[]"), month);
 
         assertThat(c.problems()).anyMatch(p -> p.contains("el número 7 del texto no tiene respaldo") && p.contains("@2026-"));
+    }
+
+    // --- sintomas fuera del catalogo (E18) ---
+
+    private String recordOpenSymptom(String date, String code, String label, int times) {
+        UUID entry = jdbc.queryForObject("SELECT id FROM entries WHERE patient_id = ? AND entry_date = ?::date LIMIT 1", UUID.class,
+                ctx.patientId(), date);
+        UUID nurse = jdbc.queryForObject("SELECT id FROM app_users WHERE display_name = 'Camilo Torres'", UUID.class);
+        jdbc.update("""
+                INSERT INTO entry_events (id, entry_id, event_type, symptom, symptom_label, intensity, occurrences, origin, confirmed_by, confirmed_at)
+                VALUES (?, ?, 'SINTOMA', ?, ?, 'LEVE', ?, 'MANUAL', ?, now())""", UUID.randomUUID(), entry, code, label, times, nurse);
+        return entry.toString();
+    }
+
+    @Test
+    void anOpenSymptomIsCountedByTheCodeAndTheReportCanBackItsFigure() throws Exception {
+        recordOpenSymptom("2026-10-20", "DOLOR_DE_GARGANTA", "Dolor de garganta", 2);
+
+        JsonNode metrics = mapper.readTree(metricsTool.execute(ctx, mapper.createObjectNode().put("week_start", "2026-10-19")));
+        assertThat(metrics.path("symptoms").path("DOLOR_DE_GARGANTA").path("days").asInt()).isEqualTo(1);
+        assertThat(metrics.path("symptoms").path("DOLOR_DE_GARGANTA").path("label").asText()).isEqualTo("Dolor de garganta");
+        assertThat(metrics.path("symptoms").path("NAUSEAS").has("label")).isFalse();
+        assertThat(metrics.path("vs_previous").path("new").toString()).contains("DOLOR_DE_GARGANTA");
+
+        DraftValidator.Checked ok = check("Hubo 1 día con dolor de garganta.", "[\"" + nauseaAlias + "\"]",
+                "[{\"key\":\"symptoms.DOLOR_DE_GARGANTA.days\",\"value\":1}]");
+        assertThat(ok.problems()).isEmpty();
+        // un sintoma abierto que esa semana no aparece vale 0, igual que uno del catalogo; uno que el paciente nunca tuvo se explica
+        assertThat(check("Sin dolor de garganta.", "[\"" + nauseaAlias + "\"]",
+                "[{\"key\":\"symptoms.DOLOR_DE_GARGANTA.days@2026-10-12\",\"value\":0}]").problems()).isEmpty();
+        assertThat(check("x", "[\"" + nauseaAlias + "\"]", "[{\"key\":\"symptoms.TOS_SECA.days\",\"value\":0}]").problems())
+                .anyMatch(p -> p.contains("TOS_SECA") && p.contains("registrado"));
+    }
+
+    @Test
+    void theHistoryToolFindsAnOpenSymptomByCodeOrByTypedName() throws Exception {
+        recordOpenSymptom("2026-10-20", "DOLOR_DE_GARGANTA", "Dolor de garganta", 1);
+
+        for (String typed : List.of("DOLOR_DE_GARGANTA", "dolor de garganta")) {
+            JsonNode h = mapper.readTree(history.execute(ctx, mapper.readTree("{\"symptom\":\"" + typed + "\",\"weeks_back\":2}")));
+            assertThat(h.path("symptom").asText()).isEqualTo("DOLOR_DE_GARGANTA");
+            assertThat(h.path("weeks").get(1).path("days").asInt()).isEqualTo(1);
+            assertThat(h.path("weeks").get(1).path("entries")).hasSize(1);
+        }
+    }
+
+    @Test
+    void aWeekOrdinalInDigitsIsAnUnbackedNumberSoThePromptMustAskForWords() throws Exception {
+        AgentRunContext month = monthlyContext();
+
+        // El validador no exime «semana 1»: por eso AgentPrompt.systemMonthly pide «la primera semana» (E13b)
+        DraftValidator.Checked digits = validator.check(monthlyDraft("Las náuseas de la semana 1 no vuelven.", "[]"), month);
+        DraftValidator.Checked words = validator.check(monthlyDraft("Las náuseas de la primera semana no vuelven.", "[]"), month);
+
+        assertThat(digits.problems()).anyMatch(p -> p.contains("el número 1 del texto no tiene respaldo"));
+        assertThat(words.problems()).isEmpty();
     }
 
     private String metricsOf(AgentRunContext month, String week) {

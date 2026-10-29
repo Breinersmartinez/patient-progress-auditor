@@ -133,7 +133,7 @@ final class ReportPdfBlocks {
             int days = now.path("days").asInt(0);
             int times = now.path("occurrences").asInt(0);
             int before = versus.path("days").path(code).path(0).asInt(0);
-            row("T3", label(code), comparable ? days(before) : "Sin datos",
+            row("T3", label(code, now), comparable ? days(before) : "Sin datos",
                     days > 0 ? days(days) + (times > days ? ", " + times + " veces" : "") : "No registrado");
         }
         note("Cifras calculadas por el sistema a partir de los registros, no por la IA. Solo se listan los síntomas que aparecieron en alguno de los dos períodos.");
@@ -159,7 +159,7 @@ final class ReportPdfBlocks {
         list.forEach(w -> w.path("symptoms").fieldNames().forEachRemaining(names::add));
         for (String code : names) {
             String[] cells = new String[5];
-            cells[0] = label(code);
+            cells[0] = label(code, list.stream().map(w -> w.path("symptoms").path(code)).filter(n -> n.has("label")).findFirst().orElse(null));
             for (int i = 0; i < 4; i++) {
                 int d = i < list.size() ? list.get(i).path("symptoms").path(code).path("days").asInt(0) : 0;
                 cells[i + 1] = days(d);
@@ -233,9 +233,10 @@ final class ReportPdfBlocks {
         return "Registros guardados solo con el texto: sus síntomas no se contaron";
     }
 
-    private static String label(String code) {
+    // La etiqueta de un sintoma fuera del catalogo viaja en las cifras del informe (`label`); si no esta, se arma del codigo.
+    private static String label(String code, JsonNode metrics) {
         try {
-            return Symptom.valueOf(code).label();
+            return Symptom.of(code, metrics == null ? null : metrics.path("label").asText(null)).label();
         } catch (IllegalArgumentException e) {
             return code;
         }

@@ -37,9 +37,12 @@ public class EntryEvent {
     @Column(name = "event_type", nullable = false, length = 30)
     private String eventType = TYPE_SYMPTOM;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private Symptom symptom;
+    // El codigo y la etiqueta del sintoma (E18); `getSymptom`/`setSymptom` los juntan en un `Symptom`.
+    @Column(name = "symptom", nullable = false, length = Symptom.MAX_CODE)
+    private String symptomCode;
+
+    @Column(name = "symptom_label", length = Symptom.MAX_LABEL)
+    private String symptomLabel;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 15)
@@ -59,4 +62,14 @@ public class EntryEvent {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
+
+    public Symptom getSymptom() {
+        return Symptom.of(symptomCode, symptomLabel);
+    }
+
+    // La etiqueta solo se guarda para un sintoma fuera del catalogo: los nueve la tienen en el codigo.
+    public void setSymptom(Symptom symptom) {
+        this.symptomCode = symptom.code();
+        this.symptomLabel = symptom.inCatalog() ? null : symptom.label();
+    }
 }

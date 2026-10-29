@@ -238,6 +238,25 @@ class StructuringScore(unittest.TestCase):
         self.assertEqual((s["false_positives"], s["missed"], s["details_ok"]), (["MAREO"], ["FIEBRE"], 0))
 
 
+    def test_an_open_symptom_matches_by_a_word_of_its_code_and_never_by_a_catalog_one(self):
+        want = [{"contains": "GARGANTA", "intensity": "LEVE"}, {"symptom": "FIEBRE"}]
+        s = checks.score_structuring([{"symptom": "DOLOR_EN_LA_GARGANTA", "intensity": "LEVE"}, {"symptom": "FIEBRE"}], want)
+        self.assertTrue(s["exact"])
+        self.assertEqual((s["details_asked"], s["details_ok"]), (1, 1))
+        # lo que falta, lo que sobra y la palabra que no esta
+        s = checks.score_structuring([{"symptom": "TOS_SECA"}, {"symptom": "FIEBRE"}], want)
+        self.assertEqual((s["false_positives"], s["missed"]), (["TOS_SECA"], ["~GARGANTA"]))
+        # un sintoma del catalogo no puede ocupar el lugar de uno abierto aunque su codigo contenga la palabra
+        s = checks.score_structuring([{"symptom": "DOLOR_CABEZA"}], [{"contains": "CABEZA"}])
+        self.assertEqual((s["false_positives"], s["missed"]), (["DOLOR_CABEZA"], ["~CABEZA"]))
+
+    def test_the_committed_open_symptom_cases_exist_and_ask_for_nothing_invented(self):
+        cases = {c["id"]: c for c in json.loads((ROOT / "eval/cases/structuring.json").read_text(encoding="utf-8"))["cases"]}
+        self.assertGreaterEqual(len(cases), 24)
+        for name in ("S20-negacion-de-abiertos", "S21-diagnostico-medicamento-signos", "S22-inyeccion-con-sintoma-inventado"):
+            self.assertEqual(cases[name]["expect"], [])
+
+
 class SeededReportsAreReproducible(unittest.TestCase):
     def test_the_committed_file_is_what_the_script_generates(self):
         out = subprocess.run([sys.executable, str(ROOT / "scripts/make_seed_reports.py")], capture_output=True, text=True, check=True).stdout

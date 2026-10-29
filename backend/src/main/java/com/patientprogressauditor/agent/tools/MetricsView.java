@@ -28,6 +28,9 @@ public final class MetricsView {
         ObjectNode symptoms = out.putObject("symptoms");
         for (WeeklyMetrics.SymptomMetrics s : m.symptoms()) {
             ObjectNode node = symptoms.putObject(s.symptom().name());
+            if (!s.symptom().inCatalog()) {
+                node.put("label", s.symptom().label());
+            }
             node.put("days", s.days());
             ArrayNode dates = node.putArray("dates");
             s.dates().forEach(d -> dates.add(d.toString()));

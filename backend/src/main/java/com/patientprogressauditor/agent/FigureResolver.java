@@ -6,8 +6,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import org.springframework.stereotype.Component;
 
@@ -15,6 +13,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.patientprogressauditor.agent.tools.MetricsView;
 import com.patientprogressauditor.agent.tools.ToolException;
+import com.patientprogressauditor.entry.EntryEventRepository;
 import com.patientprogressauditor.entry.Symptom;
 import com.patientprogressauditor.metrics.MetricsService;
 import com.patientprogressauditor.metrics.WeeklyMetrics;
@@ -27,7 +26,7 @@ import com.patientprogressauditor.metrics.WeeklyMetrics;
 public class FigureResolver {
 
     private static final Pattern KEY = Pattern.compile("^([A-Za-z0-9_.]+?)(?:@(\\d{4}-\\d{2}-\\d{2}))?$");
-    private static final Pattern SHORT = Pattern.compile("^([A-Z_]+)\\.(days|events|occurrences)$");
+    private static final Pattern SHORT = Pattern.compile("^([A-Z][A-Z0-9_]*)\\.(days|events|occurrences)$");
 
     public static final String VALID_KEYS = "la ruta de la cifra en get_week_metrics, p. ej. entries, total_events, days_without_entry, "
             + "symptoms.NAUSEAS.days, symptoms.NAUSEAS.events, vs_previous.previous_entries, vs_previous.days.NAUSEAS.0 "
@@ -40,10 +39,12 @@ public class FigureResolver {
     }
 
     private final MetricsService metrics;
+    private final EntryEventRepository events;
     private final ObjectMapper mapper;
 
-    public FigureResolver(MetricsService metrics, ObjectMapper mapper) {
+    public FigureResolver(MetricsService metrics, EntryEventRepository events, ObjectMapper mapper) {
         this.metrics = metrics;
+        this.events = events;
         this.mapper = mapper;
     }
 
@@ -75,7 +76,7 @@ public class FigureResolver {
             node = node.isArray() && segment.matches("\\d+") ? node.path(Integer.parseInt(segment)) : node.path(segment);
         }
         if (node.isMissingNode()) {
-            return missing(path, key, week);
+            return missing(context, path, key, week);
         }
         // «vs_previous.days.FIEBRE» sin indice: [semana anterior, esta semana]. Se elige el que coincide con lo que escribio.
         if (node.isArray() && node.size() == 2 && node.get(0).isInt() && node.get(1).isInt()) {
@@ -104,14 +105,13 @@ public class FigureResolver {
     }
 
     // Un sintoma que no aparece esa semana tiene 0 dias y 0 eventos; una ruta que no existe se explica.
-    private Resolution missing(String path, String key, LocalDate week) {
+    private Resolution missing(AgentRunContext context, String path, String key, LocalDate week) {
         String[] parts = path.split("\\.");
         if (parts.length == 3 && parts[0].equals("symptoms") && (parts[2].equals("days") || parts[2].equals("events"))) {
-            if (Stream.of(Symptom.values()).anyMatch(s -> s.name().equals(parts[1]))) {
+            if (Symptom.isCatalog(parts[1]) || events.recordedFor(context.patientId(), parts[1])) {
                 return new Resolution(Optional.of(new Figure(key.trim(), 0, week)), null);
             }
-            return no("«" + parts[1] + "» no es un síntoma del catálogo ("
-                    + Stream.of(Symptom.values()).map(Enum::name).collect(Collectors.joining(", ")) + ")");
+            return no("«" + parts[1] + "» no es un síntoma que este paciente tenga registrado (use la clave tal como sale en get_week_metrics)");
         }
         if (parts.length == 3 && parts[0].equals("symptoms") && parts[2].equals("occurrences")) {
             return no("«" + key + "» no tiene valor: ese síntoma no aparece esa semana");

@@ -98,7 +98,7 @@ El rol `ADMIN` ya existe por `V2` y en el Momento 2 no se asigna a ningún usuar
 | `entries.source` | `TEXTO`, `VOZ` | `VOZ` solo si entra el dictado (Opc) | RF-38 |
 | `entries.structuring_status` | `ESTRUCTURADA`, `SIN_ESTRUCTURAR` | Ver la definición en §5 y el punto 7 de §8 | RF-41 |
 | `entry_events.event_type` | `SINTOMA` | El único tipo en el Momento 2: la pantalla de registro solo muestra síntomas | RF-06, D27 |
-| `entry_events.symptom` | Los 9 códigos de §3.3 | Lista cerrada **[Propuesta]** | RF-06, D18 |
+| `entry_events.symptom` | Los 9 códigos de §3.3 u otro código con forma de síntoma (`DOLOR_DE_GARGANTA`) | Lista **abierta** desde el 29-oct (E18, **[Equipo]**): el `CHECK` de la lista pasó a un `CHECK` de forma, `^[A-Z][A-Z0-9_]{1,39}$` | RF-06, D18 |
 | `entry_events.intensity` | `LEVE`, `MODERADO`, `INTENSO`, `SIN_INDICAR` | Son las cuatro opciones de la pantalla de registro de los mockups | RF-06, D27 |
 | `entry_events.origin` | `IA`, `EDITADO`, `MANUAL` | Propuesto por la IA y confirmado igual, propuesto y cambiado por la persona, o agregado a mano | RF-40, D27 |
 | `entry_versions.origin` | `IA_ACEPTADA`, `IA_EDITADA`, `MANUAL` | Texto corregido propuesto por la IA y aceptado o editado, o edición manual (M2-S) | RF-03, RF-42 |
@@ -110,7 +110,7 @@ El rol `ADMIN` ya existe por `V2` y en el Momento 2 no se asigna a ningún usuar
 
 ### 3.3 Catálogo de síntomas
 
-Lista cerrada **[Propuesta]**: son los nueve síntomas del catálogo de la pantalla de registro de los mockups, a la espera de que D18 la valide con una persona de enfermería. El modelo solo puede proponer estos códigos (el esquema JSON los fija como enumeración), «Agregar» ofrece esta misma lista y la BD la protege con un `CHECK` en `entry_events.symptom`. Cambiar la lista es una migración.
+Son los nueve síntomas del catálogo de la pantalla de registro de los mockups y son los que el sistema **sugiere**; desde el 29-oct (E18, **[Equipo]**, a pedido de quien registra) ya no son los únicos. Cualquier otro síntoma que la nota diga, o que la persona escriba a mano, se guarda con un **código** que calcula el servidor del nombre (mayúsculas, sin acentos, guiones bajos: «Dolor de garganta» pasa a `DOLOR_DE_GARGANTA`) y una **etiqueta** legible (`entry_events.symptom_label`, solo para los que no son del catálogo). El esquema JSON del modelo ofrece los nueve códigos y `OTRO`; para `OTRO` exige el nombre y la frase literal de la nota que lo respalda, y el servidor descarta el que no la tiene (RN-11). La BD ya no protege la lista sino la forma del código. Dos síntomas son el mismo si tienen el mismo código; «lumbalgia» y «dolor de espalda» son dos, y fusionarlos queda fuera.
 
 | Código | Etiqueta | Origen |
 |---|---|---|
@@ -214,7 +214,8 @@ Un síntoma que el texto dice, propuesto por el LLM y confirmado por una persona
 | `id` | Id | `UUID` | No | PK | | RF-06 |
 | `entry_id` | Entrada | `UUID` | No | FK → `entries` | Enlaza al texto original | RF-06 |
 | `event_type` | Tipo | `VARCHAR(30)` | No | — | `SINTOMA` en el Momento 2. `CHECK (event_type = 'SINTOMA')` | RF-06, D27 |
-| `symptom` | Síntoma (descripción normalizada) | `VARCHAR(20)` | No | — | Código del catálogo cerrado de §3.3 (`VOMITO`, `DIARREA`, `APETITO_BAJO`…). Es la clave con la que el código cuenta los días con cada síntoma: «comió poco» se normaliza a `APETITO_BAJO`. `CHECK` con los nueve códigos **[Propuesta]** | RF-06, RF-07, D18, D27 |
+| `symptom` | Síntoma (descripción normalizada) | `VARCHAR(40)` | No | — | Código del síntoma: uno del catálogo de §3.3 (`VOMITO`, `DIARREA`, `APETITO_BAJO`…) u otro calculado de su nombre (`DOLOR_DE_GARGANTA`). Es la clave con la que el código cuenta los días con cada síntoma: «comió poco» se normaliza a `APETITO_BAJO`. `CHECK` de forma `^[A-Z][A-Z0-9_]{1,39}$` (V8) | RF-06, RF-07, D18, D27 |
+| `symptom_label` | Etiqueta del síntoma | `VARCHAR(60)` | Sí | — | Nombre legible («Dolor de garganta»). Solo se guarda para un síntoma fuera del catálogo; los nueve la tienen en §3.3 (V8, E18) | RF-06, D18 |
 | `intensity` | Intensidad | `VARCHAR(15)` | No | — | `SIN_INDICAR` por defecto; el modelo no la infiere si el texto no la dice | RF-06, RN-11, D27 |
 | `occurrences` | Veces | `SMALLINT` | Sí | — | Entero mayor que 0 si el texto lo dice («dos veces» pasa a 2); vacío si no. Son las veces en el día de la entrada | RF-06, RN-11 |
 | `origin` | Origen del evento | `VARCHAR(10)` | No | — | `IA`, `EDITADO` o `MANUAL` (§3.2) | RF-40 |
@@ -400,7 +401,7 @@ Una fila por acción sensible. Solo se agregan filas; nunca se actualizan ni se 
 | Toda cifra del informe la calcula el código | Servidor | Se compara `content.metrics` con el módulo de métricas; si una cifra no coincide se rechaza y se reintenta | RN-04, RF-13 |
 | El texto original no cambia | Servidor | No hay operación de actualización de `entries`, que ni siquiera tiene `updated_at`. Endurecerlo con permisos de BD (solo `INSERT` y `SELECT` sobre `entries`, `entry_versions`, `report_versions`, `agent_steps` y `audit_logs`) queda para el hardening del Momento 3 | RN-07, RNF-10 |
 | Ningún evento se guarda sin confirmación | BD y servidor | `confirmed_by` y `confirmed_at` son `NOT NULL`; la entrada y sus eventos confirmados se guardan en una sola transacción, y descartar no guarda nada | RN-11, RF-40 |
-| Un síntoma aparece una vez por entrada y es del catálogo | BD | `UNIQUE (entry_id, symptom)` y `CHECK` sobre `entry_events.symptom` (§3.3) **[Propuesta]** | RF-06, D18 |
+| Un síntoma aparece una vez por entrada y tiene forma de síntoma | BD y servidor | `UNIQUE (entry_id, symptom)` y `CHECK` de forma sobre `entry_events.symptom`; el servidor calcula el código del nombre escrito y rechaza el que no tiene letras o pasa de 60 caracteres. Ya no es una lista cerrada (E18) | RF-06, D18 |
 | La traza de un informe se lee desde el informe | Servidor | Enfermería lee los `agent_steps` de la ejecución de cualquier informe de sus pacientes; el médico, solo los del informe `APROBADO` que ve. No hay módulo global de trazas en el Momento 2 **[Propuesta]** | RF-24, RF-29, RN-01 |
 | Las entradas y los informes no se borran | BD | Ninguna clave foránea del dominio usa `ON DELETE CASCADE` y no hay operación de borrado | RNF-10 |
 | Orden de las entradas del mismo día | BD | `created_at`, con el índice `(patient_id, entry_date, created_at)` | RN-09 |
@@ -440,6 +441,7 @@ V1 y V2 existen y no se editan: se agregan migraciones nuevas. Los roles y permi
 |---|---|---|
 | `V3__domain_schema.sql` | En `app_users`: agrega `display_name` e `is_demo` y permite `NULL` en `password_hash`. Crea `patients`, `entries`, `entry_events`, `entry_versions`, `reports`, `report_versions`, `report_citations`, `monthly_report_weeks`, `agent_runs`, `agent_steps` y `audit_logs`, con sus `CHECK`, claves e índices | M2-N (`entry_versions` y `audit_logs` M2-S) |
 | `V4__seed_domain_rbac.sql` | Siembra los roles `ENFERMERIA`, `MEDICO` y `AGENTE` y los permisos de §3.4 con sus asignaciones, con UUID fijos y `ON CONFLICT DO NOTHING` como V2. No toca `ADMIN` ni sus permisos | M2-N |
+| `V8__open_symptoms.sql` | Quita el `CHECK` de los nueve síntomas, ensancha `entry_events.symptom` a 40, agrega `symptom_label` y un `CHECK` de forma (E18) | M2-N |
 | `ApplicationRunner` de la semilla | Con `APP_SEED_DEMO=true` y nunca en `prod`: crea lo de la tabla siguiente. No llama al LLM | M2-N |
 
 ### 7.1 Contenido de la semilla (D11)
@@ -468,7 +470,7 @@ Cada fila es una **[Propuesta]** para poder escribir `V3` y `V4` ya. Lo que camb
 | 2 | Permisos `ROLES_CREATE` y `ROLES_DELETE` de V2 | No aplica al Momento 2: son de `ADMIN`, que llega en el Momento 3. V2 queda como está | Ninguno | Se resuelve en el Momento 3 |
 | 3 | `password_hash` en el Momento 2 | `NULL` en todos los usuarios de demostración; sin hash de relleno. El Momento 3 lo vuelve obligatorio | §4.1 | — |
 | 4 | Fecha del evento | El evento vale la fecha de su entrada, como dice D27 («La fecha de la entrada»). No hay `event_date`. Si el texto nombra otro día, la persona registra la entrada con esa fecha | Se quita `entry_events.event_date`; las métricas unen con `entries.entry_date` (§4.5) | Confirmar que el modelo no propone fechas |
-| 5 | Descripción normalizada | Lista cerrada de nueve síntomas, la del catálogo de la pantalla de registro de los mockups | `description` pasa a `symptom` con `CHECK` (§3.3, §4.5) | D18: validarla con una persona de enfermería |
+| 5 | Descripción normalizada | Nueve síntomas sugeridos, los de la pantalla de registro de los mockups, y **cualquier otro** con forma de síntoma (cambio del 29-oct, E18) | `description` pasa a `symptom` con `CHECK` de forma y `symptom_label` (§3.3, §4.5) | D18: validar el catálogo sugerido con una persona de enfermería |
 | 6 | Intensidad y veces | Intensidad: `LEVE`, `MODERADO`, `INTENSO`, `SIN_INDICAR`, las cuatro opciones de la pantalla. Veces: las del día de la entrada, por evento. Las métricas cuentan días con el síntoma (`entry_date` distintos) y suman las veces indicadas | §3.2 y §4.5 | RF-07, que hoy no las usa; si no entran en las métricas, quedan como dato de la entrada |
 | 7 | Qué es «sin estructurar» | `SIN_ESTRUCTURAR` si se guardó sin confirmar la propuesta; `ESTRUCTURADA` si una persona la confirmó, aunque sea con cero eventos (un texto sin síntomas no es un fallo) | §3.2 y §4.4 | Redacción de RF-41 («sin eventos confirmados») |
 | 8 | Informe `INCOMPLETO` | Estado final: enfermería lo ve con su motivo y pide uno nuevo; no se aprueba ni se rechaza y el médico no lo ve | §5.2 | RF-17 y RF-23 |
@@ -483,7 +485,7 @@ Cada fila es una **[Propuesta]** para poder escribir `V3` y `V4` ya. Lo que camb
 | Elemento | En el completo | En el Momento 2 | Motivo |
 |---|---|---|---|
 | `entry_events.event_date` | Columna con la fecha del evento | No existe; vale `entries.entry_date` | Punto 4 de §8 |
-| `entry_events.description` | Texto de hasta 100 caracteres, lista cerrada o libre por decidir | `symptom`, código de una lista cerrada de nueve, con `CHECK` | Punto 5 de §8 |
+| `entry_events.description` | Texto de hasta 100 caracteres, lista cerrada o libre por decidir | `symptom`, código de un síntoma (los nueve sugeridos u otro), con `CHECK` de forma, y `symptom_label` | Punto 5 de §8 |
 | `entry_events`, restricciones | `CHECK` de veces | Además `UNIQUE (entry_id, symptom)` | Contar días con síntoma sin duplicados dentro de la entrada |
 | Índices de `entry_events` | `(entry_id)` y `(event_type, description, event_date)` | `(entry_id)` y `(symptom)` | Se quita la fecha |
 | Rol `ADMIN` | Fila del catálogo, M3 | Solo una nota: existe por V2 y no se usa | Alcance |

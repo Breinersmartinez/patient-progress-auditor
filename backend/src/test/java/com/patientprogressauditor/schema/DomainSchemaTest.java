@@ -73,9 +73,18 @@ class DomainSchemaTest {
         assertThatCode(() -> insertEvent("VOMITO")).doesNotThrowAnyException();
     }
 
+    // V8 (E18): ya no hay lista cerrada de nueve; la base protege la forma del codigo.
     @Test
-    void symptomOutsideTheCatalogIsRejected() {
-        assertThatThrownBy(() -> insertEvent("SARPULLIDO")).isInstanceOf(DataIntegrityViolationException.class);
+    void aSymptomOutsideTheCatalogIsAcceptedWhenItsCodeHasTheRightShape() {
+        assertThatCode(() -> insertEvent("SARPULLIDO")).doesNotThrowAnyException();
+    }
+
+    // Cada valor en su propia transaccion: tras un INSERT que falla, PostgreSQL aborta la transaccion.
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"sarpullido", "SARPULLIDO EN LA PIEL", "1TOS", "X", "TOS-SECA",
+            "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"})
+    void aSymptomCodeWithoutTheRightShapeIsRejected(String bad) {
+        assertThatThrownBy(() -> insertEvent(bad)).isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test

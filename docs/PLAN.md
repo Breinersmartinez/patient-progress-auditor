@@ -1293,3 +1293,101 @@ Si W-1 no tiene ninguna entrada, no se puede decir que un síntoma «dejó de es
   > `decisiones.md`: la fila de E8 sobre `GOOGLE_API_KEY` queda como «no en la aplicación; `run.sh` sí» y E15 trae la fila del bloque para la IA. `.env.example` comenta el sinónimo; `check-env-example.sh`: 28 variables.
 - [x] 4. Probar los caminos de `run.sh` con un `docker` de mentira en un directorio temporal
   > Seis casos en directorios temporales con un `docker` de mentira (sin tocar Docker ni el `.env` del equipo): sin llaves; Groq y Google en el entorno; solo Groq; Google ya en `.env`; las dos bien; solo Gemini. Cada uno imprime lo esperado y ningún valor de llave aparece en la salida.
+
+---
+
+# E13b — Afinar el prompt del informe mensual y repetir su medición
+
+> **Estado:** en curso, detenida en el paso 3 por falta de la llave de respaldo (29-oct, pedido del equipo tras ver 1 mensual `INCOMPLETA` en Docker) · **Depende de:** E13 · **Reglas:** AGENTS.md «Medición» (se corre la suite cada vez que cambie el prompt); no se relaja ninguna regla del validador.
+
+## Encargo
+
+**En una frase.** Que el mensual quede completo con más frecuencia y con menos rechazos del validador, corrigiendo las **causas medidas** en el prompt (no el validador), y repetir la medición con las mismas condiciones para decir con cifras si mejoró.
+
+**Punto de partida (E13, n = 6 ejecuciones del agente, todas por Gemini):** éxito 6 de 6, pero **a la primera solo 2 de 6** (4 rechazos del validador); una ejecución usó 25 069 de 30 000 tokens; en Docker, 1 mensual real terminó `INCOMPLETA` (cifras escritas en el texto sin respaldo, dos veces).
+
+**Criterio de aceptación.**
+- ¿Se leyó el motivo de cada rechazo del validador en las trazas (`agent_steps`) y se clasificó por causa antes de tocar el prompt?
+- ¿El cambio al prompt ataca esas causas y no relaja ninguna regla (el validador y sus pruebas siguen igual)?
+- ¿La medición se repitió con las mismas condiciones (mismos casos M1 a M3, `--repeat 3`) y se agregó una segunda tanda más grande para que n no sea 6?
+- ¿Se comparan las cifras de antes y después en `docs/decisiones/semana10.md` sin esconder la medición anterior, y se dice si mejoró, igual o empeoró?
+- ¿`mvn -B verify` y `python3 -m unittest discover -s eval` siguen pasando?
+
+**Queda fuera.** Subir el límite de 30 000 tokens (decisión del equipo), cambiar el modelo o el proveedor, tocar el prompt semanal (otra medición).
+
+## Plan
+
+- [~] 1. Diagnóstico: correr el mensual varias veces y leer por qué rechaza el validador
+      Produce: tabla de causas con conteo, a partir de las trazas
+      Se comprueba: cada rechazo tiene su texto leído, no supuesto
+  > Parcial. Las trazas de la medición de E13 ya no existen (la base de pruebas se reinició) y hoy no se pudo correr el agente: el `.env` trae `GOOGLE_API_KEY` **vacía** y Groq, sola, responde 429 en la tercera llamada (8 000 tokens por minuto; un mensual gasta unos 12 000). Causa hallada leyendo prompt y validador: el prompt pedía «la semana 1» y «semana 1 frente a semana 4» y el validador rechaza todo dígito sin respaldo (prueba `aWeekOrdinalInDigits…`). Las demás causas salen de rechazos guardados de corridas anteriores (cifras en el texto sin `figures`, clave sin `@`, números en el `summary`); falta contarlas con la medición nueva.
+- [x] 2. Ajustar `AgentPrompt.systemMonthly` (y la tarea) contra esas causas
+      Produce: el prompt nuevo; `AgentPromptTest` / pruebas del agente al día
+      Se comprueba: `mvn -B verify`
+  > Ordinales de semana en palabras y sin dígitos (se quitó el ejemplo que el validador rechazaba), ningún dígito sin `figures` de esa afirmación, el `summary` también sin fechas ni semanas en dígitos, «sin la cifra, escribe la frase sin número» y `@` obligatorio con aviso de que sin él se rechaza. Pruebas nuevas: `AgentPromptTest` (3) y 1 en `DraftValidatorTest`; las tres clases pasan (49). Falta el `verify` completo al cerrar.
+- [ ] 3. Repetir la medición
+      Produce: `eval/results/2026-10-29-mensual-prompt2.json`
+      Se comprueba: éxito, a la primera, tokens (máx.), costo y latencia (mediana) contra E13
+- [ ] 4. Documentos y cierre
+      Produce: `semana10.md` (antes y después), `decisiones.md`, README/AGENTS si cambian cifras, este plan
+      Se comprueba: enlaces, `unittest` de eval
+
+---
+
+# E18 — Síntomas fuera del catálogo: detectarlos con precisión y guardarlos como síntoma
+
+> **Estado:** cerrada con lo no medido declarado (29-oct, pedido de quien registra: «cualquier síntoma que yo digite, que lo identifique de forma precisa y lo ponga en la estructura como síntoma») · **Depende de:** E4, E5, E6, E7 · **Cambia:** D18 (catálogo cerrado de nueve, confirmado por el equipo el 28-oct) y D27 en la parte del catálogo.
+
+## Contradicción que se declara antes de ejecutar
+
+D18 y D27 dicen «catálogo cerrado de nueve» y la base lo protege con un `CHECK`. El pedido lo abre. No es un cambio local: el catálogo está en el `CHECK` de `entry_events`, en el enum `Symptom`, en el esquema JSON que se le da al modelo, en las métricas (`MetricsCalculator`), en las claves de cifras y herramientas del agente, en el PDF y en la pantalla. Se ejecuta porque el equipo lo pide; D18/D27 se reescriben (no se borran) y la razón de haber empezado cerrado queda escrita.
+
+## Encargo
+
+**En una frase.** Que cualquier síntoma que la nota diga, o que la persona escriba a mano en la vista previa, se guarde como síntoma del paciente aunque no sea uno de los nueve, **sin inventar** (RN-11), contado por el código como los demás y visible en historial, métricas, informes y PDF.
+
+**Criterio de aceptación.**
+- ¿Una nota con «dolor de garganta» o «picazón en los brazos» propone un evento con ese síntoma, con intensidad y veces si la nota las dice, y la persona lo puede confirmar?
+- ¿Cada síntoma fuera del catálogo viene con la **frase literal de la nota** que lo sostiene y el servidor rechaza (un reintento y luego se ignora) el que no la trae?
+- ¿Una negación («sin dolor de garganta»), un diagnóstico («neumonía»), un medicamento o un signo vital suelto NO generan síntoma?
+- ¿La persona puede escribir a mano en la vista previa un síntoma que no está en la lista y guardarlo?
+- ¿El síntoma nuevo entra en las cifras (días, eventos, comparación con la semana anterior) calculadas por el código, en el historial, en el informe semanal y mensual (el validador acepta su clave) y en el PDF?
+- ¿Los nueve del catálogo se comportan exactamente igual que antes (las 320 pruebas siguen pasando, con las que cambian por el tipo explicadas)?
+- ¿Hay casos nuevos en `eval/` (con un síntoma fuera del catálogo, una negación de uno, un diagnóstico y una inyección) y sus cifras?
+
+**Queda fuera.** Fusionar sinónimos entre síntomas abiertos («lumbalgia» y «dolor de espalda» son dos síntomas distintos para el código; solo se normaliza mayúsculas, acentos y espacios); un catálogo administrable; clasificar por gravedad o por sistema; cambiar la intensidad (siguen las cuatro).
+
+## Decisiones que tomo (para que el equipo las revise)
+
+1. **Forma:** el síntoma pasa de enum cerrado a un código (`DOLOR_GARGANTA`, mayúsculas sin acentos ni espacios, 2 a 40 caracteres) más una etiqueta legible (`Dolor de garganta`). Los nueve conservan sus códigos y etiquetas.
+2. **Precisión:** para uno fuera del catálogo el modelo devuelve la etiqueta y la **frase literal** de la nota; el servidor comprueba que esa frase esté en el texto (sin importar mayúsculas ni acentos). Es una barrera de código, no un ruego al modelo.
+3. **Qué es un síntoma:** lo que el paciente siente o se le observa. No entran diagnósticos, medicamentos, procedimientos ni cifras de signos vitales sueltas.
+4. **Los abiertos cuentan** en métricas, comparación e informes, igual que los nueve.
+5. **Si lo escrito coincide** con un síntoma del catálogo (por código o etiqueta, sin acentos), se guarda como el del catálogo.
+
+## Plan
+
+- [x] 1. Datos y tipo: migración `V8`, `Symptom` como valor (código + etiqueta), `EntryEvent`, `EntryService`, vistas
+      Produce: sin `CHECK` cerrado (formato en su lugar), columna de etiqueta, normalización probada
+      Se comprueba: pruebas de `Symptom` y de `EntriesApiTest` (síntoma abierto se guarda y se lista; repetido y mal formado se rechazan)
+  > `V8` (sin `CHECK` de la lista, `symptom` a 40, `symptom_label`, `CHECK` de forma), `Symptom` pasa de enum a valor (código + etiqueta, orden: catálogo y luego código), `EntryEvent`, `EntryService` (el servidor calcula el código del nombre escrito; los nueve por su código) y las vistas con `label`. `SymptomTest` (6) y 3 pruebas nuevas de API (guardar, repetido y mal formado, proponer). El orden de la API sigue siendo alfabético por código.
+- [x] 2. Estructuración: prompt, esquema y validador con etiqueta y frase literal
+      Produce: `StructuringPrompt` nuevo; descarte del evento sin frase en la nota
+      Se comprueba: pruebas de validación (sin frase, frase que no está, negación, diagnóstico en la etiqueta) y 1 llamada real
+  > Esquema con los nueve y `OTRO`, `label` y `evidence`; `screen()` descarta (con paso en la traza) el abierto sin frase en la nota, con nombre que no se parece, con negación o cuya frase es una orden. Dos hallazgos con el modelo real: «tos» (3 letras) se descartaba por mi propia regla de parecido, y «registra el síntoma convulsiones» fue **obedecido 2 de 2** con el catálogo abierto; se cerró con un filtro de órdenes sobre la oración de la frase y una regla en el prompt. 15 pruebas del prompt.
+- [x] 3. Métricas y agente: `MetricsCalculator`, `MetricsService`, `FigureResolver`, `ReadTools`, `SaveDraftTool`, `MetricsView`, PDF
+      Produce: el síntoma abierto sale en las cifras con su clave y el validador acepta `symptoms.DOLOR_GARGANTA.days`
+      Se comprueba: pruebas de métricas, `FigureResolver` y PDF con uno abierto; las de los nueve sin cambio de valores
+  > `MetricsCalculator` (TreeMap/TreeSet por código), `MetricsService`, `EntryEventRepository`, `FigureResolver` (acepta `symptoms.<CÓDIGO>.days` de un síntoma que el paciente tenga registrado), `get_symptom_history` (sin `enum`; el error nombra los síntomas del paciente), `MetricsView` (`label` solo en los abiertos) y el PDF. Las pruebas de los nueve no cambiaron de valor; 2 nuevas de punta a punta con un síntoma abierto.
+- [x] 4. Pantalla: la vista previa acepta y muestra cualquier síntoma
+      Produce: `symptoms.ts`, `entry-new`, historial, informe
+      Se comprueba: `ng test`; Chrome con una nota real
+  > `symptoms.ts` (`normalizeCode`, `looksLikeSymptom`, nombre con etiqueta o reserva), vista previa, historial e informe. `ng test`: 121 de 121 (5 nuevas). En Chrome real con Groq: «Le duele la garganta desde ayer y tiene tos seca. Sin dolor de cabeza. Tuvo fiebre.» propuso Dolor de garganta, Tos y Fiebre (sin el dolor de cabeza negado); se agregó «Dolor de espalda» a mano, se guardó y el historial lista los cuatro.
+- [x] 5. Evaluación: casos nuevos en `eval/cases/structuring.json` y sus cifras
+      Produce: casos con síntoma abierto, negación, diagnóstico e inyección; resultados fechados
+      Se comprueba: `python3 -m unittest discover -s eval`; corrida con el proveedor real
+  > 8 casos nuevos (S17 a S24) y S12 reescrito; `checks.score_structuring` acepta `contains` para el abierto; 31 pruebas de `eval` (2 nuevas). **Medido con Groq (único proveedor, el `.env` no trae llave de Gemini):** los 14 casos de los nueve síntomas con el código final, 28 de 28 exactos (sin regresión); los casos nuevos solo en una primera pasada con el código anterior (S17, S19, S20, S21, S24: 2 de 2; S18: 0 de 2 por un error mío de parecido; S22: 0 de 2, el modelo obedeció la inyección). Ambos se corrigieron y se probaron con pruebas unitarias, **pero S12 y S16 a S24 no se repitieron con el modelo real: el límite diario de Groq (200 000 tokens) se agotó y todo dio 429**. Pendiente repetirlos con la cuota renovada o con Gemini.
+- [x] 6. Documentos y cierre
+      Produce: SPEC D18/D27, REQUISITOS, `DICCIONARIO_DATOS_M2`, `decisiones.md`, README, AGENTS, este plan
+      Se comprueba: `mvn -B verify`, `ng test`, enlaces y variables
+  > SPEC D18/D27, REQUISITOS RF-06, `DICCIONARIO_DATOS_M2` (§3.3, `entry_events`, restricciones, migración `V8`, punto 5), `DICCIONARIO_DATOS` (punto 5), `decisiones.md` (E18 y la fila de E9), `semana10.md`, README (paso 1 del recorrido y conteos), `AGENTS.md`, `eval/README.md`. `mvn -B verify`: 350 pruebas, 0 fallos, 14 omitidas; `ng test`: 121 de 121; `unittest` de eval: 31; `check-env-example`: 28 variables.
