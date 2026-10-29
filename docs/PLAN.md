@@ -152,7 +152,7 @@ Solo hay una tarea: primero se retiran el manifiesto y el workflow, junto con su
 
 ### Seguimiento
 
-- [x] E1 · [x] E2 · [x] E3 · [x] E4 · [ ] E5 · [ ] E6 · [ ] E7 · [ ] E8 · [ ] E9 · [ ] E10 · [ ] E11 · [ ] E12a · [ ] E12b · [ ] E14 · [ ] E15
+- [x] E1 · [x] E2 · [x] E3 · [x] E4 · [x] E5 · [ ] E6 · [ ] E7 · [ ] E8 · [ ] E9 · [ ] E10 · [ ] E11 · [ ] E12a · [ ] E12b · [ ] E14 · [ ] E15
 - [ ] E12c (fuera por decisión del 28-oct) · [ ] E13 (al final, solo si sobra tiempo) · [ ] E16 (fuera)
 
 ## 5. Propuestas del §4.2 del prompt, cerradas para tu aprobación
@@ -497,3 +497,53 @@ El 1: un orden equivocado de filtros deja pasar sin usuario o bloquea la petici�
 | 1 | El filtro corre antes del de CORS; el 401 sale en HTML | Prueba de `OPTIONS` falla; el cuerpo no es JSON |
 | 2 | La sonda de pruebas se registra también en producción | Falla `mvn package`; no debe estar en `src/main` |
 | 3 | Un usuario no demo con id válido entra | La prueba de usuario inactivo lo detecta |
+
+---
+
+# E5 — Frontend: sistema de diseño y shell
+
+> **Estado:** cerrada · **EDT:** 3.4 (2 h; subestimada, C6) · **Depende de:** E4 (hecha) · **Nota:** el encargo y el plan de esta etapa los escribí al cerrarla, no antes de empezar; el criterio de aceptación sí sale de la columna «Cierre» del prompt.
+
+## Encargo
+
+**En una frase.** Portar del mockup A el sistema de diseño y el armazón de la aplicación a Angular 19, sin rediseñar nada, con rutas con hash, sesión de demostración e interceptor, de modo que las capturas del armazón a 1280×800 y a 390×844 no difieran del mockup salvo en lo de la tabla 3.3.
+
+**Criterio de aceptación.**
+- ¿Las capturas del armazón (menú, encabezado, tarjeta de usuario) a 1280 y a 390 no muestran diferencias de maquetación, tipografía, color o espaciado con el mockup, salvo contenido y tabla 3.3?
+- ¿Se cambia de enfermera con «Ver como» y el servidor recibe el nuevo usuario en cada petición?
+- ¿El CSS es el del mockup, copiado y no reescrito, y no hay librerías de interfaz, fuentes ni iconos externos?
+- ¿Están las rutas con hash del mockup, la ruta por defecto `#/enf/pacientes` y «No encontramos lo que busca» para lo desconocido?
+- ¿Existen, con la estructura de DOM del mockup, `icono`, `btnProceso`/`conProceso`, `menuLateral`, `listado`, `estado`, `toast` y `vacioHTML`?
+
+**Queda fuera.** Las pantallas (E6 en adelante); `hojaHTML`, `filaSintoma` y `vistaPrevia`, que se portan con su pantalla (E9, E12b); campana, administrador y médico.
+
+## Plan
+
+- [x] 1. Copiar el CSS del mockup y su catálogo de iconos
+      Produce: `styles.css` (líneas 8-194 y 317-481 del mockup, sin tocar) y `core/icons.ts` (23 iconos)
+      Se comprueba: el CSS se genera con `sed` por rangos, no se retipea
+  > 355 líneas de CSS idénticas a las del mockup; los 15 iconos base y los 8 de módulo salen del mismo archivo por script.
+- [x] 2. Portar los componentes de interfaz
+      Produce: `IconComponent` (`svg[appIcon]`), `ProcessButtonComponent` (`button[appProcessButton]`), `EmptyStateComponent`, `StatusChipComponent`, `ListingComponent` con `appCell`, `ToastService`, `date-es.ts`
+      Se comprueba: pruebas unitarias de estructura y comportamiento
+  > Los componentes de atributo (`svg[…]`, `button[…]`, `nav[…]`) conservan el DOM del mockup: el elemento es el propio `<svg class="icon">`, `<button class="btn">` y `<nav class="sb">`. Los de contenido llevan `display: contents`.
+- [x] 3. Portar el menú lateral
+      Produce: `SidebarComponent`
+      Se comprueba: `aria-current`, grupo desplegado, contraer, grupo contraído, tarjeta y Escape
+  > Sin «Mi perfil», «Preferencias» ni «Cerrar sesión» (3.3); las filas Área, Cargo y Último acceso solo aparecen con dato; el correo, solo si existe.
+- [x] 4. Sesión, interceptor, armazón y rutas con hash
+      Produce: `SessionService`, `demoUserInterceptor`, `AppComponent`, `app.routes.ts`, `app.config.ts`
+      Se comprueba: el servidor recibe `X-Demo-User`; ruta por defecto y no encontrada
+  > Las 8 rutas del mockup más `#/enf/pacientes/nuevo` (alta, 3.4), todas con `PendingComponent` hasta su etapa. «Ver como» solo ofrece enfermeras.
+- [x] 5. La fecha de hoy la da el servidor
+      Produce: `today` en `GET /api/system/status` (America/Bogota)
+      Se comprueba: prueba del backend; F7 (el navegador no decide qué día es)
+  > `mvn -B verify`: 48 pruebas, 0 fallos.
+- [x] 6. Pruebas unitarias
+      Produce: 8 archivos `.spec.ts`
+      Se comprueba: `ng test` con cobertura
+  > 31 pruebas, 0 fallos; cobertura de líneas 96,79 %, de ramas 75,51 %.
+- [x] 7. Verificación visual F8 y cierre
+      Produce: capturas del mockup y de la app a 1280×800 y a 390×844, fuera del repositorio
+      Se comprueba: diferencias listadas y contenido distinto aparte
+  > Con backend real y `ng serve` (proxy a 8080). Único cambio fuera del contenido: «Ver como» arranca en la primera enfermera por orden alfabético (Camilo Torres), no en Marcela Rojas. `npm run build` de producción: 300,10 kB iniciales, sin advertencias de presupuesto.

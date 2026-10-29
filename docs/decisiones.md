@@ -60,6 +60,23 @@
 | La matriz de la prueba está escrita a mano desde el diccionario y no se lee de la base | Si `V4` y el documento se desvían, la prueba falla; leerla de la base solo compararía la base consigo misma | Generar lo esperado desde la propia base |
 | La ruta SSE se compara por `getRequestURI`, no por `servletPath` | `AntPathRequestMatcher` dependía de `servletPath`, que según el despliegue llega vacío; la prueba unitaria lo detectó | `AntPathRequestMatcher` de Spring Security |
 
+## E5 — Frontend: sistema de diseño y shell (2026-10-28)
+
+| Decisión | Razón | Alternativa descartada |
+|---|---|---|
+| Rutas con hash (`#/enf/pacientes`, `withHashLocation()`) | Son las del mockup (F4) y nginx sirve `index.html` sin configurar reglas para las rutas de la SPA | Rutas con historial del navegador: exigen reescrituras en nginx |
+| El CSS se copia por rangos de líneas del mockup (8-194 y 317-481) y no se reescribe | F1: «se porta, no se rediseña»; cualquier diferencia visual sería un error de transcripción | Reescribirlo por componentes con estilos encapsulados |
+| Los componentes que son un elemento del DOM (`svg`, `button`, `nav`) usan selector de atributo (`svg[appIcon]`, `button[appProcessButton]`, `nav[appSidebar]`) | El selector CSS del mockup depende de la estructura (`.btn > .icon`, `.sb`); un elemento envoltorio la rompería | Elementos personalizados `<app-icon>`, `<app-button>` |
+| Los de contenido (`app-listing`, `app-empty-state`, `app-status-chip`) llevan `display: contents` | Los hijos siguen siendo hijos directos del contenedor para el CSS | Un `div` envoltorio |
+| Sin Angular Material, Bootstrap, Tailwind, fuentes ni iconos externos | F2. Solo se usa lo que Angular ya trae (router, `HttpClient`) | — |
+| La sesión se resuelve en `provideAppInitializer` antes de pintar | Evita parpadeo y peticiones sin usuario; si el servidor no responde, la pantalla lo dice con un aviso y no con un error | Resolverla en cada pantalla |
+| El usuario elegido se guarda en `localStorage` (con `try/catch`) y viaja en `X-Demo-User` solo hacia `/api/` | D26. Sin almacenamiento, se pierde la preferencia y nada más | Cookie |
+| «Ver como» ofrece solo las enfermeras y, al cambiar, vuelve a `#/enf/pacientes` | Tabla 3.3 (el médico aparece solo si se construye E12c); el mockup también vuelve al inicio del rol | Quedarse en la pantalla actual: los datos de la pantalla cambian de dueño |
+| «Ver como» arranca en la primera enfermera por orden alfabético (Camilo Torres) | No hay otro criterio en la API; para arrancar como Marcela Rojas habría que ordenar de otra forma | Escribir un nombre en el código |
+| La fecha de hoy la entrega el servidor (`today` en `/api/system/status`, America/Bogota) | F7 y RN-06: el navegador no decide en qué semana estamos | `new Date()` del navegador |
+| `PendingComponent` marca las pantallas que aún no existen | Deja registradas las rutas del mockup y el menú navegable; cada etapa lo reemplaza. No es diseño final | Dejar las rutas sin registrar (todas darían «No encontramos lo que busca») |
+| Sin `ChromeHeadless` con banderas especiales; `CHROME_BIN=/usr/bin/google-chrome` en esta máquina | Es lo que usa el CI sin cambios | Configurar un lanzador personalizado |
+
 ## Decisiones del equipo (2026-10-28)
 
 | Decisión | Razón | Alternativa descartada |
