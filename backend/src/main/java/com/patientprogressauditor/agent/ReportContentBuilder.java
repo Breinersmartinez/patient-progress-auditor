@@ -9,6 +9,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -21,6 +22,7 @@ import com.patientprogressauditor.metrics.WeeklyMetrics;
 @Component
 public class ReportContentBuilder {
 
+    private static final DateTimeFormatter SHORT_DAY = DateTimeFormatter.ofPattern("d 'de' MMMM", new Locale("es", "CO"));
     private static final DateTimeFormatter LONG_DAY = DateTimeFormatter.ofPattern("EEEE d 'de' MMMM", new Locale("es", "CO"));
 
     private final MetricsService metrics;
@@ -37,6 +39,9 @@ public class ReportContentBuilder {
     }
 
     public ObjectNode build(ObjectNode model, AgentRunContext context) {
+        if (context.isMonthly()) {
+            return buildMonthly(model, context);
+        }
         WeeklyMetrics week = context.metrics(context.weekStart(), w -> metrics.weekly(context.patientId(), w));
         ObjectNode content = mapper.createObjectNode();
         ObjectNode period = content.putObject("period");
@@ -45,6 +50,43 @@ public class ReportContentBuilder {
         content.setAll(model);
         content.set("metrics", MetricsView.of(week, mapper));
         content.set("insufficient_data", insufficient(week));
+        if (DiagnosisGuard.asksForDiagnosisOrTreatment(context.request())) {
+            content.put("out_of_scope", DiagnosisGuard.OUT_OF_SCOPE);
+        } else {
+            content.putNull("out_of_scope");
+        }
+        return content;
+    }
+
+    // El mensual (E13): lo que redacto el modelo MAS lo que pone el codigo. Las cifras de cada semana (`metrics.weeks`, del mismo
+    // calculo que el semanal), los cuatro informes semanales de los que sale (`weekly_reports`) y lo que falta de cada semana.
+    private ObjectNode buildMonthly(ObjectNode model, AgentRunContext context) {
+        List<WeeklyMetrics> weeks = context.weeks().stream()
+                .map(w -> context.metrics(w, week -> metrics.weekly(context.patientId(), week))).toList();
+        ObjectNode content = mapper.createObjectNode();
+        ObjectNode period = content.putObject("period");
+        period.put("start", context.firstWeek().toString()).put("end", context.weekEnd().toString());
+        ArrayNode starts = period.putArray("weeks");
+        weeks.forEach(w -> starts.add(w.weekStart().toString()));
+        content.setAll(model);
+        ArrayNode perWeek = content.putObject("metrics").putArray("weeks");
+        weeks.forEach(w -> perWeek.add(MetricsView.of(w, mapper)));
+        ArrayNode sources = content.putArray("weekly_reports");
+        context.weeklyReports().forEach(r -> sources.addObject().put("week_no", r.weekNo()).put("week_start", r.weekStart().toString())
+                .put("report_id", r.reportId().toString()).put("summary", r.summary()));
+        ArrayNode missing = content.putArray("insufficient_data");
+        for (WeeklyMetrics w : weeks) {
+            for (JsonNode item : insufficient(w)) {
+                String kind = item.path("kind").asText();
+                // La comparacion con la semana anterior es del semanal: dentro del mes ya se comparan las cuatro entre si.
+                if (kind.equals("DIAS_SIN_REGISTRO") || kind.equals("ENTRADAS_SIN_ESTRUCTURAR")) {
+                    ObjectNode copy = ((ObjectNode) item).deepCopy();
+                    copy.put("week", w.weekStart().toString());
+                    copy.put("text", "Semana del " + SHORT_DAY.format(w.weekStart()) + " al " + SHORT_DAY.format(w.weekEnd()) + ": " + item.path("text").asText());
+                    missing.add(copy);
+                }
+            }
+        }
         if (DiagnosisGuard.asksForDiagnosisOrTreatment(context.request())) {
             content.put("out_of_scope", DiagnosisGuard.OUT_OF_SCOPE);
         } else {

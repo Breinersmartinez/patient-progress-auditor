@@ -121,16 +121,21 @@ public class FigureResolver {
 
     // Claves de la semana del informe cuyo valor es `n`: para decirle al modelo cual escribir cuando nombra un numero sin
     // respaldo («el 1 puede ser symptoms.DOLOR_HUESO.days»).
+    // En el mensual se buscan las cuatro semanas y la clave lleva «@» con la semana (salvo la ultima, que es la de por defecto).
     public List<String> candidates(AgentRunContext context, int n) {
         List<String> found = new ArrayList<>();
-        collect(metricsOf(context, context.weekStart()), "", n, found);
+        for (LocalDate week : context.weeks()) {
+            List<String> inWeek = new ArrayList<>();
+            collect(metricsOf(context, week), "", n, inWeek);
+            inWeek.forEach(path -> found.add(week.equals(context.weekStart()) ? path : path + "@" + week));
+        }
         return found.size() > 3 ? found.subList(0, 3) : found;
     }
 
-    // Todos los enteros que calculo el codigo para la semana del informe (y la anterior, dentro de vs_previous).
+    // Todos los enteros que calculo el codigo para las semanas del informe (y la anterior a cada una, dentro de vs_previous).
     public java.util.Set<Integer> allValues(AgentRunContext context) {
         java.util.Set<Integer> values = new java.util.HashSet<>();
-        collectValues(metricsOf(context, context.weekStart()), values);
+        context.weeks().forEach(week -> collectValues(metricsOf(context, week), values));
         return values;
     }
 

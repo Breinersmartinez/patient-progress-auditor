@@ -2,11 +2,11 @@ import { Component, OnDestroy, OnInit, computed, effect, inject, signal } from '
 import { ActivatedRoute, RouterLink } from '@angular/router';
 
 import { apiFailure } from '../core/api-error';
-import { bogotaDay, dCorto, dFull, periodoTxt, sumar } from '../core/date-es';
+import { bogotaDay, dCorto, dFull, fechaCorta, periodoTxt, sumar } from '../core/date-es';
 import { EntriesService } from '../core/entries.service';
 import { IconComponent } from '../core/icon.component';
 import { MenuMarkService } from '../core/menu-mark.service';
-import { Claim, CitedEntry, ReportContent, ReportDetail, ReportsService, TraceStep, VersionView } from '../core/reports.service';
+import { Claim, CitedEntry, MonthlyMetrics, ReportContent, ReportDetail, ReportMetrics, ReportsService, TraceStep, VersionView } from '../core/reports.service';
 import { SYMPTOM_LABELS } from '../core/symptoms';
 import { ToastService } from '../core/toast.service';
 import { EmptyStateComponent } from '../ui/empty-state.component';
@@ -29,6 +29,12 @@ interface Row {
   name: string;
   previous: string;
   current: string;
+}
+
+// Una fila de la tabla «Evolución semana a semana» del informe mensual: el síntoma y su valor en cada una de las cuatro semanas.
+interface MonthRow {
+  name: string;
+  cells: string[];
 }
 
 const SHORT = 90;
@@ -155,12 +161,17 @@ const SHORT = 90;
       }
 
       <article class="hoja" id="hoja">
-        <h1>Informe de seguimiento semanal</h1>
-        <p class="sub">Paciente {{ d.report.patientAlias }}, semana del {{ period() }}</p>
+        <h1>Informe de seguimiento {{ monthly() ? 'mensual' : 'semanal' }}</h1>
+        <p class="sub">Paciente {{ d.report.patientAlias }}, {{ monthly() ? 'del ' + period() + ' (cuatro semanas)' : 'semana del ' + period() }}</p>
         @if (content(); as c) {
           <div class="meta">
-            <span><b>Comparado con:</b> {{ comparedWith() }}</span>
-            <span><b>Registros revisados:</b> {{ c.metrics.days_with_entry }} de 7 días</span>
+            @if (monthly()) {
+              <span><b>Semanas incluidas:</b> {{ c.weekly_reports?.length ?? 0 }} informes semanales aprobados</span>
+              <span><b>Registros revisados:</b> {{ daysWithEntry() }} de {{ monthWeeks().length * 7 }} días</span>
+            } @else {
+              <span><b>Comparado con:</b> {{ comparedWith() }}</span>
+              <span><b>Registros revisados:</b> {{ c.metrics.days_with_entry }} de 7 días</span>
+            }
             <span><b>Generado:</b> {{ generated() }}</span>
             <span><b>Aprobado por:</b> {{ d.report.status === 'APROBADO' && d.report.reviewedBy ? d.report.reviewedBy : 'pendiente de aprobación' }}</span>
           </div>
@@ -205,14 +216,37 @@ const SHORT = 90;
               }
             </p>
           }
-          <h2>Cifras de la semana</h2>
-          <table>
-            <tr><th>Síntoma</th><th>Período de comparación</th><th>Esta semana</th></tr>
-            @for (row of rows(); track row.name) {
-              <tr><td>{{ row.name }}</td><td>{{ row.previous }}</td><td>{{ row.current }}</td></tr>
-            }
-          </table>
-          <p class="nota">Cifras calculadas por el sistema a partir de los registros, no por la IA. Solo se listan los síntomas que aparecieron en alguno de los dos períodos.</p>
+          @if (monthly()) {
+            <h2>Evolución semana a semana</h2>
+            <div class="tabla-scroll"><table data-t="evolucion">
+              <tr>
+                <th>Síntoma</th>
+                @for (week of monthWeeks(); track week.week; let i = $index) { <th>Semana {{ i + 1 }} ({{ corta(week.week) }})</th> }
+              </tr>
+              @for (row of monthRows(); track row.name) {
+                <tr><td>{{ row.name }}</td>@for (cell of row.cells; track $index) { <td>{{ cell }}</td> }</tr>
+              }
+            </table></div>
+            <p class="nota">Cifras calculadas por el sistema a partir de los registros, no por la IA. Solo se listan los síntomas que aparecieron en alguna de las cuatro semanas.</p>
+          } @else {
+            <h2>Cifras de la semana</h2>
+            <table>
+              <tr><th>Síntoma</th><th>Período de comparación</th><th>Esta semana</th></tr>
+              @for (row of rows(); track row.name) {
+                <tr><td>{{ row.name }}</td><td>{{ row.previous }}</td><td>{{ row.current }}</td></tr>
+              }
+            </table>
+            <p class="nota">Cifras calculadas por el sistema a partir de los registros, no por la IA. Solo se listan los síntomas que aparecieron en alguno de los dos períodos.</p>
+          }
+          @if (monthly() && c.weekly_reports?.length) {
+            <h2>Informes semanales de origen</h2>
+            <ol data-t="origen">
+              @for (source of c.weekly_reports; track source.report_id) {
+                <li>Semana {{ source.week_no }} ({{ weekRange(source.week_start) }}): {{ source.summary }}
+                  <a [routerLink]="['/enf/informes/ver', source.report_id]">Ver el informe de esa semana</a></li>
+              }
+            </ol>
+          }
           @if (pattern(); as p) {
             <h2>Patrón a destacar</h2>
             <p class="resumen">{{ p.claim.text }}<sup><a class="ref" role="link" tabindex="0" (click)="goTo(p.index)" (keydown.enter)="goTo(p.index)">[{{ p.index }}]</a></sup></p>
@@ -273,6 +307,8 @@ export class ReportViewComponent implements OnInit, OnDestroy {
   private readonly entryIndex = signal(new Map<string, CitedEntry>());
 
   protected readonly dCorto = dCorto;
+  protected readonly corta = fechaCorta;
+  protected readonly weekRange = (start: string): string => periodoTxt(start, sumar(start, 6));
   protected readonly short = (text: string, max = SHORT): string => (text.length > max ? text.slice(0, max) + '…' : text);
 
   protected readonly content = computed<ReportContent | undefined>(() => this.detail()?.version.content);
@@ -285,7 +321,7 @@ export class ReportViewComponent implements OnInit, OnDestroy {
   protected readonly generated = computed(() => dFull(bogotaDay(this.detail()?.report.generatedAt ?? '')));
   protected readonly comparedWith = computed(() => {
     const c = this.content();
-    if (!c) {
+    if (!c || this.monthly()) {
       return '';
     }
     const start = c.period.compared_with;
@@ -301,9 +337,29 @@ export class ReportViewComponent implements OnInit, OnDestroy {
         return null;
     }
   });
+  protected readonly monthly = computed(() => this.detail()?.report.reportType === 'MENSUAL');
+  // En el mensual `metrics` trae las cuatro semanas (cada una con la forma de una semana) en lugar de una sola.
+  protected readonly monthWeeks = computed<ReportMetrics[]>(() =>
+    this.monthly() ? ((this.content()?.metrics as unknown as MonthlyMetrics | undefined)?.weeks ?? []) : []);
+  protected readonly daysWithEntry = computed(() => this.monthWeeks().reduce((sum, week) => sum + week.days_with_entry, 0));
+  protected readonly monthRows = computed<MonthRow[]>(() => {
+    const weeks = this.monthWeeks();
+    if (!weeks.length) {
+      return [];
+    }
+    const days = (n: number): string => (n > 0 ? `${n} ${n === 1 ? 'día' : 'días'}` : 'No registrado');
+    const names = [...new Set(weeks.flatMap((week) => Object.keys(week.symptoms)))];
+    return [
+      { name: 'Registros', cells: weeks.map((week) => String(week.entries)) },
+      ...names.map((code) => ({
+        name: SYMPTOM_LABELS[code] ?? code,
+        cells: weeks.map((week) => days(week.symptoms[code]?.days ?? 0)),
+      })),
+    ];
+  });
   protected readonly rows = computed<Row[]>(() => {
     const m = this.content()?.metrics;
-    if (!m) {
+    if (!m || this.monthly()) {
       return [];
     }
     const comparable = m.vs_previous.comparable;

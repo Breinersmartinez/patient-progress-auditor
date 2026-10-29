@@ -186,7 +186,7 @@ class ReportsApiTest {
                 .andExpect(jsonPath("$.fields['claims[0].entryIds']").value("Una de las citas no es un registro de este paciente."));
         // Cita posterior a la semana del informe.
         putContent(NURSE, report, edit(report, summary, ok, crit, later)).andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.fields['claims[0].entryIds']").value("No se puede citar un registro posterior a la semana del informe."));
+                .andExpect(jsonPath("$.fields['claims[0].entryIds']").value("No se puede citar un registro posterior al período del informe."));
         // Un diagnostico, una dosis.
         putContent(NURSE, report, edit(report, summary, "Parece una infección, conviene suspender el tratamiento.", crit, week.get(0).getId()))
                 .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.fields['claims[0].text']").exists());

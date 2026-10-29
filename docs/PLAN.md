@@ -153,7 +153,7 @@ Solo hay una tarea: primero se retiran el manifiesto y el workflow, junto con su
 ### Seguimiento
 
 - [x] E1 · [x] E2 · [x] E3 · [x] E4 · [x] E5 · [x] E6 · [x] E7 · [x] E8 · [x] E9 · [x] E10 · [x] E11 · [x] E12a · [x] E12b · [x] E14 · [x] E15 (falta la prueba del compañero y el tag)
-- [ ] E12c (fuera por decisión del 28-oct) · [ ] E13 (al final, solo si sobra tiempo) · [ ] E16 (fuera)
+- [ ] E12c (fuera por decisión del 28-oct) · [x] E13 (pedido por el equipo el 29-oct) · [ ] E16 (fuera)
 
 ## 5. Propuestas del §4.2 del prompt, cerradas para tu aprobación
 
@@ -1136,3 +1136,68 @@ Si W-1 no tiene ninguna entrada, no se puede decir que un síntoma «dejó de es
       Produce: este plan al día y el reporte
       Se comprueba: `mvn -B verify`, `ng test`, pruebas de `eval/`
   > Esta etapa no cambió código Java ni TypeScript (solo `run.sh` y documentos), por lo que no repetí `mvn -B verify` ni `ng test`; el último resultado es el de E14 (281 y 105). Sí corrí `bash -n run.sh`, las 18 pruebas de `eval/` y `check-env-example.sh`.
+
+---
+
+# E13 — Informe mensual
+
+> **Estado:** cerrada (el equipo lo pidió el 29-oct: «habíamos quedado de incluir en la entrega el informe mensual») · **EDT:** 11.1 a 11.3 (7 h) · **Depende de:** E10, E11, E12a, E12b, E14 y E15 (hechas) · **Reglas:** RF-36, RN-10, D4, prompt 3.3 y 3.4 («Informe mensual: la misma hoja con una tabla por semana y, si falta una semana aprobada, un `.error` que dice cuál»).
+
+## Encargo
+
+**En una frase.** Que enfermería pueda pedir, para un paciente, el informe de **cuatro semanas completas consecutivas** cuando cada una ya tiene su informe semanal `APROBADO`; que el agente lo redacte con esos informes y las cifras de cada semana, que muestre la evolución semana a semana, y que pase por la misma revisión de enfermería antes de llegar al médico. Si falta una semana aprobada, no se genera y se dice cuál.
+
+**Criterio de aceptación.**
+- ¿Con las cuatro semanas aprobadas de P-014 (21-sep a 18-oct) se genera el mensual, queda `PENDIENTE_REVISION`, y la hoja muestra la evolución semana a semana con cifras iguales a las del código, afirmaciones con citas del mismo paciente dentro de las cuatro semanas y los cuatro informes semanales enlazados?
+- ¿Con una o más semanas sin aprobar (pendiente, rechazada, incompleta o sin informe) el servidor responde 409 **sin crear ejecución** y el mensaje nombra cada semana que falta y su estado, y la pantalla lo muestra en un `.error`?
+- ¿Se rechazan, en el servidor, un inicio que no es lunes, una ventana cuya última semana no ha terminado y un mensual vigente repetido (se devuelve el que ya existe o corre)?
+- ¿El mensual sigue las mismas reglas que el semanal: solo enfermería lo aprueba, el médico solo lo ve `APROBADO`, se edita con versiones (la 1 de la IA no se toca), las cifras no las cambia nadie, un límite agotado lo deja `INCOMPLETO` con el motivo?
+- ¿Queda registrado de qué cuatro informes semanales salió (`monthly_report_weeks`)?
+- ¿El agente cumple los cuatro límites también en el mensual, con la misma traza visible (herramienta, parámetros, resultado, ms, tokens)?
+- ¿`mvn -B verify` y `ng test` pasan, y una ejecución real (llave) de P-014 deja un mensual válido?
+
+**Queda fuera.** Mensual por mes calendario (D4: cuatro semanas); aprobar semanas desde el mensual; PDF; la vista del médico (E12c); una cifra de éxito estadísticamente firme del mensual (se mide con n pequeño y se dice).
+
+## Diseño (resumen)
+
+| Pieza | Decisión |
+|---|---|
+| Ventana | Cuatro lunes consecutivos; el inicio es el lunes de la primera. `reports.period_end = inicio + 27` (ya lo exige `V3`) |
+| Regla RN-10 | `MonthlyEligibility` (código, no el modelo): por cada semana busca el informe `SEMANAL` `APROBADO`; si falta, el mensaje dice «la semana del X al Y: no tiene informe / está en revisión / fue rechazada…». También exige las cuatro semanas terminadas y que no haya un mensual vigente |
+| Tipo de ejecución | `agent_runs.run_type = 'MENSUAL'` (`V7`): así un semanal y un mensual del mismo paciente y misma primera semana no se bloquean entre sí. El índice de «una sola ejecución viva» incluye el tipo |
+| Pedirlo | `POST /api/runs` acepta `type` (`SEMANAL` por defecto o `MENSUAL`); con `MENSUAL`, `weekStart` es la primera semana. `GET /api/patients/{id}/report-months` lista las ventanas con el estado de sus cuatro semanas y por qué no se puede generar |
+| El agente | El **mismo bucle, límites, validador y capa de proveedor**; cambian el contexto (un periodo de cuatro semanas en vez de una), el prompt y **una herramienta nueva de lectura**, `get_approved_weekly_reports`, solo del mensual: devuelve por semana el resumen, las afirmaciones aprobadas con los alias de sus registros y las cifras compactas. Las cifras que el modelo cita se validan igual (`clave@AAAA-MM-DD` para cada semana) |
+| Contenido | `period.weeks`, `weekly_reports` (los cuatro informes de origen), `metrics.weeks` (las métricas de cada semana, del código), `insufficient_data` por semana, más `summary`, `claims`, `changes_vs_previous` y `recurring_patterns` del modelo. Misma forma de afirmación y de cita que el semanal, así la edición y las fuentes funcionan igual |
+| Pantalla | «Generar informe»: el período «Un mes (cuatro semanas)» ya previsto en la tabla 3.3. La hoja: título mensual, tabla «Evolución semana a semana» (síntoma por semana), los cuatro informes semanales de origen enlazados, y el mismo resumen, patrón y fuentes |
+| Medición | Dos casos dorados de `eval/` (P-014 genera; P-021 se bloquea nombrando las semanas) con comprobaciones propias, y una medición pequeña con llave real, con la cifra y su n |
+
+## Plan
+
+- [x] 1. La regla de las cuatro semanas y la lista de meses
+      Produce: `V7` (tipo `MENSUAL` e índice con tipo), `MonthlyEligibility`, `GET /api/patients/{id}/report-months`
+      Se comprueba: pruebas de la regla (4 aprobadas, una pendiente, una rechazada, una sin informe, ventana en curso, no lunes) y del endpoint contra la semilla
+  > `V7`, `MonthlyEligibility` (el mensaje nombra cada semana y su estado) y `GET /api/patients/{id}/report-months`. `MonthlyEligibilityTest`: 9 pruebas (cuatro aprobadas, pendiente, rechazada, incompleta, sin informe, aprobada que gana a rechazada, ventana en curso, mensual vigente, lista y permisos).
+- [x] 2. Pedir el mensual
+      Produce: `AgentRun.Type.MENSUAL`, `type` en `POST /api/runs`, 409 con las semanas que faltan, ejecución viva única por tipo
+      Se comprueba: prueba del API: bloqueado no crea ejecución; vigente repetido devuelve la misma; el semanal sigue igual
+  > `AgentRun.Type.MENSUAL`, `type` en `POST /api/runs`, 409 sin crear ejecución, una ejecución viva por tipo. `MonthlyRunsApiTest`: 7 pruebas (202 y repetido, semanal y mensual a la vez, semana sin aprobar, varias faltantes, no lunes y ventana en curso, permisos, sin `type` sigue semanal).
+- [x] 3. El agente en el mensual
+      Produce: contexto de periodo, `get_approved_weekly_reports`, prompt mensual, resolutor y validador sobre las cuatro semanas, contenido mensual, `monthly_report_weeks`, validación de edición
+      Se comprueba: pruebas con modelo de prueba (borrador válido, cita fuera del periodo, cifra falsa, límite agotado → `INCOMPLETO`); las 281 de antes siguen verdes
+  > Contexto de periodo (`AgentRunContext.monthly`), `ApprovedWeeklyReports` y la herramienta `get_approved_weekly_reports` (solo del mensual), prompt mensual, resolutor y validador sobre las cuatro semanas, contenido mensual, `monthly_report_weeks` y validación de edición. 5 pruebas del agente mensual, 6 del validador y el contenido, 5 de revisión (`MonthlyReportsApiTest`). Las pruebas semanales de antes siguen verdes; hubo que ajustar el constructor de `AgentRunner` en tres pruebas y la guarda del inventario (el verbo «aprobar» ya no se busca dentro de «approved»).
+- [x] 4. Pantallas
+      Produce: período «Un mes» en generar, hoja mensual, lista y servicios
+      Se comprueba: pruebas del frontend; Chrome a 1280×800 y 390×844 contra la hoja semanal (F8)
+  > Período «Un mes (cuatro semanas)» en generar (la semana que falta se muestra al elegir la ventana), hoja mensual con la tabla «Evolución semana a semana» y los cuatro informes de origen enlazados, y «Mensual:» en las listas. 8 pruebas nuevas (113 en total). Chrome a 1280×800 y 390×844: la tabla de cinco columnas desbordaba en pantalla angosta; ahora se desplaza dentro de la hoja y el documento no desborda. No hay mockup del mensual: se comparó con la hoja semanal.
+- [x] 5. Con IA real
+      Produce: una ejecución real de P-014 y el bloqueo de P-021 contra la app levantada con llave
+      Se comprueba: informe válido, traza completa, cifras iguales al código; lo que falle se corrige por su causa
+  > P-014 del 21-sep al 18-oct con llaves reales: 3 llamadas, Groq limitó y la traza muestra el paso a Gemini, cifras iguales al cálculo, aprobado y visible para el médico; el repetido responde 409. P-021: 409 con las cuatro semanas nombradas. Repetido en el contenedor limpio (`V7` aplicada) y una regresión del semanal real: bien.
+- [x] 6. Evaluación
+      Produce: casos mensuales en `eval/` y la medición con n y fecha en `docs/decisiones/semana10.md`
+      Se comprueba: `python3 -m unittest discover -s eval`; la suite corre contra la app
+  > 3 casos mensuales (`eval/cases/monthly.json`, `eval/monthly.py`), 29 pruebas de la evaluación (11 nuevas). Con llave: 6 de 6 ejecuciones del agente (a la primera 2 de 6), mediana 9,7 s, 0,0089 USD, 11 828 tokens; M2 1 de 1. Una primera pasada dio 0 de 6 por un error del comprobador (cero de un síntoma ausente), corregido y repetido; todo en `docs/decisiones/semana10.md`.
+- [x] 7. Documentos y cierre
+      Produce: `decisiones.md` (E13), README, `AGENTS.md`, SPEC y este plan al día
+      Se comprueba: `mvn -B verify`, `ng test`, y la prueba en frío otra vez (el contenedor aplica `V7`)
+  > `decisiones.md` (E13), `semana10.md`, `semana06.md`, README, `AGENTS.md`, SPEC D4 y este plan. `mvn -B verify`: 313 pruebas, 0 fallos, 14 omitidas (antes 281). `ng test`: 113 de 113 y `ng build` aparte no se repitió (compila en la imagen de Docker). Prueba en frío con el árbol limpio: 4 min 22 s, tres servicios sanos, `V1` a `V7` aplicadas.

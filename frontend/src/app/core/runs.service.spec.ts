@@ -60,6 +60,14 @@ describe('RunsService', () => {
     expect(answer.run.id).toBe('r1');
   });
 
+  it('pide el informe mensual con el tipo y el lunes de la primera semana', async () => {
+    const created = service.request('p1', '2026-09-21', 'MENSUAL');
+    const request = http.expectOne('/api/runs');
+    expect(request.request.body).toEqual({ patientId: 'p1', weekStart: '2026-09-21', type: 'MENSUAL' });
+    request.flush({ id: 'r2', runType: 'MENSUAL', status: 'EN_COLA' }, { status: 202, statusText: 'Accepted' });
+    expect((await created).run.runType).toBe('MENSUAL');
+  });
+
   it('sigue la ejecucion por SSE con el usuario elegido en la ruta, entrega cada paso y cierra al terminar', () => {
     const steps: RunStep[] = [];
     let end: Run | undefined;

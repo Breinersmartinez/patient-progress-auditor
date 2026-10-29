@@ -193,6 +193,11 @@ public class DraftValidator {
         for (LocalDate d : List.of(c.weekStart(), c.weekEnd(), c.weekStart().minusDays(7), c.weekStart().minusDays(1))) {
             days.add(d.getDayOfMonth());
         }
+        // En el mensual tambien se pueden nombrar los limites de cada una de las cuatro semanas.
+        for (LocalDate week : c.weeks()) {
+            days.add(week.getDayOfMonth());
+            days.add(week.plusDays(6).getDayOfMonth());
+        }
         return days;
     }
 

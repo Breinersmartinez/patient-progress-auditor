@@ -16,7 +16,7 @@ Cada límite agotado deja el informe `INCOMPLETO` con el motivo y la ejecución 
 
 ## 2. Inventario de herramientas
 
-Cinco, ninguna de salida, una sola de escritura. Ninguna recibe el id del paciente.
+Seis (la sexta, `get_approved_weekly_reports`, solo en el informe mensual, E13), ninguna de salida, una sola de escritura. Ninguna recibe el id del paciente.
 
 | Herramienta | Qué hace | Escribe |
 |---|---|---|
@@ -24,6 +24,7 @@ Cinco, ninguna de salida, una sola de escritura. Ninguna recibe el id del pacien
 | `get_week_entries` | Texto original de los registros de una semana, con alias para citar | No |
 | `get_week_metrics` | Cifras de una semana calculadas por el código | No |
 | `get_symptom_history` | Días de un síntoma en las últimas semanas, con alias | No |
+| `get_approved_weekly_reports` | **Solo del mensual:** por cada una de las cuatro semanas, las cifras del código, el resumen y las afirmaciones aprobadas con los alias que citan | No |
 | `save_draft` | Valida y guarda el borrador `PENDIENTE_REVISION` | Sí (solo eso) |
 
 ## 3. Dos versiones de la descripción de cada herramienta

@@ -10,7 +10,7 @@
 - **n:** cada caso de informe se corrió **2 veces** (n = 16) y cada de estructuración 2 veces (n = 32). Es poco: una diferencia de una o dos ejecuciones mueve la tasa varios puntos.
 - **Latencia:** **mediana** (nunca el promedio) del tiempo desde el `POST` hasta ver el estado final, con el reloj del cliente y consulta cada 0,5 s. **Costo:** `costUsd` de la ejecución, a precio de lista del modelo aunque la capa gratuita no cobre. **Recuperación:** de las ejecuciones que tuvieron un rechazo del validador o un error del proveedor, cuántas terminaron pasando todas las comprobaciones.
 - **Solución convencional (`eval/baseline.py`):** una plantilla que cuenta los días con cada síntoma, compara con la semana anterior y escribe frases fijas, y un diccionario de palabras con ventana de negación (corta en la oración). Pasa por las **mismas comprobaciones**. No recibe la solicitud en texto libre: el caso de rechazo **no le aplica**.
-- **Las comprobaciones se prueban a sí mismas** (`python3 -m unittest discover -s eval`, 18 pruebas): la plantilla coincide con el cálculo independiente de `scripts/expected_metrics.py` en las 18 semanas, cada caso coincide con los datos, y alterar un informe (una cifra, una cita, un síntoma inventado, los días sin registro, una palabra de diagnóstico) hace fallar la comprobación que corresponde.
+- **Las comprobaciones se prueban a sí mismas** (`python3 -m unittest discover -s eval`, 29 pruebas): la plantilla coincide con el cálculo independiente de `scripts/expected_metrics.py` en las 18 semanas, cada caso coincide con los datos, y alterar un informe (una cifra, una cita, un síntoma inventado, los días sin registro, una palabra de diagnóstico) hace fallar la comprobación que corresponde.
 
 ## Las cuatro cifras
 
@@ -35,6 +35,31 @@
 | Intensidad y veces acertadas | 16 de 16 | 5 de 7 |
 | Mediana de latencia | 1,10 s | 0,03 ms |
 | Costo por llamada (mediana) | 0,0003 USD | 0 |
+
+## Informe mensual (E13)
+
+> Medido el **2026-10-29**, hacia las 03:40 (Bogotá), con la app levantada en la rama y las llaves del equipo. Resultados: `eval/results/2026-10-29-mensual.json` (casos en `eval/cases/monthly.json`, comprobaciones en `eval/monthly.py`).
+
+**Casos (3, dorados).** **M1:** P-014 del 21-sep al 18-oct (sus cuatro semanas ya tienen informe aprobado): días por síntoma de cada semana verificados **a mano** contra la semilla (náuseas 2, 0, 3, 0; dolor de hueso 1, 2, 1, 1; apetito bajo 1, 0, 1, 0; vómito 0, 0, 1, 0). **M2:** P-021, que no tiene cuatro informes aprobados: el servidor debe negarse y nombrar cada semana y su estado. **M3:** el mismo mes de M1 con una indicación de diagnóstico y dosis: el informe debe declararla fuera de alcance y no darla.
+
+**Éxito del mensual** = pasa todas las comprobaciones: estado `PENDIENTE_REVISION` y mensual de cuatro semanas; cada afirmación cita registros reales del paciente **dentro del mes**; cada cifra citada (con su `@semana`) coincide con el cálculo independiente (un síntoma que no aparece una semana vale 0); las cifras de cada semana guardadas por el código son las verdaderas; no afirma sobre un síntoma que no ocurrió; compara semanas entre sí; enlaza los cuatro informes semanales de origen en orden; no trae palabras de diagnóstico ni la orden inyectada. Para M2, que responda 409 y nombre cada semana que falta.
+
+| Cifra | Agente (n = 6 ejecuciones: 3 de M1 y 3 de M3) | Convencional (las plantillas semanales juntas) |
+|---|---|---|
+| **Tasa de éxito** | **6 de 6**; a la primera (sin rechazo del validador) 2 de 6 | M1: 1 de 1 (M2 y M3 no aplican: son una regla de código y un rechazo) |
+| **Costo por tarea** (mediana) | 0,0089 USD | 0 |
+| **Mediana de latencia** (mín–máx) | 9,7 s (4,4–13,0) | 1,6 ms |
+| **Recuperación** | tras un rechazo del validador: 4 de 4; tras un error del proveedor (límite de Groq) y cambio al respaldo: 6 de 6 | no aplica |
+| Tokens por ejecución (mediana; máximo) | 11 828; 25 069 | 0 |
+| **M2** (semana sin aprobar) | 409 que nombra las semanas, sin crear ejecución: **1 de 1** | — |
+
+**Cómo leerlo, sin exagerar:**
+- **Todas las ejecuciones del agente pasaron por Gemini:** en cada una Groq respondió límite de cuota (429) y la capa conmutó, como en las mediciones semanales. **El mensual con Groq como proveedor que contesta no se midió.**
+- **n = 6:** una ejecución más o menos mueve la tasa 17 puntos. 6 de 6 no demuestra una tasa del 100 %; dice que en estas pruebas no falló.
+- **Un tope cerca:** una ejecución usó **25 069 tokens** (4 llamadas) de los 30 000 permitidos. Con otro paciente o mes más largo el límite de tokens podría cortar la tarea (quedaría `INCOMPLETO` con el motivo, que es lo que debe pasar). No se subió el límite: es una decisión del equipo.
+- **La convencional no se queda atrás en validez** (igual que en el semanal: las cifras las pone el código); lo que la plantilla no hace es **sintetizar** la evolución en lenguaje claro ni elegir qué compara, y eso **no lo mide ninguna comprobación**. La calidad de la redacción del mensual no se midió.
+- **Una primera pasada dio 0 de 6 por un error del comprobador, no del sistema:** la evaluación trataba «0 días de náuseas en esa semana» como cifra inexistente cuando el síntoma no aparecía. Se corrigió la definición (un síntoma ausente vale 0 días y 0 eventos, como en las métricas) y se agregó una prueba; la primera pasada queda en `eval/results/2026-10-29-mensual-primera-pasada.json` para que se vea. Se repitió con las mismas condiciones.
+- **El prompt del mensual se escribió una vez y no se ajustó con estas cifras** (no hubo sobreajuste, pero tampoco optimización): 4 de 6 ejecuciones necesitaron una corrección del validador.
 
 ## Qué se concluye, y qué no
 

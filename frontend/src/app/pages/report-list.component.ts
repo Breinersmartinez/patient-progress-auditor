@@ -44,7 +44,7 @@ export class ReportListComponent implements OnInit {
   protected readonly searchText = (r: ReportSummary) => `${r.patientAlias} ${this.period(r)} ${this.label(r.status)}`;
   protected readonly href = (r: ReportSummary) => `/enf/informes/ver/${r.id}`;
   protected readonly label = (status: string) => REPORT_STATUS_LABELS[status] ?? status;
-  protected readonly period = (r: ReportSummary) => periodoTxt(r.periodStart, r.periodEnd);
+  protected readonly period = (r: ReportSummary) => (r.reportType === 'MENSUAL' ? 'Mensual: ' : '') + periodoTxt(r.periodStart, r.periodEnd);
   protected readonly day = (instant: string) => dFull(bogotaDay(instant));
 
   protected empty() {

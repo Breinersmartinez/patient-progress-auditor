@@ -20,6 +20,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.patientprogressauditor.agent.AgentProperties;
 import com.patientprogressauditor.agent.AgentProperties.DescriptionVersion;
 import com.patientprogressauditor.agent.AgentRunContext;
+import com.patientprogressauditor.agent.ApprovedWeeklyReports;
 import com.patientprogressauditor.entry.Entry;
 import com.patientprogressauditor.entry.EntryEventRepository;
 import com.patientprogressauditor.entry.EntryRepository;
@@ -251,6 +252,68 @@ public final class ReadTools {
                 nodes.forEach(list::add);
             });
             return json(mapper, out);
+        }
+    }
+
+    // Solo del mensual: los cuatro informes semanales aprobados (la version que enfermeria aprobo) con las cifras de cada
+    // semana. Los alias de los registros que esos informes citan quedan emitidos y se pueden citar en el mensual.
+    @Component
+    public static class GetApprovedWeeklyReports implements AgentTool {
+
+        private final EntryRepository entries;
+        private final MetricsService metrics;
+        private final ObjectMapper mapper;
+
+        public GetApprovedWeeklyReports(EntryRepository entries, MetricsService metrics, ObjectMapper mapper) {
+            this.entries = entries;
+            this.metrics = metrics;
+            this.mapper = mapper;
+        }
+
+        @Override
+        public String name() {
+            return "get_approved_weekly_reports";
+        }
+
+        @Override
+        public boolean monthlyOnly() {
+            return true;
+        }
+
+        @Override
+        public ToolSpec spec(DescriptionVersion version) {
+            return new ToolSpec(name(), ToolDescriptions.of(name(), version), noParams(mapper));
+        }
+
+        @Override
+        public String execute(AgentRunContext context, JsonNode arguments) {
+            if (!context.isMonthly()) {
+                throw new ToolException("Esta herramienta es solo del informe mensual.");
+            }
+            ArrayNode weeks = mapper.createArrayNode();
+            Map<java.util.UUID, LocalDate> dates = new java.util.HashMap<>();
+            context.weeklyReports().stream().flatMap(w -> w.claims().stream()).flatMap(c -> c.entryIds().stream()).distinct()
+                    .forEach(id -> dates.put(id, null));
+            entries.findAllById(dates.keySet()).forEach(e -> dates.put(e.getId(), e.getEntryDate()));
+            for (ApprovedWeeklyReports.Weekly weekly : context.weeklyReports()) {
+                var data = context.metrics(weekly.weekStart(), w -> metrics.weekly(context.patientId(), w));
+                ObjectNode node = weeks.addObject();
+                node.put("n", weekly.weekNo());
+                node.put("week", weekly.weekStart().toString());
+                node.put("entries", data.entries());
+                node.put("days_with_entry", data.daysWithEntry());
+                node.put("total_events", data.totalEvents());
+                ObjectNode days = node.putObject("days");
+                data.symptoms().forEach(s -> days.put(s.symptom().name(), s.days()));
+                node.put("summary", weekly.summary());
+                ArrayNode claims = node.putArray("claims");
+                for (ApprovedWeeklyReports.WeeklyClaim claim : weekly.claims()) {
+                    ObjectNode c = claims.addObject().put("text", claim.text());
+                    ArrayNode aliases = c.putArray("e");
+                    claim.entryIds().forEach(id -> aliases.add(context.aliasFor(id, dates.get(id))));
+                }
+            }
+            return json(mapper, mapper.createObjectNode().set("weeks", weeks));
         }
     }
 }

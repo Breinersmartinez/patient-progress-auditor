@@ -305,6 +305,9 @@
   .hoja table { width: 100%; border-collapse: collapse; font-size: 14px; }
   .hoja th, .hoja td { text-align: left; padding: 8px; border-bottom: 1px solid var(--divider); }
   .hoja th { background: #F1F1EE; }
+  /* La tabla de evolucion del mensual tiene cinco columnas: en pantalla angosta se desplaza dentro de la hoja. */
+  .hoja .tabla-scroll { overflow-x: auto; }
+  .hoja .tabla-scroll table { min-width: 520px; }
   .hoja .nota { font-size: 12px; color: #5F5E5A; margin-top: 6px; }
   .hoja ol { padding-left: 0; list-style: none; font-size: 13px; margin: 0; }
   .hoja ol li { margin-bottom: 4px; }

@@ -37,6 +37,7 @@ import com.patientprogressauditor.llm.LlmResult;
 import com.patientprogressauditor.llm.LlmUnavailableException;
 import com.patientprogressauditor.llm.ToolCall;
 import com.patientprogressauditor.llm.ToolSpec;
+import com.patientprogressauditor.report.MonthlyEligibility;
 import com.patientprogressauditor.report.Report;
 import com.patientprogressauditor.report.ReportDraftService;
 import com.patientprogressauditor.report.ReportRepository;
@@ -51,7 +52,12 @@ public class AgentRunner {
 
     private static final Logger log = LoggerFactory.getLogger(AgentRunner.class);
 
-    public record Task(UUID patientId, LocalDate weekStart, UUID requestedBy, String request) {
+    // `weekStart` es el lunes de la semana (semanal) o de la PRIMERA de las cuatro semanas (mensual).
+    public record Task(Report.Type type, UUID patientId, LocalDate weekStart, UUID requestedBy, String request) {
+
+        public Task(UUID patientId, LocalDate weekStart, UUID requestedBy, String request) {
+            this(Report.Type.SEMANAL, patientId, weekStart, requestedBy, request);
+        }
     }
 
     public record Outcome(AgentRun.Status status, AgentRun.StopReason stopReason, UUID reportId, String message) {
@@ -66,6 +72,8 @@ public class AgentRunner {
     private final ReportContentBuilder contentBuilder;
     private final ReportRepository reports;
     private final EntryRepository entries;
+    private final MonthlyEligibility eligibility;
+    private final ApprovedWeeklyReports approvedWeekly;
     private final Clock clock;
     private final ObjectMapper mapper;
     // Las herramientas corren aparte para poder cortarlas al pasar su tiempo maximo.
@@ -77,7 +85,8 @@ public class AgentRunner {
 
     public AgentRunner(LlmGateway gateway, List<AgentTool> tools, AgentProperties properties, AgentRunRepository runs,
             AgentStepRepository steps, ReportDraftService drafts, ReportContentBuilder contentBuilder,
-            ReportRepository reports, EntryRepository entries, Clock clock, ObjectMapper mapper) {
+            ReportRepository reports, EntryRepository entries, MonthlyEligibility eligibility, ApprovedWeeklyReports approvedWeekly,
+            Clock clock, ObjectMapper mapper) {
         this.gateway = gateway;
         this.tools = tools.stream().collect(Collectors.toMap(AgentTool::name, Function.identity()));
         this.properties = properties;
@@ -87,6 +96,8 @@ public class AgentRunner {
         this.contentBuilder = contentBuilder;
         this.reports = reports;
         this.entries = entries;
+        this.eligibility = eligibility;
+        this.approvedWeekly = approvedWeekly;
         this.clock = clock;
         this.mapper = mapper;
     }
@@ -101,10 +112,13 @@ public class AgentRunner {
         State state = new State(run, task);
         try {
             state.begin();
-            String blocked = blockedReason(task.patientId(), task.weekStart());
+            String blocked = blockedReason(task);
             if (blocked != null) {
                 state.step(AgentStep.Type.ERROR, blocked, true, null, null, null, null);
                 return state.fail(AgentRun.Status.FALLIDA, null, blocked);
+            }
+            if (task.type() == Report.Type.MENSUAL) {
+                state.loadMonthly();
             }
             return loop(state);
         } catch (RuntimeException e) {
@@ -118,6 +132,13 @@ public class AgentRunner {
             }
             return state.fail(AgentRun.Status.FALLIDA, null, message);
         }
+    }
+
+    // Lo mismo para cualquier tipo de informe: en el mensual decide la regla de las cuatro semanas aprobadas (RN-10).
+    public String blockedReason(Task task) {
+        return task.type() == Report.Type.MENSUAL
+                ? eligibility.evaluate(task.patientId(), task.weekStart()).problem()
+                : blockedReason(task.patientId(), task.weekStart());
     }
 
     // Por que no tiene sentido generar este informe (o null si se puede). Lo comprueba quien pide la ejecucion, antes de
@@ -134,10 +155,14 @@ public class AgentRunner {
     }
 
     private Outcome loop(State s) {
-        List<ToolSpec> specs = tools.values().stream().map(t -> t.spec(properties.getToolDescriptions())).toList();
+        boolean monthly = s.context.isMonthly();
+        // El semanal no ve las herramientas propias del mensual.
+        List<ToolSpec> specs = tools.values().stream().filter(t -> monthly || !t.monthlyOnly())
+                .map(t -> t.spec(properties.getToolDescriptions())).toList();
         List<LlmMessage> messages = new ArrayList<>();
-        messages.add(LlmMessage.system(AgentPrompt.system(properties.getMaxIterations())));
-        messages.add(LlmMessage.user(AgentPrompt.task(s.task.weekStart(), s.task.request())));
+        messages.add(LlmMessage.system(monthly ? AgentPrompt.systemMonthly(properties.getMaxIterations()) : AgentPrompt.system(properties.getMaxIterations())));
+        messages.add(LlmMessage.user(monthly ? AgentPrompt.taskMonthly(s.task.weekStart(), s.task.request())
+                : AgentPrompt.task(s.task.weekStart(), s.task.request())));
 
         for (int iteration = 1; iteration <= properties.getMaxIterations(); iteration++) {
             // Limite de tokens, antes de gastar otra llamada: la siguiente cuesta al menos lo que costo la anterior.
@@ -205,11 +230,14 @@ public class AgentRunner {
         String model;
         boolean fallbackUsed;
         String lastDraft;
+        List<UUID> weeklyReportIds = List.of();
 
         State(AgentRun run, Task task) {
             this.run = run;
             this.task = task;
-            this.context = new AgentRunContext(task.patientId(), task.weekStart());
+            this.context = task.type() == Report.Type.MENSUAL
+                    ? AgentRunContext.monthly(task.patientId(), task.weekStart())
+                    : new AgentRunContext(task.patientId(), task.weekStart());
             this.context.setRequest(task.request());
             this.context.setSink((content, citations) -> drafts.saveDraft(origin(), content, citations));
         }
@@ -219,7 +247,15 @@ public class AgentRunner {
         }
 
         ReportDraftService.Origin origin() {
-            return new ReportDraftService.Origin(task.patientId(), task.weekStart(), task.requestedBy(), run.getId(), provider, model);
+            return new ReportDraftService.Origin(task.type(), task.patientId(), task.weekStart(), task.requestedBy(), run.getId(),
+                    provider, model, weeklyReportIds);
+        }
+
+        // El mensual parte de los cuatro informes semanales aprobados: se leen una vez, al empezar, y alimentan la
+        // herramienta, el contenido y el enlace monthly_report_weeks.
+        void loadMonthly() {
+            weeklyReportIds = eligibility.evaluate(task.patientId(), task.weekStart()).weeklyReportIds();
+            context.setWeeklyReports(approvedWeekly.load(weeklyReportIds));
         }
 
         void begin() {
@@ -346,6 +382,7 @@ public class AgentRunner {
                 case "get_week_metrics" -> "Calculando las cifras de la semana del " + a.path("week_start").asText("?");
                 case "get_symptom_history" -> "Revisando el historial de " + a.path("symptom").asText("un síntoma") + " en las últimas "
                         + a.path("weeks_back").asText("?") + " semanas";
+                case "get_approved_weekly_reports" -> "Leyendo los cuatro informes semanales aprobados del mes";
                 case "save_draft" -> "Guardando el borrador del informe";
                 default -> "Herramienta " + call.name();
             };

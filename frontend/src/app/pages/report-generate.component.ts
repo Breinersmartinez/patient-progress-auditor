@@ -1,18 +1,19 @@
-import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 
 import { apiFailure } from '../core/api-error';
-import { rango } from '../core/date-es';
+import { periodoTxt, rango } from '../core/date-es';
 import { IconComponent } from '../core/icon.component';
 import { LlmStatus, LlmStatusService } from '../core/llm-status.service';
 import { Patient, PatientsService } from '../core/patients.service';
-import { ReportsService, WeekOption } from '../core/reports.service';
+import { MonthOption, ReportsService, WeekOption } from '../core/reports.service';
 import { Run, RunStep, RunsService } from '../core/runs.service';
 import { ToastService } from '../core/toast.service';
 import { ProcessButtonComponent } from '../ui/process-button.component';
 
 // vInfGenerar() del mockup, sin el mundo simulado: pide la ejecucion del agente (D24) y muestra sus pasos reales por SSE.
-// Diferencias con el mockup (tabla 3.3): solo semanas completas, sin rango de fechas ni «Comparar con».
+// Diferencias con el mockup (tabla 3.3): solo semanas completas, sin rango de fechas ni «Comparar con»; el período «Un mes»
+// son cuatro semanas completas consecutivas, cada una con su informe semanal aprobado (RN-10).
 @Component({
   selector: 'app-report-generate',
   standalone: true,
@@ -34,21 +35,34 @@ import { ProcessButtonComponent } from '../ui/process-button.component';
         </div>
         <div class="campo">
           <label for="ig-tipo">Período del informe</label>
-          <select class="inp" id="ig-tipo" [disabled]="running()">
-            <option value="semana">Una semana</option>
+          <select class="inp" id="ig-tipo" [disabled]="running()" (change)="kind.set($any($event.target).value)">
+            <option value="semana" [selected]="kind() === 'semana'">Una semana</option>
+            <option value="mes" [selected]="kind() === 'mes'">Un mes (cuatro semanas)</option>
           </select>
         </div>
       </div>
-      <div class="campo" id="ig-semana">
-        <label for="ig-sem">Semana</label>
-        <select class="inp" id="ig-sem" [disabled]="running()" (change)="weekStart.set($any($event.target).value)">
-          @for (w of weeks(); track w.weekStart) {
-            <option [value]="w.weekStart" [selected]="w.weekStart === weekStart()">Del {{ range(w.weekStart) }}{{ w.reportId ? ' (ya tiene informe)' : w.runId ? ' (se está generando)' : '' }}</option>
-          }
-        </select>
-      </div>
-      <p class="sec">Se compara con la semana anterior; el agente decide cuántas semanas más atrás revisar.</p>
-      <span class="error" id="ig-err">{{ error() }}</span>
+      @if (kind() === 'semana') {
+        <div class="campo" id="ig-semana">
+          <label for="ig-sem">Semana</label>
+          <select class="inp" id="ig-sem" [disabled]="running()" (change)="weekStart.set($any($event.target).value)">
+            @for (w of weeks(); track w.weekStart) {
+              <option [value]="w.weekStart" [selected]="w.weekStart === weekStart()">Del {{ range(w.weekStart) }}{{ w.reportId ? ' (ya tiene informe)' : w.runId ? ' (se está generando)' : '' }}</option>
+            }
+          </select>
+        </div>
+        <p class="sec">Se compara con la semana anterior; el agente decide cuántas semanas más atrás revisar.</p>
+      } @else {
+        <div class="campo" id="ig-mes">
+          <label for="ig-m">Cuatro semanas</label>
+          <select class="inp" id="ig-m" [disabled]="running()" (change)="monthStart.set($any($event.target).value)">
+            @for (m of months(); track m.start) {
+              <option [value]="m.start" [selected]="m.start === monthStart()">Del {{ period(m) }}{{ monthNote(m) }}</option>
+            }
+          </select>
+        </div>
+        <p class="sec">El informe mensual resume la evolución de las cuatro semanas a partir de sus informes semanales ya aprobados. Si falta uno, no se genera.</p>
+      }
+      <span class="error" id="ig-err">{{ shownError() }}</span>
       <div>
         <button appProcessButton #generate="processButton" label="Generar con IA" busyLabel="Generando" icon="ia" id="ig-btn"
                 class="btn--primary" (click)="start(generate)"></button>
@@ -77,12 +91,23 @@ export class ReportGenerateComponent implements OnInit, OnDestroy {
   private readonly toast = inject(ToastService);
 
   protected readonly range = rango;
+  protected readonly period = (m: MonthOption): string => periodoTxt(m.start, m.end);
   protected readonly patients = signal<Patient[]>([]);
   protected readonly patientId = signal('');
   protected readonly weeks = signal<WeekOption[]>([]);
   protected readonly weekStart = signal('');
+  protected readonly kind = signal<'semana' | 'mes'>('semana');
+  protected readonly months = signal<MonthOption[]>([]);
+  protected readonly monthStart = signal('');
   protected readonly llm = signal<LlmStatus | null>(null);
   protected readonly error = signal('');
+  // Si la ventana elegida no se puede generar, el servidor ya dijo por que (que semana falta y en que estado esta): se
+  // muestra al elegirla y no solo al pulsar el boton.
+  protected readonly shownError = computed(() => this.error() || this.monthBlocked() || '');
+  private readonly monthBlocked = computed(() => {
+    const month = this.kind() === 'mes' ? this.months().find((m) => m.start === this.monthStart()) : undefined;
+    return month && !month.canGenerate && !month.reportId && !month.runId ? month.reason : undefined;
+  });
   protected readonly steps = signal<RunStep[]>([]);
   // Por que la ejecucion no termino bien (un aviso, no un codigo): el proveedor cayo, se agoto un limite...
   protected readonly failure = signal<string | null>(null);
@@ -125,14 +150,38 @@ export class ReportGenerateComponent implements OnInit, OnDestroy {
       this.weekStart.set('');
       this.error.set(apiFailure(e).message);
     }
+    try {
+      const months = await this.reports.months(this.patientId());
+      this.months.set(months);
+      this.monthStart.set((months.find((m) => m.canGenerate) ?? months[0])?.start ?? '');
+    } catch {
+      // La lista de meses es un extra del selector: si falla, se puede seguir con una semana.
+      this.months.set([]);
+      this.monthStart.set('');
+    }
+  }
+
+  protected monthNote(m: MonthOption): string {
+    return m.reportId ? ' (ya tiene informe)' : m.runId ? ' (se está generando)' : m.canGenerate ? '' : ' (faltan informes semanales aprobados)';
   }
 
   protected async start(button: ProcessButtonComponent): Promise<void> {
     this.error.set('');
     this.failure.set(null);
-    const week = this.weeks().find((w) => w.weekStart === this.weekStart());
+    const monthly = this.kind() === 'mes';
+    const week = monthly
+      ? this.months().find((m) => m.start === this.monthStart())
+      : this.weeks().find((w) => w.weekStart === this.weekStart());
     if (!week) {
-      this.error.set('Ese paciente no tiene registros en una semana completa, no hay con qué generar el informe.');
+      this.error.set(monthly
+        ? 'Ese paciente aún no tiene cuatro semanas completas seguidas con registros, no hay con qué generar el informe mensual.'
+        : 'Ese paciente no tiene registros en una semana completa, no hay con qué generar el informe.');
+      return;
+    }
+    const startDate = 'start' in week ? week.start : week.weekStart;
+    const blocked = monthly && 'start' in week && !week.canGenerate && !week.reportId && !week.runId ? week.reason : undefined;
+    if (blocked) {
+      this.error.set(blocked);
       return;
     }
     if (week.reportId) {
@@ -145,7 +194,8 @@ export class ReportGenerateComponent implements OnInit, OnDestroy {
       this.running.set(true);
       try {
         // Si ya se esta generando, se engancha a esa ejecucion en lugar de pedir otra (el servidor tambien lo hace).
-        const run = week.runId ? await this.runs.get(week.runId) : (await this.runs.request(this.patientId(), week.weekStart)).run;
+        const run = week.runId ? await this.runs.get(week.runId)
+          : (await this.runs.request(this.patientId(), startDate, monthly ? 'MENSUAL' : undefined)).run;
         await new Promise<void>((resolve) => {
           this.stopFollowing = this.runs.follow(run.id, {
             onStep: (step) => this.steps.update((list) => [...list, step]),

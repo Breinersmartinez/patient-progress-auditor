@@ -1,8 +1,10 @@
 package com.patientprogressauditor.agent;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -27,6 +29,9 @@ class DraftValidatorTest {
     @Autowired private ReportContentBuilder builder;
     @Autowired private ReadTools.GetSymptomHistory history;
     @Autowired private ReadTools.GetWeekEntries weekEntries;
+    @Autowired private ReadTools.GetWeekMetrics metricsTool;
+    @Autowired private ReadTools.GetApprovedWeeklyReports approvedTool;
+    @Autowired private ApprovedWeeklyReports approvedWeekly;
     @Autowired private JdbcTemplate jdbc;
     @Autowired private ObjectMapper mapper;
 
@@ -258,5 +263,114 @@ class DraftValidatorTest {
         DraftValidator.Checked c = check("Las náuseas aparecieron 4 días.", "[\"" + nauseaAlias + "\"]", "[{\"key\":\"NAUSEAS.days\",\"value\":4}]");
 
         assertThat(builder.build(c.model(), ctx).path("out_of_scope").asText()).startsWith("Se pidió un diagnóstico");
+    }
+
+    // --- informe mensual (E13): cuatro semanas, del 21-sep al 18-oct ---
+
+    private AgentRunContext monthlyContext() throws Exception {
+        UUID p014 = jdbc.queryForObject("SELECT id FROM patients WHERE alias = 'P-014'", UUID.class);
+        AgentRunContext month = AgentRunContext.monthly(p014, LocalDate.of(2026, 9, 21));
+        // El agente solo puede citar lo que leyo: se lee la primera semana para tener un alias
+        JsonNode week = mapper.readTree(weekEntries.execute(month, mapper.readTree("{\"week_start\":\"2026-09-21\"}")));
+        monthAlias = week.path("entries").get(0).path("e").asText();
+        return month;
+    }
+
+    private String monthAlias;
+
+    private JsonNode monthlyDraft(String text, String figures) throws Exception {
+        return mapper.readTree("""
+                {"summary":"El síntoma cambia a lo largo del mes.",
+                 "claims":[{"claim_key":"c1","text":"%s","criterion":"Primera semana frente a cuarta semana","entry_ids":["%s"],"figures":%s}],
+                 "changes_vs_previous":["c1"],"recurring_patterns":["c1"]}""".formatted(text, monthAlias, figures));
+    }
+
+    @Test
+    void aMonthlyClaimCanBackItsNumbersWithTheFiguresOfEachWeek() throws Exception {
+        AgentRunContext month = monthlyContext();
+        // Las cifras salen del codigo: lo que vale cada una en su semana se lee de las metricas, no se supone
+        int w1 = mapper.readTree(metricsOf(month, "2026-09-21")).path("total_events").asInt();
+        int w3 = mapper.readTree(metricsOf(month, "2026-10-05")).path("total_events").asInt();
+
+        DraftValidator.Checked c = validator.check(monthlyDraft("Los eventos pasan de %d en la primera semana a %d en la tercera.".formatted(w1, w3),
+                "[{\"key\":\"total_events@2026-09-21\",\"value\":%d},{\"key\":\"total_events@2026-10-05\",\"value\":%d}]".formatted(w1, w3)), month);
+
+        assertThat(c.problems()).isEmpty();
+        assertThat(c.model().path("claims").get(0).path("figures")).hasSize(2);
+    }
+
+    @Test
+    void aMonthlyFigureFromAWeekOutsideTheMonthIsRejectedAndExplained() throws Exception {
+        AgentRunContext month = monthlyContext();
+
+        DraftValidator.Checked before = validator.check(monthlyDraft("Hay eventos.", "[{\"key\":\"total_events@2026-09-14\",\"value\":0}]"), month);
+        DraftValidator.Checked after = validator.check(monthlyDraft("Hay eventos.", "[{\"key\":\"total_events@2026-10-19\",\"value\":0}]"), month);
+
+        assertThat(before.problems()).anyMatch(p -> p.contains("El informe mensual cubre desde la semana del 2026-09-21") && p.contains("2026-09-14 es anterior"));
+        assertThat(after.problems()).anyMatch(p -> p.contains("última semana del informe") && p.contains("2026-10-19 es posterior"));
+    }
+
+    @Test
+    void aMonthlyFigureWithTheWrongValueIsRejected() throws Exception {
+        AgentRunContext month = monthlyContext();
+        int real = mapper.readTree(metricsOf(month, "2026-09-21")).path("total_events").asInt();
+
+        DraftValidator.Checked c = validator.check(monthlyDraft("Hay %d eventos.".formatted(real + 7), "[{\"key\":\"total_events@2026-09-21\",\"value\":%d}]".formatted(real + 7)), month);
+
+        assertThat(c.problems()).anyMatch(p -> p.contains("vale " + real + " según el sistema"));
+    }
+
+    @Test
+    void theHintForAnUnbackedMonthlyNumberNamesTheWeekOfTheFigure() throws Exception {
+        AgentRunContext month = monthlyContext();
+
+        // 7 son los dias de cada semana con registro: es una cifra del mes (entries), pero el texto no la respalda
+        DraftValidator.Checked c = validator.check(monthlyDraft("Hay registros los 7 días de la primera semana.", "[]"), month);
+
+        assertThat(c.problems()).anyMatch(p -> p.contains("el número 7 del texto no tiene respaldo") && p.contains("@2026-"));
+    }
+
+    private String metricsOf(AgentRunContext month, String week) {
+        return metricsTool.execute(month, mapper.createObjectNode().put("week_start", week));
+    }
+
+    @Test
+    void theMonthlyContentHasTheCodeFiguresOfEachWeekTheSourcesAndWhatIsMissingPerWeek() throws Exception {
+        AgentRunContext month = monthlyContext();
+        List<UUID> weekly = jdbc.queryForList("SELECT id FROM reports WHERE patient_id = ? AND report_type = 'SEMANAL' AND status = 'APROBADO' ORDER BY period_start", UUID.class, month.patientId());
+        month.setWeeklyReports(approvedWeekly.load(weekly.subList(0, 4)));
+        ObjectNode model = mapper.createObjectNode().put("summary", "Resumen");
+        model.putArray("claims");
+
+        ObjectNode content = builder.build(model, month);
+
+        assertThat(content.path("period").path("start").asText()).isEqualTo("2026-09-21");
+        assertThat(content.path("period").path("end").asText()).isEqualTo("2026-10-18");
+        assertThat(content.path("period").path("weeks")).extracting(JsonNode::asText).containsExactly("2026-09-21", "2026-09-28", "2026-10-05", "2026-10-12");
+        assertThat(content.path("metrics").path("weeks")).hasSize(4);
+        assertThat(content.path("metrics").path("weeks").get(2).path("week").asText()).isEqualTo("2026-10-05");
+        assertThat(content.path("weekly_reports")).hasSize(4);
+        assertThat(content.path("weekly_reports").get(0).path("week_no").asInt()).isEqualTo(1);
+        assertThat(content.path("weekly_reports").get(3).path("report_id").asText()).isEqualTo(weekly.get(3).toString());
+        assertThat(content.path("weekly_reports").get(0).path("summary").asText()).isNotBlank();
+        // La comparacion con "la semana anterior" no se repite en el mensual
+        assertThat(content.path("insufficient_data")).noneMatch(n -> n.path("kind").asText().startsWith("SEMANA_ANTERIOR"));
+        assertThat(content.path("out_of_scope").isNull()).isTrue();
+    }
+
+    @Test
+    void theMonthlyToolReturnsTheApprovedReportsWithCitableAliasesAndRefusesToRunInAWeeklyTask() throws Exception {
+        AgentRunContext month = monthlyContext();
+        List<UUID> weekly = jdbc.queryForList("SELECT id FROM reports WHERE patient_id = ? AND report_type = 'SEMANAL' AND status = 'APROBADO' ORDER BY period_start", UUID.class, month.patientId());
+        month.setWeeklyReports(approvedWeekly.load(weekly.subList(0, 4)));
+
+        JsonNode out = mapper.readTree(approvedTool.execute(month, mapper.createObjectNode()));
+
+        assertThat(out.path("weeks")).hasSize(4);
+        assertThat(out.path("weeks").get(1).path("week").asText()).isEqualTo("2026-09-28");
+        assertThat(out.path("weeks").get(0).path("summary").asText()).isNotBlank();
+        assertThat(out.path("weeks").get(0).path("claims").get(0).path("e").get(0).asText()).matches("e\\d+");
+        assertThat(month.entryOf(out.path("weeks").get(0).path("claims").get(0).path("e").get(0).asText())).isNotNull();
+        assertThatThrownBy(() -> approvedTool.execute(ctx, mapper.createObjectNode())).hasMessageContaining("solo del informe mensual");
     }
 }

@@ -23,6 +23,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import baseline  # noqa: E402
 import checks  # noqa: E402
+import monthly  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 SEED = ROOT / "backend/src/main/resources/seed/demo-data.json"
@@ -272,7 +273,7 @@ def main():
     parser.add_argument("--repeat", type=int, default=2, help="veces que se corre cada caso con el sistema real (por defecto 2)")
     parser.add_argument("--pause", type=float, default=12, help="segundos entre ejecuciones, para no agotar la cuota (por defecto 12)")
     parser.add_argument("--only", help="ids de casos separados por coma")
-    parser.add_argument("--suite", choices=["all", "reports", "structuring"], default="all")
+    parser.add_argument("--suite", choices=["all", "reports", "structuring", "monthly"], default="all")
     parser.add_argument("--holdout", action="store_true", help="ademas, las semanas libres que no son casos dorados (reserva contra el sobreajuste)")
     parser.add_argument("--baseline-only", action="store_true", help="solo la solucion convencional (sin app ni llave)")
     parser.add_argument("--system-only", action="store_true", help="solo el sistema real")
@@ -281,6 +282,7 @@ def main():
 
     only = set(args.only.split(",")) if args.only else None
     report_cases = [c for c in json.loads((CASES / "reports.json").read_text(encoding="utf-8"))["cases"] if not only or c["id"] in only]
+    month_cases = [c for c in json.loads((CASES / "monthly.json").read_text(encoding="utf-8"))["cases"] if not only or c["id"] in only]
     struct_cases = [c for c in json.loads((CASES / "structuring.json").read_text(encoding="utf-8"))["cases"] if not only or c["id"] in only]
     started = datetime.now(timezone.utc)
     result = {"date": started.isoformat(timespec="seconds"), "repeat": args.repeat, "base": None if args.baseline_only else args.base}
@@ -291,6 +293,11 @@ def main():
         result["reports_baseline"] = {"figures": report_figures(records, with_agent=False), "records": records,
                                       "no_aplica": [c["id"] for c in report_cases if c["expect"].get("baseline") == "no_aplica"]}
         print_report("Informes: solución convencional (plantilla sin modelo)", result["reports_baseline"]["figures"], records)
+    if args.suite in ("all", "monthly") and not args.system_only:
+        records = [monthly.run_baseline(seed, c) for c in month_cases if c["expect"].get("baseline") != "no_aplica"]
+        result["monthly_baseline"] = {"figures": report_figures(records, with_agent=False), "records": records,
+                                      "no_aplica": [c["id"] for c in month_cases if c["expect"].get("baseline") == "no_aplica"]}
+        print_report("Informe mensual: solución convencional (las plantillas semanales juntas)", result["monthly_baseline"]["figures"], records)
     if args.suite in ("all", "structuring") and not args.system_only:
         records = [run_structuring_baseline(c) for c in struct_cases]
         result["structuring_baseline"] = {"figures": structuring_figures(records), "records": records}
@@ -307,6 +314,14 @@ def main():
                     time.sleep(args.pause)
             result["reports_system"] = {"figures": report_figures(records), "records": records}
             print_report("Informes: sistema real (agente)", result["reports_system"]["figures"], records)
+        if args.suite in ("all", "monthly"):
+            records = []
+            for case in month_cases:
+                for _ in range(1 if case["expect"].get("blocked") else args.repeat):
+                    records.append(monthly.run_system(http, live, case))
+                    time.sleep(0 if case["expect"].get("blocked") else args.pause)
+            result["monthly_system"] = {"figures": report_figures(records), "records": records}
+            print_report("Informe mensual: sistema real (agente)", result["monthly_system"]["figures"], records)
         if args.holdout:
             records = []
             for case in holdout_cases(live, json.loads((CASES / "reports.json").read_text(encoding="utf-8"))["cases"]):

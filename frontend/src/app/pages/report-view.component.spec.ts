@@ -40,6 +40,30 @@ const detail = (over: object = {}, report: object = {}) => ({
   versions: [{ versionNo: 1, origin: 'MODELO', createdAt: '2026-10-29T15:00:00Z' }], citations: CITATIONS, ...over,
 });
 
+// Un informe mensual (E13): `metrics` trae las cuatro semanas; el contenido enlaza los cuatro informes semanales de origen.
+const WEEK = (week: string, entries: number, withEntry: number, nausea: number) => ({
+  week, entries, days_with_entry: withEntry, days_without_entry: 7 - withEntry, missing_dates: [], unstructured_entries: 0, total_events: nausea,
+  symptoms: nausea ? { NAUSEAS: { days: nausea, dates: [], events: nausea } } : {},
+  vs_previous: { week: '', comparable: true, previous_entries: 0, days: {} },
+});
+const MONTHLY_CONTENT = {
+  period: { start: '2026-09-21', end: '2026-10-18', weeks: ['2026-09-21', '2026-09-28', '2026-10-05', '2026-10-12'] },
+  summary: 'Las náuseas reaparecen en la tercera semana.',
+  claims: [{ claim_key: 'c1', text: 'Las náuseas pasan de 3 días en la primera semana a 0 en la segunda.', criterion: 'Primera semana frente a segunda semana',
+    entry_ids: ['e1'], figures: [{ key: 'symptoms.NAUSEAS.days@2026-09-21', value: 3 }] }],
+  changes_vs_previous: ['c1'],
+  recurring_patterns: ['c1'],
+  metrics: { weeks: [WEEK('2026-09-21', 7, 7, 3), WEEK('2026-09-28', 7, 7, 0), WEEK('2026-10-05', 6, 6, 2), WEEK('2026-10-12', 7, 7, 0)] },
+  weekly_reports: [
+    { week_no: 1, week_start: '2026-09-21', report_id: 'w1', summary: 'Náuseas en tres días.' },
+    { week_no: 2, week_start: '2026-09-28', report_id: 'w2', summary: 'Sin síntomas.' },
+    { week_no: 3, week_start: '2026-10-05', report_id: 'w3', summary: 'Náuseas vuelven.' },
+    { week_no: 4, week_start: '2026-10-12', report_id: 'w4', summary: 'Sin síntomas.' },
+  ],
+  insufficient_data: [{ kind: 'DIAS_SIN_REGISTRO', week: '2026-10-05', dates: ['2026-10-11'], text: 'Semana del 5 de octubre al 11 de octubre: No hay registros el domingo 11 de octubre.' }],
+  out_of_scope: null,
+};
+
 describe('ReportViewComponent (vInfVer y hojaHTML del mockup)', () => {
   let http: HttpTestingController;
   let root: HTMLElement;
@@ -303,5 +327,41 @@ describe('ReportViewComponent (vInfVer y hojaHTML del mockup)', () => {
     await open(404);
     expect(root.textContent).toContain('No encontramos lo que busca');
     expect(root.querySelector('.hoja')).toBeNull();
+  });
+
+  it('dibuja el informe mensual: titulo, evolucion semana a semana, los cuatro informes de origen enlazados y las mismas fuentes', async () => {
+    await open(detail({ version: { versionNo: 1, origin: 'MODELO', createdAt: '2026-10-29T15:00:00Z', content: MONTHLY_CONTENT }, citations: { c1: CITATIONS['c1'] } },
+      { id: 'rep1', reportType: 'MENSUAL', periodStart: '2026-09-21', periodEnd: '2026-10-18' }));
+
+    expect(text('.hoja h1')).toBe('Informe de seguimiento mensual');
+    expect(text('.hoja .sub')).toBe('Paciente P-014, del 21 de septiembre al 18 de octubre de 2026 (cuatro semanas)');
+    const meta = text('.hoja .meta');
+    expect(meta).toContain('Semanas incluidas: 4 informes semanales aprobados');
+    expect(meta).toContain('Registros revisados: 27 de 28 días');
+    expect(meta).not.toContain('Comparado con');
+
+    const table = Array.from(root.querySelectorAll('.hoja table[data-t="evolucion"] tr')).map((tr) => Array.from(tr.children).map((c) => c.textContent!.trim()).join(' | '));
+    expect(table).toEqual([
+      'Síntoma | Semana 1 (21 sep) | Semana 2 (28 sep) | Semana 3 (5 oct) | Semana 4 (12 oct)',
+      'Registros | 7 | 7 | 6 | 7',
+      'Náuseas | 3 días | No registrado | 2 días | No registrado',
+    ]);
+    expect(root.textContent).toContain('Evolución semana a semana');
+    expect(root.textContent).not.toContain('Cifras de la semana');
+
+    const origin = Array.from(root.querySelectorAll('.hoja ol[data-t="origen"] li')).map((li) => li.textContent!.replace(/\s+/g, ' ').trim());
+    expect(origin[0]).toContain('Semana 1 (21 al 27 de septiembre de 2026): Náuseas en tres días.');
+    expect(origin[3]).toContain('Semana 4 (12 al 18 de octubre de 2026): Sin síntomas.');
+    expect(root.querySelector('.hoja ol[data-t="origen"] li a')!.getAttribute('href')).toBe('/enf/informes/ver/w1');
+
+    // El resumen, las afirmaciones con su [n], lo que falta y las fuentes funcionan igual que en el semanal
+    expect(text('.hoja .resumen')).toContain('Las náuseas pasan de 3 días en la primera semana a 0 en la segunda.[1]');
+    expect(text('.hoja .resumen')).toContain('Semana del 5 de octubre al 11 de octubre: No hay registros el domingo 11 de octubre.[2]');
+    expect(Array.from(root.querySelectorAll('.hoja ol:not([data-t]) li')).map((li) => li.textContent!.replace(/\s+/g, ' ').trim())).toEqual([
+      '[1] mar 20: "Náuseas leves tras el desayuno." / mié 21: "Náuseas otra vez."',
+      '[2] dom 11: sin registro',
+    ]);
+    // Se aprueba como cualquier informe pendiente
+    expect(root.querySelector('[data-a="aprobar"]')).toBeTruthy();
   });
 });

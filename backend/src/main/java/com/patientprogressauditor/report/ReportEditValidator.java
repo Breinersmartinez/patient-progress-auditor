@@ -118,7 +118,7 @@ public class ReportEditValidator {
                 if (entry == null || !entry.getPatientId().equals(report.getPatientId())) {
                     problems.put(at + ".entryIds", "Una de las citas no es un registro de este paciente.");
                 } else if (entry.getEntryDate().isAfter(report.getPeriodEnd())) {
-                    problems.put(at + ".entryIds", "No se puede citar un registro posterior a la semana del informe.");
+                    problems.put(at + ".entryIds", "No se puede citar un registro posterior al período del informe.");
                 } else {
                     cited.add(id);
                     numbers.add(entry.getEntryDate().getDayOfMonth());
@@ -182,6 +182,13 @@ public class ReportEditValidator {
             numbers.add(d.getDayOfMonth());
         }
         numbers.add(start.getYear());
+        // En el mensual tambien se pueden nombrar los limites de cada una de las cuatro semanas.
+        if (report.getReportType() == Report.Type.MENSUAL) {
+            for (int i = 0; i < 4; i++) {
+                numbers.add(start.plusWeeks(i).getDayOfMonth());
+                numbers.add(start.plusWeeks(i).plusDays(6).getDayOfMonth());
+            }
+        }
         return numbers;
     }
 

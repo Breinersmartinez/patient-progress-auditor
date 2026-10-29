@@ -31,6 +31,10 @@ import com.patientprogressauditor.llm.LlmResponse;
 import com.patientprogressauditor.llm.ScriptedClient;
 import com.patientprogressauditor.llm.ToolCall;
 import com.patientprogressauditor.llm.ToolSpec;
+import com.patientprogressauditor.entry.Symptom;
+import com.patientprogressauditor.metrics.MetricsService;
+import com.patientprogressauditor.report.MonthlyEligibility;
+import com.patientprogressauditor.report.Report;
 import com.patientprogressauditor.report.ReportDraftService;
 import com.patientprogressauditor.report.ReportRepository;
 
@@ -48,6 +52,9 @@ class AgentRunnerTest {
     @Autowired private ReportContentBuilder builder;
     @Autowired private ReportRepository reports;
     @Autowired private EntryRepository entries;
+    @Autowired private MonthlyEligibility eligibility;
+    @Autowired private ApprovedWeeklyReports approvedWeekly;
+    @Autowired private MetricsService metricsService;
     @Autowired private JdbcTemplate jdbc;
     @Autowired private ObjectMapper mapper;
 
@@ -66,6 +73,7 @@ class AgentRunnerTest {
     @AfterEach
     void clean() {
         for (UUID run : runIds) {
+            jdbc.update("DELETE FROM monthly_report_weeks WHERE monthly_report_id IN (SELECT id FROM reports WHERE run_id = ?)", run);
             jdbc.update("DELETE FROM report_citations WHERE report_version_id IN (SELECT v.id FROM report_versions v JOIN reports r ON r.id = v.report_id WHERE r.run_id = ?)", run);
             jdbc.update("DELETE FROM report_versions WHERE report_id IN (SELECT id FROM reports WHERE run_id = ?)", run);
             jdbc.update("DELETE FROM reports WHERE run_id = ?", run);
@@ -79,7 +87,8 @@ class AgentRunnerTest {
         LlmGateway gateway = new LlmGateway(List.of(groq, gemini), llm, d -> { }, mapper);
         List<AgentTool> all = new ArrayList<>(realTools);
         all.addAll(List.of(extra));
-        return new AgentRunner(gateway, all, properties, runs, steps, drafts, builder, reports, entries, Clock.systemDefaultZone(), mapper);
+        return new AgentRunner(gateway, all, properties, runs, steps, drafts, builder, reports, entries, eligibility,
+                approvedWeekly, Clock.systemDefaultZone(), mapper);
     }
 
     private AgentRun newRun() {
@@ -186,10 +195,163 @@ class AgentRunnerTest {
     void theInventoryHasNoOutputToTheOutsideNoApprovalAndOnlyOneWrite() {
         AgentRunner runner = runner(new ScriptedClient("groq", true), new ScriptedClient("gemini", true));
 
-        assertThat(runner.toolNames()).containsExactly("get_symptom_history", "get_week_entries", "get_week_metrics", "list_patient_weeks", "save_draft");
-        assertThat(runner.toolNames()).noneMatch(n -> n.matches(".*(approve|aprob|send|mail|http|web|fetch|delete|update).*"));
+        assertThat(runner.toolNames()).containsExactly("get_approved_weekly_reports", "get_symptom_history", "get_week_entries", "get_week_metrics", "list_patient_weeks", "save_draft");
+        // Ninguna herramienta ACTUA fuera de lo permitido: el verbo aprobar/enviar/borrar no esta en su nombre. «approved» en
+        // get_approved_weekly_reports describe el dato que LEE (informes ya aprobados por una persona), no una accion.
+        assertThat(runner.toolNames()).noneMatch(n -> n.matches(".*(^|_)(approve|reject|aprobar|send|mail|delete|update)(_|$).*|.*(http|web|fetch).*"));
         assertThat(realTools.stream().filter(AgentTool::writes)).hasSize(1);
         assertThat(realTools.size()).isLessThanOrEqualTo(7);
+    }
+
+    // --- informe mensual (E13) ---
+
+    private static final LocalDate MONTH = LocalDate.of(2026, 9, 21);
+
+    private AgentRun newMonthlyRun(UUID forPatient, LocalDate first) {
+        AgentRun run = new AgentRun();
+        run.setRunType(AgentRun.Type.MENSUAL);
+        run.setPatientId(forPatient);
+        run.setRequestedBy(nurse);
+        run.setPeriodStart(first);
+        run.setPeriodEnd(first.plusDays(27));
+        runs.save(run);
+        runIds.add(run.getId());
+        return run;
+    }
+
+    private AgentRunner.Outcome executeMonthly(AgentRunner runner, AgentRun run, UUID forPatient, LocalDate first) {
+        return runner.run(run, new AgentRunner.Task(Report.Type.MENSUAL, forPatient, first, nurse, ""));
+    }
+
+    // El sintoma de P-014 con mas dias en el mes y sus dias en la primera y la tercera semana (las cifras las pone el codigo).
+    private record Pick(String symptom, int first, int third) {
+    }
+
+    private Pick pick() {
+        Pick best = null;
+        for (Symptom symptom : Symptom.values()) {
+            int a = days(symptom, MONTH);
+            int b = days(symptom, MONTH.plusWeeks(2));
+            if (best == null || a + b > best.first() + best.third()) {
+                best = new Pick(symptom.name(), a, b);
+            }
+        }
+        return best;
+    }
+
+    private int days(Symptom symptom, LocalDate week) {
+        return metricsService.weekly(patient, week).symptoms().stream().filter(m -> m.symptom() == symptom).mapToInt(m -> m.days()).findFirst().orElse(0);
+    }
+
+    private String monthlyDraft(Pick pick) {
+        return """
+                {"summary":"El síntoma se mantiene a lo largo del mes con cambios de una semana a otra.",
+                 "claims":[{"claim_key":"c1","text":"El síntoma aparece %d días en la primera semana y %d días en la tercera.",
+                   "criterion":"Primera semana frente a tercera semana","entry_ids":["e1"],
+                   "figures":[{"key":"symptoms.%s.days@2026-09-21","value":%d},{"key":"symptoms.%s.days@2026-10-05","value":%d}]}],
+                 "changes_vs_previous":["c1"],"recurring_patterns":["c1"]}""".formatted(pick.first(), pick.third(), pick.symptom(), pick.first(), pick.symptom(), pick.third());
+    }
+
+    @Test
+    void aMonthlyRunReadsTheApprovedWeeklyReportsAndSavesAMonthlyDraftLinkedToThem() throws Exception {
+        Pick pick = pick();
+        ScriptedClient groq = new ScriptedClient("groq", true)
+                .then(tools(2500, 60, call("1", "get_approved_weekly_reports", "{}")))
+                .then(tools(4000, 420, call("2", "save_draft", monthlyDraft(pick))));
+        AgentRun run = newMonthlyRun(patient, MONTH);
+
+        AgentRunner.Outcome outcome = executeMonthly(runner(groq, new ScriptedClient("gemini", true)), run, patient, MONTH);
+
+        assertThat(outcome.status()).isEqualTo(AgentRun.Status.COMPLETADA);
+        assertThat(outcome.reportId()).isNotNull();
+        assertThat(jdbc.queryForObject("SELECT report_type FROM reports WHERE id = ?", String.class, outcome.reportId())).isEqualTo("MENSUAL");
+        assertThat(jdbc.queryForObject("SELECT status FROM reports WHERE id = ?", String.class, outcome.reportId())).isEqualTo("PENDIENTE_REVISION");
+        assertThat(jdbc.queryForObject("SELECT period_start FROM reports WHERE id = ?", java.sql.Date.class, outcome.reportId()).toLocalDate()).isEqualTo(MONTH);
+        assertThat(jdbc.queryForObject("SELECT period_end FROM reports WHERE id = ?", java.sql.Date.class, outcome.reportId()).toLocalDate()).isEqualTo(MONTH.plusDays(27));
+        // De cuales cuatro informes semanales salio (RN-10)
+        List<UUID> linked = jdbc.queryForList("SELECT weekly_report_id FROM monthly_report_weeks WHERE monthly_report_id = ? ORDER BY week_no", UUID.class, outcome.reportId());
+        assertThat(linked).hasSize(4);
+        List<String> linkedStarts = jdbc.queryForList("SELECT period_start::text FROM reports WHERE id = ANY(?::uuid[]) ORDER BY period_start", String.class,
+                (Object) linked.stream().map(UUID::toString).toArray(String[]::new));
+        assertThat(linkedStarts).containsExactly("2026-09-21", "2026-09-28", "2026-10-05", "2026-10-12");
+        assertThat(jdbc.queryForList("SELECT status FROM reports WHERE id = ANY(?::uuid[])", String.class,
+                (Object) linked.stream().map(UUID::toString).toArray(String[]::new))).containsOnly("APROBADO");
+
+        JsonNode content = mapper.readTree(jdbc.queryForObject("SELECT content::text FROM report_versions WHERE report_id = ?", String.class, outcome.reportId()));
+        assertThat(content.path("period").path("weeks")).hasSize(4);
+        assertThat(content.path("metrics").path("weeks")).hasSize(4);
+        assertThat(content.path("weekly_reports")).hasSize(4);
+        assertThat(content.path("weekly_reports").get(0).path("report_id").asText()).isEqualTo(linked.get(0).toString());
+        assertThat(content.path("claims").get(0).path("figures")).hasSize(2);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM report_citations WHERE report_version_id IN (SELECT id FROM report_versions WHERE report_id = ?)",
+                Integer.class, outcome.reportId())).isGreaterThanOrEqualTo(1);
+        // La herramienta propia del mensual aparece en la traza, y el modelo la tenia disponible
+        assertThat(steps.findByRunIdOrderBySeqAsc(run.getId()).stream().map(AgentStep::getToolName)).contains("get_approved_weekly_reports");
+        assertThat(groq.calls.get(0).tools()).extracting(t -> t.name()).contains("get_approved_weekly_reports");
+        assertThat(groq.calls.get(0).messages().get(0).content()).contains("MENSUAL");
+        // Lo que el modelo lee no trae el alias, la cama ni el id del paciente
+        String everything = groq.calls.stream().flatMap(r -> r.messages().stream()).map(LlmMessage::content).filter(c -> c != null).reduce("", String::concat);
+        assertThat(everything).doesNotContain("P-014").doesNotContain("204-A").doesNotContain(patient.toString());
+    }
+
+    @Test
+    void theWeeklyRunDoesNotSeeTheMonthlyTool() {
+        ScriptedClient groq = new ScriptedClient("groq", true).then(tools(10, 10, call("1", "get_week_entries", WEEK_ARGS)))
+                .then(tools(10, 10, call("2", "save_draft", goodDraft())));
+        execute(runner(groq, new ScriptedClient("gemini", true)), newRun());
+
+        assertThat(groq.calls.get(0).tools()).extracting(t -> t.name())
+                .containsExactlyInAnyOrder("get_symptom_history", "get_week_entries", "get_week_metrics", "list_patient_weeks", "save_draft");
+    }
+
+    @Test
+    void aMonthlyRunWithAWeekNotApprovedIsBlockedWithoutCallingTheModel() {
+        UUID p021 = jdbc.queryForObject("SELECT id FROM patients WHERE alias = 'P-021'", UUID.class);
+        ScriptedClient groq = new ScriptedClient("groq", true);
+        AgentRun run = newMonthlyRun(p021, LocalDate.of(2026, 9, 28));
+
+        AgentRunner.Outcome outcome = executeMonthly(runner(groq, new ScriptedClient("gemini", true)), run, p021, LocalDate.of(2026, 9, 28));
+
+        assertThat(outcome.status()).isEqualTo(AgentRun.Status.FALLIDA);
+        assertThat(outcome.message()).contains("falta el informe semanal aprobado").contains("28 de septiembre al 4 de octubre");
+        assertThat(groq.calls).isEmpty();
+        assertThat(outcome.reportId()).isNull();
+    }
+
+    @Test
+    void theMonthlyIterationLimitLeavesAnIncompleteMonthlyReportWithTheCodeFiguresOfEachWeek() throws Exception {
+        properties.setMaxIterations(1);
+        ScriptedClient groq = new ScriptedClient("groq", true).thenAlways(tools(500, 30, call("1", "get_approved_weekly_reports", "{}")), 1);
+        AgentRun run = newMonthlyRun(patient, MONTH);
+
+        AgentRunner.Outcome outcome = executeMonthly(runner(groq, new ScriptedClient("gemini", true)), run, patient, MONTH);
+
+        assertThat(outcome.status()).isEqualTo(AgentRun.Status.INCOMPLETA);
+        assertThat(outcome.stopReason()).isEqualTo(AgentRun.StopReason.MAX_ITERACIONES);
+        assertThat(jdbc.queryForObject("SELECT report_type FROM reports WHERE id = ?", String.class, outcome.reportId())).isEqualTo("MENSUAL");
+        assertThat(jdbc.queryForObject("SELECT status FROM reports WHERE id = ?", String.class, outcome.reportId())).isEqualTo("INCOMPLETO");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM monthly_report_weeks WHERE monthly_report_id = ?", Integer.class, outcome.reportId())).isEqualTo(4);
+        JsonNode content = mapper.readTree(jdbc.queryForObject("SELECT content::text FROM report_versions WHERE report_id = ?", String.class, outcome.reportId()));
+        assertThat(content.path("metrics").path("weeks")).hasSize(4);
+        assertThat(content.path("summary").asText()).contains("El agente no terminó el borrador");
+    }
+
+    @Test
+    void aMonthlyDraftThatCitesOrCountsOutsideTheMonthIsRejectedAndCorrected() {
+        Pick pick = pick();
+        String outside = monthlyDraft(pick).replace("2026-10-05", "2026-09-14");
+        ScriptedClient groq = new ScriptedClient("groq", true)
+                .then(tools(2500, 60, call("1", "get_approved_weekly_reports", "{}")))
+                .then(tools(4000, 420, call("2", "save_draft", outside)))
+                .then(tools(4200, 420, call("3", "save_draft", monthlyDraft(pick))));
+        AgentRun run = newMonthlyRun(patient, MONTH);
+
+        AgentRunner.Outcome outcome = executeMonthly(runner(groq, new ScriptedClient("gemini", true)), run, patient, MONTH);
+
+        assertThat(outcome.status()).isEqualTo(AgentRun.Status.COMPLETADA);
+        String observation = groq.calls.get(2).messages().stream().map(LlmMessage::content).filter(c -> c != null).reduce("", String::concat);
+        assertThat(observation).contains("El informe mensual cubre desde la semana del 2026-09-21");
+        assertThat(stepTypes(run)).contains(AgentStep.Type.VALIDACION);
     }
 
     // --- límites ---

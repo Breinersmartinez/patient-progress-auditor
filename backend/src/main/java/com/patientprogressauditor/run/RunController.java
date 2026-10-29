@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import com.patientprogressauditor.report.Report;
 import com.patientprogressauditor.run.RunService.RunView;
 import com.patientprogressauditor.run.RunService.StepView;
 import com.patientprogressauditor.session.DemoPrincipal;
@@ -37,7 +38,10 @@ import jakarta.validation.constraints.Size;
 public class RunController {
 
     public record RequestRun(@NotNull(message = "Elija el paciente.") UUID patientId,
+            // El lunes de la semana o, si type es MENSUAL, el lunes de la primera de las cuatro semanas.
             @NotNull(message = "Elija la semana.") LocalDate weekStart,
+            // SEMANAL (por defecto) o MENSUAL (RF-36).
+            Report.Type type,
             // Indicacion libre para el agente. La interfaz no la expone: sirve para probar contra el sistema real que una
             // peticion de diagnostico se declara fuera de alcance (eval/). Se trata como dato, nunca como orden.
             @Size(max = 300, message = "La indicación no puede pasar de 300 caracteres.") String request) {
@@ -54,7 +58,8 @@ public class RunController {
     // Responde 202 al instante con el id; 200 si ya habia una ejecucion viva de ese paciente y semana (la misma, sin lanzar otra).
     @PostMapping
     public ResponseEntity<RunView> request(@Valid @RequestBody RequestRun request, @AuthenticationPrincipal DemoPrincipal principal) {
-        RunService.Requested requested = service.request(request.patientId(), request.weekStart(), request.request(), principal);
+        RunService.Requested requested = service.request(request.patientId(), request.weekStart(),
+                request.type() == null ? Report.Type.SEMANAL : request.type(), request.request(), principal);
         return ResponseEntity.status(requested.created() ? HttpStatus.ACCEPTED : HttpStatus.OK).body(requested.run());
     }
 

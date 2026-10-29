@@ -60,10 +60,47 @@ export interface InsufficientData {
   kind: string;
   text: string;
   dates?: string[];
+  week?: string;
+}
+
+// Una de las cuatro semanas de un informe mensual y el estado de su informe semanal (RN-10).
+export interface MonthWeek {
+  weekNo: number;
+  weekStart: string;
+  weekEnd: string;
+  reportId?: string;
+  status?: ReportStatus;
+  approved: boolean;
+}
+
+// Una ventana de cuatro semanas completas consecutivas que se puede pedir como informe mensual (RF-36).
+export interface MonthOption {
+  start: string;
+  end: string;
+  weeks: MonthWeek[];
+  reportId?: string;
+  reportStatus?: ReportStatus;
+  runId?: string;
+  canGenerate: boolean;
+  reason?: string;
+}
+
+// De cual informe semanal aprobado sale cada semana del mensual.
+export interface WeeklySource {
+  week_no: number;
+  week_start: string;
+  report_id: string;
+  summary: string;
+}
+
+// En el mensual `metrics` no es una semana sino las cuatro, cada una con la forma de ReportMetrics.
+export interface MonthlyMetrics {
+  weeks: ReportMetrics[];
 }
 
 export interface ReportContent {
-  period: { start: string; end: string; compared_with: string };
+  period: { start: string; end: string; compared_with: string; weeks?: string[] };
+  weekly_reports?: WeeklySource[];
   summary: string;
   claims: Claim[];
   changes_vs_previous: string[];
@@ -183,5 +220,10 @@ export class ReportsService {
   // Semanas completas con registros y el informe vigente o la ejecucion en marcha de cada una.
   weeks(patientId: string): Promise<WeekOption[]> {
     return firstValueFrom(this.http.get<WeekOption[]>(`/api/patients/${encodeURIComponent(patientId)}/report-weeks`));
+  }
+
+  // Ventanas de cuatro semanas con el estado del informe semanal de cada una (RN-10), la mas reciente primero.
+  months(patientId: string): Promise<MonthOption[]> {
+    return firstValueFrom(this.http.get<MonthOption[]>(`/api/patients/${encodeURIComponent(patientId)}/report-months`));
   }
 }

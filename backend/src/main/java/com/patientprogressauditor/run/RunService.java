@@ -75,6 +75,14 @@ public class RunService {
     }
 
     public Requested request(UUID patientId, LocalDate weekStart, String note, DemoPrincipal principal) {
+        return request(patientId, weekStart, Report.Type.SEMANAL, note, principal);
+    }
+
+    // `weekStart` es el lunes de la semana o, en el mensual, de la primera de las cuatro. Cada tipo tiene su regla.
+    public Requested request(UUID patientId, LocalDate weekStart, Report.Type type, String note, DemoPrincipal principal) {
+        if (type == Report.Type.MENSUAL) {
+            return requestMonthly(patientId, weekStart, note, principal);
+        }
         if (weekStart.getDayOfWeek() != DayOfWeek.MONDAY) {
             throw new FieldException(HttpStatus.BAD_REQUEST, "weekStart", "La semana debe empezar un lunes.");
         }
@@ -111,6 +119,43 @@ public class RunService {
         return new Requested(created, true);
     }
 
+    // El informe mensual (RF-36, RN-10): cuatro semanas completas, cada una con su informe semanal aprobado. Si falta alguna no se
+    // crea la ejecucion y el 409 dice cual (y en que estado esta).
+    private Requested requestMonthly(UUID patientId, LocalDate firstWeek, String note, DemoPrincipal principal) {
+        if (firstWeek.getDayOfWeek() != DayOfWeek.MONDAY) {
+            throw new FieldException(HttpStatus.BAD_REQUEST, "weekStart", "El mes debe empezar un lunes.");
+        }
+        if (!firstWeek.plusDays(27).isBefore(LocalDate.now(clock))) {
+            throw new FieldException(HttpStatus.BAD_REQUEST, "weekStart", "Solo se puede informar un mes completo: las cuatro semanas deben haber terminado.");
+        }
+        if (!patients.existsById(patientId)) {
+            throw new NotFoundException("No encontramos al paciente.");
+        }
+        Optional<AgentRun> live = live(patientId, firstWeek, AgentRun.Type.MENSUAL);
+        if (live.isPresent()) {
+            return new Requested(view(live.get()), false);
+        }
+        AgentRunner.Task task = new AgentRunner.Task(Report.Type.MENSUAL, patientId, firstWeek, principal.id(), note);
+        String blocked = runner.blockedReason(task);
+        if (blocked != null) {
+            throw new FieldException(HttpStatus.CONFLICT, "weekStart", blocked);
+        }
+        AgentRun run = new AgentRun();
+        run.setRunType(AgentRun.Type.MENSUAL);
+        run.setPatientId(patientId);
+        run.setRequestedBy(principal.id());
+        run.setPeriodStart(firstWeek);
+        run.setPeriodEnd(firstWeek.plusDays(27));
+        try {
+            runs.saveAndFlush(run);
+        } catch (DataIntegrityViolationException e) {
+            return live(patientId, firstWeek, AgentRun.Type.MENSUAL).map(existing -> new Requested(view(existing), false)).orElseThrow(() -> e);
+        }
+        RunView created = view(run);
+        launch(run, task);
+        return new Requested(created, true);
+    }
+
     private void launch(AgentRun run, AgentRunner.Task task) {
         try {
             executor.submit(() -> execute(run, task));
@@ -133,8 +178,11 @@ public class RunService {
     }
 
     private Optional<AgentRun> live(UUID patientId, LocalDate weekStart) {
-        return runs.findFirstByPatientIdAndPeriodStartAndRunTypeAndStatusIn(patientId, weekStart, AgentRun.Type.INFORME,
-                RunTrace.OPEN);
+        return live(patientId, weekStart, AgentRun.Type.INFORME);
+    }
+
+    private Optional<AgentRun> live(UUID patientId, LocalDate weekStart, AgentRun.Type type) {
+        return runs.findFirstByPatientIdAndPeriodStartAndRunTypeAndStatusIn(patientId, weekStart, type, RunTrace.OPEN);
     }
 
     public RunView get(UUID runId) {

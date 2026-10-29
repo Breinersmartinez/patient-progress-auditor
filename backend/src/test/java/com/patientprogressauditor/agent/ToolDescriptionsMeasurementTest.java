@@ -48,6 +48,8 @@ class ToolDescriptionsMeasurementTest {
     @Autowired private ReportContentBuilder builder;
     @Autowired private ReportRepository reports;
     @Autowired private EntryRepository entries;
+    @Autowired private com.patientprogressauditor.report.MonthlyEligibility eligibility;
+    @Autowired private ApprovedWeeklyReports approvedWeekly;
     @Autowired private JdbcTemplate jdbc;
     @Autowired private ObjectMapper mapper;
 
@@ -66,7 +68,8 @@ class ToolDescriptionsMeasurementTest {
         LlmGateway gateway = new LlmGateway(List.of(new GroqClient(llm, mapper), new GeminiClient(llm, mapper)), llm, d -> Thread.sleep(d.toMillis()), mapper);
         AgentProperties props = new AgentProperties();
         props.setToolDescriptions(version);
-        AgentRunner runner = new AgentRunner(gateway, tools, props, runs, steps, drafts, builder, reports, entries, Clock.systemDefaultZone(), mapper);
+        AgentRunner runner = new AgentRunner(gateway, tools, props, runs, steps, drafts, builder, reports, entries, eligibility, approvedWeekly,
+                Clock.systemDefaultZone(), mapper);
 
         UUID patient = jdbc.queryForObject("SELECT id FROM patients WHERE alias = ?", UUID.class, c.alias());
         UUID nurse = jdbc.queryForObject("SELECT id FROM app_users WHERE display_name = 'Camilo Torres'", UUID.class);

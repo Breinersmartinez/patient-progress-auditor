@@ -8,7 +8,7 @@ export type RunStatus = 'EN_COLA' | 'EN_CURSO' | 'COMPLETADA' | 'INCOMPLETA' | '
 
 export interface Run {
   id: string;
-  runType: 'INFORME' | 'ESTRUCTURACION';
+  runType: 'INFORME' | 'MENSUAL' | 'ESTRUCTURACION';
   patientId: string;
   periodStart?: string;
   status: RunStatus;
@@ -64,8 +64,10 @@ export class RunsService {
   private readonly session = inject(SessionService);
   private readonly newEventSource = inject(EVENT_SOURCE_FACTORY);
 
-  async request(patientId: string, weekStart: string): Promise<RequestedRun> {
-    const response = await firstValueFrom(this.http.post<Run>('/api/runs', { patientId, weekStart }, { observe: 'response' }));
+  // `weekStart` es el lunes de la semana o, si `type` es MENSUAL, el lunes de la primera de las cuatro semanas.
+  async request(patientId: string, weekStart: string, type?: 'SEMANAL' | 'MENSUAL'): Promise<RequestedRun> {
+    const body = type ? { patientId, weekStart, type } : { patientId, weekStart };
+    const response = await firstValueFrom(this.http.post<Run>('/api/runs', body, { observe: 'response' }));
     return { run: response.body as Run, created: response.status === 202 };
   }
 

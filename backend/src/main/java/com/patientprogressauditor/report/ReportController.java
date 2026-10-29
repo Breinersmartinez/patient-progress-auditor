@@ -39,9 +39,11 @@ public class ReportController {
     }
 
     private final ReportService service;
+    private final MonthlyReportService monthly;
 
-    public ReportController(ReportService service) {
+    public ReportController(ReportService service, MonthlyReportService monthly) {
         this.service = service;
+        this.monthly = monthly;
     }
 
     @GetMapping("/reports")
@@ -96,5 +98,12 @@ public class ReportController {
     @PreAuthorize("hasAuthority('REPORTS_REQUEST')")
     public List<WeekOption> weeks(@PathVariable UUID patientId) {
         return service.weeks(patientId);
+    }
+
+    // Ventanas de cuatro semanas con el estado de sus informes semanales (RN-10): cuales se pueden generar y por que no.
+    @GetMapping("/patients/{patientId}/report-months")
+    @PreAuthorize("hasAuthority('REPORTS_REQUEST')")
+    public List<MonthlyReportService.MonthOption> months(@PathVariable UUID patientId) {
+        return monthly.months(patientId);
     }
 }

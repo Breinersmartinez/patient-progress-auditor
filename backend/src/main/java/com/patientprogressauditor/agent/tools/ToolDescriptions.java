@@ -14,7 +14,8 @@ public final class ToolDescriptions {
             "get_week_entries", "Devuelve los registros de una semana.",
             "get_week_metrics", "Devuelve las métricas de una semana.",
             "get_symptom_history", "Devuelve el historial de un síntoma.",
-            "save_draft", "Guarda el borrador del informe.");
+            "save_draft", "Guarda el borrador del informe.",
+            "get_approved_weekly_reports", "Devuelve los informes semanales aprobados del mes.");
 
     private static final Map<String, String> V2 = Map.of(
             "list_patient_weeks",
@@ -37,7 +38,11 @@ public final class ToolDescriptions {
             "save_draft",
             "Guarda el borrador del informe y TERMINA la tarea: es la única escritura y solo crea un borrador pendiente de revisión por enfermería. "
                     + "Llámela UNA vez, cuando ya consultó lo necesario. Cada afirmación debe citar al menos un alias leído y cada número del texto debe estar respaldado en figures. "
-                    + "Si el sistema la rechaza, devuelve qué corregir: corríjalo y vuelva a llamarla. No la use para explorar ni para probar.");
+                    + "Si el sistema la rechaza, devuelve qué corregir: corríjalo y vuelva a llamarla. No la use para explorar ni para probar.",
+            "get_approved_weekly_reports",
+            "Solo del informe MENSUAL. Devuelve, para cada una de las cuatro semanas (en orden), las cifras calculadas por el sistema (registros, eventos y días por síntoma), "
+                    + "el resumen y las afirmaciones que enfermería APROBÓ en su informe semanal, cada una con los alias (e1, e2…) de los registros que cita: esos alias se pueden citar en save_draft. "
+                    + "Úsela SIEMPRE primero. No devuelve el texto de los registros (use get_week_entries) ni el historial de un síntoma (use get_symptom_history). No necesita argumentos.");
 
     private ToolDescriptions() {
     }

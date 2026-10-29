@@ -14,11 +14,15 @@ import com.patientprogressauditor.agent.tools.ToolException;
 import com.patientprogressauditor.metrics.WeeklyMetrics;
 
 // Lo que una ejecucion sabe y las herramientas comparten: de quien es la tarea, de que semana, los alias de las entradas
-// que el agente ha leido (son las unicas que puede citar) y las metricas ya calculadas.
+// que el agente ha leido (son las unicas que puede citar) y las metricas ya calculadas. En el informe mensual (E13) el
+// periodo son cuatro semanas: `weekStart` es la ULTIMA (donde terminan las claves de cifras sin «@») y `firstWeek` la primera.
 public class AgentRunContext {
 
     private final UUID patientId;
     private final LocalDate weekStart;
+    private final LocalDate firstWeek;
+    private final boolean monthly;
+    private List<ApprovedWeeklyReports.Weekly> weeklyReports = List.of();
     private final Map<String, UUID> entriesByAlias = new LinkedHashMap<>();
     private final Map<UUID, String> aliasByEntry = new HashMap<>();
     private final Map<UUID, LocalDate> dateByEntry = new HashMap<>();
@@ -35,11 +39,48 @@ public class AgentRunContext {
     }
 
     public AgentRunContext(UUID patientId, LocalDate weekStart) {
-        if (weekStart.getDayOfWeek() != DayOfWeek.MONDAY) {
-            throw new IllegalArgumentException("Una semana empieza el lunes: " + weekStart);
+        this(patientId, weekStart, weekStart, false);
+    }
+
+    // El periodo de un informe mensual: cuatro semanas desde el lunes `firstWeek`.
+    public static AgentRunContext monthly(UUID patientId, LocalDate firstWeek) {
+        return new AgentRunContext(patientId, firstWeek.plusWeeks(3), firstWeek, true);
+    }
+
+    private AgentRunContext(UUID patientId, LocalDate weekStart, LocalDate firstWeek, boolean monthly) {
+        if (firstWeek.getDayOfWeek() != DayOfWeek.MONDAY) {
+            throw new IllegalArgumentException("Una semana empieza el lunes: " + firstWeek);
         }
         this.patientId = patientId;
         this.weekStart = weekStart;
+        this.firstWeek = firstWeek;
+        this.monthly = monthly;
+    }
+
+    public boolean isMonthly() {
+        return monthly;
+    }
+
+    public LocalDate firstWeek() {
+        return firstWeek;
+    }
+
+    // Los lunes de las semanas del periodo (una en el semanal, cuatro en el mensual).
+    public List<LocalDate> weeks() {
+        List<LocalDate> weeks = new java.util.ArrayList<>();
+        for (LocalDate w = firstWeek; !w.isAfter(weekStart); w = w.plusWeeks(1)) {
+            weeks.add(w);
+        }
+        return weeks;
+    }
+
+    // Los informes semanales aprobados de los que sale el mensual; los carga quien lanza la ejecucion.
+    public synchronized void setWeeklyReports(List<ApprovedWeeklyReports.Weekly> weeklyReports) {
+        this.weeklyReports = List.copyOf(weeklyReports);
+    }
+
+    public synchronized List<ApprovedWeeklyReports.Weekly> weeklyReports() {
+        return weeklyReports;
     }
 
     public void setSink(DraftSink sink) {
@@ -128,7 +169,10 @@ public class AgentRunContext {
                     + week.with(java.time.temporal.TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)) + ".");
         }
         if (week.isAfter(weekStart)) {
-            throw new ToolException("Solo puede consultar hasta la semana del informe (" + weekStart + "); " + week + " es posterior.");
+            throw new ToolException("Solo puede consultar hasta la " + (monthly ? "última semana del informe (" : "semana del informe (") + weekStart + "); " + week + " es posterior.");
+        }
+        if (monthly && week.isBefore(firstWeek)) {
+            throw new ToolException("El informe mensual cubre desde la semana del " + firstWeek + " hasta la del " + weekStart + "; " + week + " es anterior.");
         }
         return week;
     }

@@ -31,6 +31,9 @@ export const rango = (ini: string): string => {
   return `${a.getDate()} al ${b.getDate()} de ${MESES[b.getMonth()]} de ${b.getFullYear()}`;
 };
 
+// "21 sep": para los encabezados de una tabla angosta.
+export const fechaCorta = (s: string): string => `${fch(s).getDate()} ${MESES[fch(s).getMonth()].slice(0, 3)}`;
+
 export const unir = (a: string[]): string =>
   a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' y ' + a[a.length - 1];
 

@@ -19,5 +19,10 @@ public interface AgentTool {
         return false;
     }
 
+    // true solo para las herramientas que existen en el informe mensual (E13): el semanal no las ve.
+    default boolean monthlyOnly() {
+        return false;
+    }
+
     String execute(AgentRunContext context, JsonNode arguments) throws ToolException;
 }
