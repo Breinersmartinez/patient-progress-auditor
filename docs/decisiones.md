@@ -77,6 +77,23 @@
 | `PendingComponent` marca las pantallas que aún no existen | Deja registradas las rutas del mockup y el menú navegable; cada etapa lo reemplaza. No es diseño final | Dejar las rutas sin registrar (todas darían «No encontramos lo que busca») |
 | Sin `ChromeHeadless` con banderas especiales; `CHROME_BIN=/usr/bin/google-chrome` en esta máquina | Es lo que usa el CI sin cambios | Configurar un lanzador personalizado |
 
+## E6 — Pacientes y entradas (2026-10-28)
+
+| Decisión | Razón | Alternativa descartada |
+|---|---|---|
+| El alias del paciente es único sin distinguir mayúsculas, con `V5` (`uq_patients_alias`) y una comprobación previa en el servicio | El alias es el código con el que se busca y se cita (P-014): dos iguales confundirían las fichas. La comprobación da el mensaje claro y el índice gana la carrera si dos altas coinciden | Editar `V3`: ya se aplicó en las bases de desarrollo y Flyway rechazaría el cambio de suma de comprobación; ya se había dicho que `V3` evitaba una `V5`, pero este punto no estaba en el diccionario |
+| `POST /api/patients/{id}/entries` guarda el texto **sin tocarlo** (ni recorte, ni normalización) y la entrada queda `SIN_ESTRUCTURAR`; la propuesta de eventos y su confirmación llegan en E9 | RF-02 y RN-07: el texto original es la fuente citable. Sin eventos confirmados es lo que RF-41 llama «sin estructurar» | Recortar espacios o normalizar saltos de línea: ya no sería «tal como se escribió» |
+| Topes de la entrada: 4000 caracteres, sin el carácter nulo, fecha de hoy o anterior (la fecha la da el servidor, America/Bogota) | La fecha máxima «hoy» es la propuesta de la tabla 3.3. El nulo lo rechaza PostgreSQL con un error crudo; se explica antes. 4000 es una propuesta, sin dato del equipo | Sin tope de texto; fecha libre |
+| Listado de un paciente: `from` y `to` incluyen sus dos extremos, `order=asc` (cronológico) por defecto o `desc`, `limit` de 1 a 500; el mismo día va por hora de creación (RN-09) y, si empatan, por id | RF-04 pide cronológico; las pantallas piden lo más reciente primero y los siete últimos. El `id` hace estable el orden | Ordenar en el navegador |
+| `GET /api/entries` (historial) sale con el orden del mockup: fecha descendente y, el mismo día, por código de paciente; hasta 500 | El historial del mockup ordena así. Con 119 entradas sembradas cabe entera; la búsqueda sigue siendo del navegador, como en `listado()` | Paginar: no hace falta con este volumen |
+| El «último informe» de la lista y la ficha lo decide el servidor según el rol: enfermería ve cualquier estado; el médico, solo `APROBADO` (`ReportVisibility`) | RN-01 y RNF-01: lo que ve el médico no puede depender de la pantalla. Aunque E12c no se construya, el endpoint ya lo respeta y se prueba | Filtrarlo en el frontend |
+| Todo error de la API es `{ message, fields? }`, sin rastro de pila; una ruta que no existe responde 404 con «No encontramos lo que busca.» y un fallo no previsto, 500 con un mensaje genérico (se registra en el servidor) | RNF-04. `fields` permite mostrar el error junto al campo, como el mockup | Dejar la página de error de Spring: con `include-message: always` filtra texto del framework |
+| Las pantallas usan el id interno (UUID) en la ruta: `#/enf/pacientes/ficha/<uuid>` | La API trabaja por id; el alias puede cambiar de forma o tener caracteres que escapar | Alias en la ruta como el mockup |
+| El alta vuelve a la lista con «Paciente creado», como `vUsuForm` | Es el patrón del mockup (3.4) | Abrir la ficha recién creada |
+| Microcopy nuevo (no sale del mockup): «Pacientes registrados en el servicio.», «Código del paciente», «Crear paciente», «Sin dato», «Sin estructurar: solo se guardó el texto.» y «Sin estructurar» | El mockup no tiene alta de paciente ni entradas sin estructurar. «Sin dato» evita mostrar «null años» y «Ninguno» afirmaría que no hubo síntomas cuando solo no se estructuró | Dejar la celda vacía |
+| En el historial, la fecha de cada fila lleva `white-space: nowrap` dentro de la celda | Hallazgo de F8: con los textos sembrados, más largos que los del mockup, la tabla de ancho automático partía «dom 25» en dos líneas. No se toca el CSS copiado; es un estilo local de la celda | Cambiar `.tabla` en `styles.css` (rompe F1) |
+| `PATIENTS_UPDATE` y `ENTRIES_UPDATE` no se usan todavía | No hay editar paciente ni corregir entrada en el núcleo (RF-03 es M2-S) | — |
+
 ## Decisiones del equipo (2026-10-28)
 
 | Decisión | Razón | Alternativa descartada |

@@ -1,4 +1,4 @@
-import { dCorto, dFull, dLargo, fch, isoDe, rango, sumar, unir } from './date-es';
+import { dCorto, dFull, dLargo, fch, isoDe, periodoTxt, rango, sumar, unir } from './date-es';
 
 describe('ayudantes de fecha en español', () => {
   it('suma días cruzando el mes sin desplazarse un día', () => {
@@ -16,6 +16,12 @@ describe('ayudantes de fecha en español', () => {
   it('escribe la semana de lunes a domingo', () => {
     expect(rango('2026-10-19')).toBe('19 al 25 de octubre de 2026');
     expect(fch('2026-10-19').getDay()).toBe(1);
+  });
+
+  it('escribe un periodo dentro de un mes, entre dos meses y de un solo día', () => {
+    expect(periodoTxt('2026-10-19', '2026-10-25')).toBe('19 al 25 de octubre de 2026');
+    expect(periodoTxt('2026-09-28', '2026-10-25')).toBe('28 de septiembre al 25 de octubre de 2026');
+    expect(periodoTxt('2026-10-25', '2026-10-25')).toBe('25 de octubre de 2026');
   });
 
   it('une con comas y una "y" final', () => {

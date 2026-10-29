@@ -152,7 +152,7 @@ Solo hay una tarea: primero se retiran el manifiesto y el workflow, junto con su
 
 ### Seguimiento
 
-- [x] E1 · [x] E2 · [x] E3 · [x] E4 · [x] E5 · [ ] E6 · [ ] E7 · [ ] E8 · [ ] E9 · [ ] E10 · [ ] E11 · [ ] E12a · [ ] E12b · [ ] E14 · [ ] E15
+- [x] E1 · [x] E2 · [x] E3 · [x] E4 · [x] E5 · [x] E6 · [ ] E7 · [ ] E8 · [ ] E9 · [ ] E10 · [ ] E11 · [ ] E12a · [ ] E12b · [ ] E14 · [ ] E15
 - [ ] E12c (fuera por decisión del 28-oct) · [ ] E13 (al final, solo si sobra tiempo) · [ ] E16 (fuera)
 
 ## 5. Propuestas del §4.2 del prompt, cerradas para tu aprobación
@@ -547,3 +547,58 @@ El 1: un orden equivocado de filtros deja pasar sin usuario o bloquea la petici�
       Produce: capturas del mockup y de la app a 1280×800 y a 390×844, fuera del repositorio
       Se comprueba: diferencias listadas y contenido distinto aparte
   > Con backend real y `ng serve` (proxy a 8080). Único cambio fuera del contenido: «Ver como» arranca en la primera enfermera por orden alfabético (Camilo Torres), no en Marcela Rojas. `npm run build` de producción: 300,10 kB iniciales, sin advertencias de presupuesto.
+
+---
+
+# E6 — Pacientes y entradas
+
+> **Estado:** cerrada · **EDT:** 4.1 a 4.4 (6,5 h) · **Depende de:** E4 y E5 (hechas) · **Nota:** esta vez el encargo y el plan se escriben antes de empezar.
+
+## Encargo
+
+**En una frase.** Que enfermería pueda crear pacientes, ver la lista y la ficha, y consultar el historial de entradas, con una API que guarda el texto de la entrada tal como se escribió y lista por paciente, por rango y en orden, y con las cuatro pantallas fieles al mockup A.
+
+**Criterio de aceptación.**
+- ¿El texto guardado de una entrada es idéntico byte a byte al enviado (espacios, saltos de línea, tildes y emojis incluidos)?
+- ¿Con entradas cargadas desordenadas, el listado de un paciente sale en orden cronológico, el filtro por rango devuelve solo las del rango y, el mismo día, se ordenan por hora de creación (RF-04, RN-09)?
+- ¿Se crea un paciente desde la pantalla de alta, aparece en la lista y su ficha abre? ¿Un alias repetido o vacío se rechaza con un mensaje claro y sin stack trace?
+- ¿Cada endpoint exige su permiso (el médico no crea pacientes; sin usuario elegido es 401) y el médico nunca recibe el estado de un informe que no esté `APROBADO` (RN-01)?
+- F8: ¿las capturas de lista, ficha, alta e historial a 1280×800 y a 390×844 no difieren del mockup salvo contenido y tabla 3.3?
+
+**Queda fuera.**
+- La pantalla «Nuevo registro diario» y la estructuración con IA (E9); en E6 el botón «Nuevo registro» lleva a la ruta, que sigue siendo el marcador.
+- Editar entradas y sus versiones (RF-03, M2-S).
+- Auditoría (RF-35, M2-S).
+- Editar o archivar pacientes.
+- Que la entrada se guarde con eventos: la API de E6 guarda solo el texto (`SIN_ESTRUCTURAR`); E9 la extiende para confirmar eventos.
+
+## Plan
+
+- [x] 1. Base común del backend
+      Produce: `V5` (alias único sin distinguir mayúsculas), bean `Clock` en `America/Bogota`, `ApiExceptionHandler` (validación → 400 con mensaje por campo; no encontrado → 404; cuerpo ilegible → 400; sin stack trace) y `ApiError` con campos
+      Se comprueba: `DomainSchemaTest` rechaza un alias repetido; prueba del manejador
+  > `ApiError` pasó a `{ message, fields? }`. `SystemStatusController` usa el mismo reloj. Un fallo no previsto responde 500 con mensaje genérico; AccessDenied y Authentication se relanzan para que los resuelva la cadena de seguridad (401 y 403 siguen igual).
+- [x] 2. API de pacientes
+      Produce: `GET /api/patients`, `GET /api/patients/{id}`, `POST /api/patients` con `@PreAuthorize`; último registro y último informe, este último filtrado por rol (el médico solo `APROBADO`)
+      Se comprueba: pruebas de MockMvc con la semilla: conteo, alta, duplicado, permisos, regla del médico con un informe pendiente insertado
+  > 10 pruebas en `PatientsApiTest`. Un informe `PENDIENTE_REVISION` y otro `APROBADO` insertados a mano muestran que enfermería ve el más reciente y el médico solo el aprobado.
+- [x] 3. API de entradas
+      Produce: `POST /api/patients/{id}/entries` (guarda `body` sin tocarlo, `SIN_ESTRUCTURAR`, autor = usuario elegido), `GET /api/patients/{id}/entries?from&to&order&limit` y `GET /api/entries` (historial)
+      Se comprueba: pruebas de texto idéntico, orden, rango, varias el mismo día, fecha futura, paciente inexistente, permisos
+  > 10 pruebas en `EntriesApiTest`. El texto de prueba lleva espacios al inicio y al final, tabulador, saltos de línea, tildes y emoji; vuelve idéntico de la respuesta, de la base y del listado. Repetido por HTTP real a través del proxy de `ng serve`.
+- [x] 4. Servicios Angular, ayudantes y tarjeta de registro
+      Produce: `PatientsService`, `EntriesService`, `periodoTxt` en `date-es.ts`, `EntryCardComponent` (`regCard`)
+      Se comprueba: pruebas unitarias
+  > Sin `FormsModule`: el alta usa señales y eventos. Las respuestas del servidor pasan por `apiFailure`, que nunca muestra texto crudo.
+- [x] 5. Pantallas lista y ficha
+      Produce: `PatientsListComponent`, `PatientDetailComponent` con rutas reales
+      Se comprueba: pruebas unitarias con respuestas simuladas del servidor
+  > Un paciente inexistente o un id mal formado muestra «No encontramos lo que busca». Sin cama, edad ni ingreso no se inventa la línea de datos.
+- [x] 6. Pantallas alta e historial
+      Produce: `PatientFormComponent` (patrón `vUsuForm`, errores por campo), `EntryHistoryComponent`
+      Se comprueba: pruebas unitarias; `ng test` y `npm run build` limpios
+  > `ng test`: 57 pruebas, 0 fallos (31 de E5 + 26 nuevas), líneas 96,84 %, ramas 77,87 %. `npm run build`: 330,47 kB iniciales, sin advertencias.
+- [x] 7. F8 y cierre
+      Produce: capturas del mockup y de la app a 1280×800 y a 390×844 de las cuatro pantallas, fuera del repositorio; documentos al día
+      Se comprueba: diferencias listadas; `mvn -B verify` y `ng test` verdes
+  > Con backend real, datos sembrados y `ng serve`. Para ver la tarjeta «Último informe» inserté dos informes a mano en la base desechable y los borré al terminar (la semilla de informes llega en E14). Una diferencia real, la fecha partida en dos líneas en el historial, se corrigió con `nowrap` en la celda. `mvn -B verify`: 69 pruebas, 0 fallos.

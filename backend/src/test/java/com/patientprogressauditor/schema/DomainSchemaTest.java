@@ -173,4 +173,10 @@ class DomainSchemaTest {
 
         assertThat(permissions).containsExactlyInAnyOrder("PATIENTS_READ", "ENTRIES_READ", "ENTRIES_CREATE", "REPORTS_READ");
     }
+
+    @Test
+    void aliasIsUniqueIgnoringCase() {
+        assertThatThrownBy(() -> jdbc.update("INSERT INTO patients (id, alias) VALUES (?, 'p-999')", UUID.randomUUID()))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
 }

@@ -162,7 +162,7 @@ El rol `AGENTE` no tiene fila en `app_users`: es técnico y no inicia sesión (S
 | Columna | Etiqueta | Tipo | Nulo | Clave | Descripción y reglas | Origen |
 |---|---|---|---|---|---|---|
 | `id` | Id interno | `UUID` | No | PK | Único identificador del paciente que sale al proveedor del LLM | RF-01, RNF-02 |
-| `alias` | Alias | `VARCHAR(100)` | No | — | Nombre sintético o iniciales para mostrar. Nunca se envía al LLM ni a la traza. No es único | RF-01 |
+| `alias` | Alias | `VARCHAR(100)` | No | — | Nombre sintético o iniciales para mostrar. Nunca se envía al LLM ni a la traza. Único sin distinguir mayúsculas (índice `uq_patients_alias`, `V5`) | RF-01 |
 | `bed` | Cama | `VARCHAR(10)` | Sí | — | Nueva. Cama del paciente (por ejemplo `204-A`), sintética; la muestran la lista y la ficha. Nunca se envía al LLM ni a la traza | RF-01, RNF-02, **[Propuesta]** |
 | `age` | Edad | `SMALLINT` | Sí | — | Nueva. Años cumplidos, sintéticos. Nunca se envía al LLM ni a la traza | RF-01, RNF-02, **[Propuesta]** |
 | `admitted_on` | Fecha de ingreso | `DATE` | Sí | — | Nueva. Día de ingreso, sintético. Nunca se envía al LLM ni a la traza | RF-01, RNF-02, **[Propuesta]** |

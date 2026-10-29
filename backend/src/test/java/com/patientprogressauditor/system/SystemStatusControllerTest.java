@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneId;
 
@@ -42,7 +43,7 @@ class SystemStatusControllerTest {
         when(jdbc.queryForObject(eq("SELECT 1"), eq(Integer.class)))
                 .thenThrow(new DataAccessResourceFailureException("sin conexion"));
 
-        var response = new SystemStatusController(jdbc).status();
+        var response = new SystemStatusController(jdbc, Clock.systemUTC()).status();
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
         assertThat(response.getBody().status()).isEqualTo("DOWN");

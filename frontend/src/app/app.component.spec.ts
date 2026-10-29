@@ -1,3 +1,5 @@
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
@@ -24,7 +26,7 @@ describe('AppComponent (armazón del mockup)', () => {
     select.calls.reset();
     fakeSession.error.set(null);
     await TestBed.configureTestingModule({
-      providers: [provideRouter(routes), { provide: SessionService, useValue: fakeSession }],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter(routes), { provide: SessionService, useValue: fakeSession }],
     }).compileComponents();
   });
 

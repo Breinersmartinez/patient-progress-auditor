@@ -33,3 +33,16 @@ export const rango = (ini: string): string => {
 
 export const unir = (a: string[]): string =>
   a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' y ' + a[a.length - 1];
+
+// Periodo en una frase: "19 al 25 de octubre de 2026", o con los dos meses si cruza de mes (periodoTxt del mockup).
+export const periodoTxt = (desde: string, hasta: string): string => {
+  const a = fch(desde);
+  const b = fch(hasta);
+  if (desde === hasta) {
+    return dFull(desde);
+  }
+  if (a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear()) {
+    return `${a.getDate()} al ${b.getDate()} de ${MESES[b.getMonth()]} de ${b.getFullYear()}`;
+  }
+  return `${a.getDate()} de ${MESES[a.getMonth()]} al ${b.getDate()} de ${MESES[b.getMonth()]} de ${b.getFullYear()}`;
+};
