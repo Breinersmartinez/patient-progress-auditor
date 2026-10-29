@@ -31,7 +31,7 @@ public class FigureResolver {
 
     public static final String VALID_KEYS = "la ruta de la cifra en get_week_metrics, p. ej. entries, total_events, days_without_entry, "
             + "symptoms.NAUSEAS.days, symptoms.NAUSEAS.events, vs_previous.previous_entries, vs_previous.days.NAUSEAS.0 "
-            + "(días en la semana anterior); con @AAAA-MM-DD para otra semana";
+            + "(días en la semana anterior; .1 es esta semana); con @AAAA-MM-DD para otra semana";
 
     public record Figure(String key, int value, LocalDate week) {
     }
@@ -48,7 +48,13 @@ public class FigureResolver {
     }
 
     public Resolution resolveOrExplain(AgentRunContext context, String key) {
-        Matcher m = KEY.matcher(key == null ? "" : key.trim());
+        return resolveOrExplain(context, key, null);
+    }
+
+    // `claimed` es el valor que el modelo escribio: sirve SOLO para elegir entre «.0» y «.1» cuando la clave de una
+    // comparacion llega sin indice. El valor nunca se acepta por venir del modelo: se compara con el calculo.
+    public Resolution resolveOrExplain(AgentRunContext context, String key, Integer claimed) {
+        Matcher m = KEY.matcher(normalize(key));
         if (!m.matches()) {
             return no("la clave «" + key + "» no tiene el formato esperado (" + VALID_KEYS + ")");
         }
@@ -71,13 +77,30 @@ public class FigureResolver {
         if (node.isMissingNode()) {
             return missing(path, key, week);
         }
+        // «vs_previous.days.FIEBRE» sin indice: [semana anterior, esta semana]. Se elige el que coincide con lo que escribio.
+        if (node.isArray() && node.size() == 2 && node.get(0).isInt() && node.get(1).isInt()) {
+            for (int i = 0; i < 2; i++) {
+                if (claimed != null && node.get(i).asInt() == claimed) {
+                    return new Resolution(Optional.of(new Figure(path + "." + i + (m.group(2) == null ? "" : "@" + m.group(2)), claimed, week)), null);
+                }
+            }
+            return no("«" + key + "» son dos cifras: «" + path + ".0» vale " + node.get(0).asInt() + " (semana anterior) y «" + path + ".1» vale "
+                    + node.get(1).asInt() + " (esta semana). Escriba la clave con .0 o .1");
+        }
         if (node.isNull()) {
             return no("«" + key + "» no tiene valor: nadie indicó cuántas veces");
         }
         if (!node.isInt()) {
             return no("«" + key + "» no es una cifra entera (" + VALID_KEYS + ")");
         }
-        return new Resolution(Optional.of(new Figure(key.trim(), node.asInt(), week)), null);
+        return new Resolution(Optional.of(new Figure(normalize(key), node.asInt(), week)), null);
+    }
+
+    // Errores de sintaxis que no cambian de que cifra se habla: «X[1]» es «X.1», y un «:0» o «=0» pegado a la clave sobra.
+    static String normalize(String key) {
+        String k = key == null ? "" : key.trim();
+        k = k.replaceAll("\\[(\\d+)\\]", ".$1").replaceAll("[:=]\\s*-?\\d+$", "").replaceAll("[\\s.]+$", "");
+        return k;
     }
 
     // Un sintoma que no aparece esa semana tiene 0 dias y 0 eventos; una ruta que no existe se explica.

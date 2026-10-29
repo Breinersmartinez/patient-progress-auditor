@@ -59,7 +59,8 @@ public class DraftValidator {
         JsonNode claims = draft.path("claims");
         ArrayNode out = model.putArray("claims");
         if (!claims.isArray() || claims.isEmpty() || claims.size() > MAX_CLAIMS) {
-            problems.add("claims debe ser una lista de 1 a " + MAX_CLAIMS + " afirmaciones.");
+            problems.add("claims debe ser una lista de 1 a " + MAX_CLAIMS + " afirmaciones. Si no hubo síntomas, escriba UNA que lo diga («No se registraron síntomas esta semana»), "
+                    + "cite 2 o 3 registros de la semana y respáldela con figures [{\"key\":\"total_events\",\"value\":0}].");
         } else {
             Set<String> seen = new HashSet<>();
             for (JsonNode claim : claims) {
@@ -101,7 +102,8 @@ public class DraftValidator {
         ArrayNode ids = node.putArray("entry_ids");
         JsonNode refs = claim.path("entry_ids");
         if (!refs.isArray() || refs.isEmpty() || refs.size() > 6) {
-            problems.add(at + ": entry_ids debe citar de 1 a 6 registros (use los alias e1, e2… que le devolvieron las herramientas).");
+            problems.add(at + ": entry_ids debe citar de 1 a 6 registros (use los alias e1, e2… que le devolvieron las herramientas). "
+                    + "Si trata de algo que NO ocurrió esta semana (un síntoma que desapareció), cite los registros de la semana anterior donde ocurrió: léalos con get_week_entries.");
         } else {
             for (JsonNode ref : refs) {
                 UUID entry = context.entryOf(ref.asText(""));
@@ -126,7 +128,7 @@ public class DraftValidator {
                     problems.add(at + ": la cifra «" + figKey + "» debe traer value como número entero.");
                     continue;
                 }
-                FigureResolver.Resolution r = figures.resolveOrExplain(context, figKey);
+                FigureResolver.Resolution r = figures.resolveOrExplain(context, figKey, fig.path("value").asInt());
                 if (r.figure().isEmpty()) {
                     problems.add(at + ": " + r.problem() + ".");
                     continue;
@@ -160,11 +162,12 @@ public class DraftValidator {
     // Como respaldar un numero: la clave exacta si hay una cifra con ese valor, o quitarlo.
     private String hint(AgentRunContext context, int n) {
         List<String> candidates = figures.candidates(context, n);
+        String date = " Si es una fecha, escriba el día de la semana (lunes, martes…) y no el número.";
         return candidates.isEmpty()
-                ? "Ninguna cifra de las métricas vale " + n + ": quite el número o reescriba sin él."
+                ? "Ninguna cifra de las métricas vale " + n + ": quite el número o reescriba sin él." + date
                 : "Agregue a figures {\"key\":\"" + candidates.get(0) + "\",\"value\":" + n + "}"
                         + (candidates.size() > 1 ? " (otras claves con ese valor: " + String.join(", ", candidates.subList(1, candidates.size())) + ")" : "")
-                        + " si esa es la cifra que quiso decir, o quite el número.";
+                        + " si esa es la cifra que quiso decir, o quite el número." + date;
     }
 
     // El resumen es lenguaje claro y no lleva `figures`: un numero suyo debe existir entre las cifras que calculo el codigo
@@ -177,7 +180,8 @@ public class DraftValidator {
         while (m.find()) {
             int n = Integer.parseInt(m.group().length() > 9 ? "0" : m.group());
             if (!allowed.contains(n) && n != context.weekStart().getYear()) {
-                problems.add("summary: el número " + m.group() + " no es ninguna de las cifras de las métricas de la semana. Quítelo o use el valor correcto.");
+                problems.add("summary: el número " + m.group() + " no es ninguna de las cifras de las métricas de la semana. Quítelo o use el valor correcto. "
+                        + "Si es una fecha, escriba el día de la semana (lunes, martes…) y no el número.");
                 return;
             }
         }

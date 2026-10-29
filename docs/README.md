@@ -4,16 +4,20 @@ Portal de documentación técnica del proyecto. Cada documento describe un probl
 
 ## Índice
 
-### Especificación y plan (curso)
+### Especificación, plan y decisiones (curso)
 
 | Documento | Qué es | Estado |
 |---|---|---|
-| [SPEC.md](SPEC.md) | Especificación del incremento: resumen, objetivos medibles, fuera de alcance, diseño, casos borde, criterios de aceptación y decisiones | `PENDIENTE` |
-| [PLAN.md](PLAN.md) | Plan derivado de la spec, con tareas verificables | `PENDIENTE` |
-| [decisiones/](decisiones/) | Decisiones con fecha y método (semana08: datos; semana10: línea base de medición) | Esqueleto vacío |
-| [seguridad.md](seguridad.md) | Modelo de amenazas, tríada, ataque propio y hardening (M3) | Pendiente de crear |
-| [gobernanza.md](gobernanza.md) | Ficha de 5 preguntas sobre datos que salen a terceros (M3) | Pendiente de crear |
-| [respuesta_auditoria.md](respuesta_auditoria.md) | Respuesta a la auditoría cruzada (M3) | Pendiente de crear |
+| [SPEC.md](SPEC.md) | Especificación del incremento: resumen, objetivos medibles, fuera de alcance, diseño, casos borde, criterios de aceptación y decisiones (D1 a D27) | Vigente |
+| [REQUISITOS.md](REQUISITOS.md) | RF, RNF, RN y CU con su hito y su criterio de aceptación | Vigente |
+| [DICCIONARIO_DATOS.md](DICCIONARIO_DATOS.md) · [DICCIONARIO_DATOS_M2.md](DICCIONARIO_DATOS_M2.md) | Tablas, columnas, tipos y reglas de integridad (completo y recortado al Momento 2) | Vigente |
+| [PLAN.md](PLAN.md) | Plan maestro y el encargo, plan y cierre de cada etapa (E1 a E15) | Vigente |
+| [decisiones.md](decisiones.md) | Cada decisión técnica con su razón y la alternativa descartada; tabla de librerías | Vigente |
+| [decisiones/semana06.md](decisiones/semana06.md) | Autonomía del agente: límites, herramientas y descripciones | Vigente |
+| [decisiones/semana08.md](decisiones/semana08.md) | Datos: consulta directa a la base, sin RAG, con lo medido | Vigente |
+| [decisiones/semana10.md](decisiones/semana10.md) | Línea base de medición: las cuatro cifras contra la solución convencional | Vigente |
+| [prueba_companero.md](prueba_companero.md) | Plantilla de la prueba en frío con una persona ajena al código | Por llenar antes del tag |
+| seguridad.md · gobernanza.md · respuesta_auditoria.md | Modelo de amenazas, ficha de gobernanza y respuesta a la auditoría cruzada | Momento 3 (por crear) |
 
 ### 03 — Engineering
 

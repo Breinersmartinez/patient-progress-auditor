@@ -74,7 +74,7 @@ public class RunService {
         this.clock = clock;
     }
 
-    public Requested request(UUID patientId, LocalDate weekStart, DemoPrincipal principal) {
+    public Requested request(UUID patientId, LocalDate weekStart, String note, DemoPrincipal principal) {
         if (weekStart.getDayOfWeek() != DayOfWeek.MONDAY) {
             throw new FieldException(HttpStatus.BAD_REQUEST, "weekStart", "La semana debe empezar un lunes.");
         }
@@ -107,7 +107,7 @@ public class RunService {
         }
         // La vista se toma ANTES de lanzar: el hilo del ejecutor cambia esa misma entidad al empezar.
         RunView created = view(run);
-        launch(run, new AgentRunner.Task(patientId, weekStart, principal.id(), null));
+        launch(run, new AgentRunner.Task(patientId, weekStart, principal.id(), note));
         return new Requested(created, true);
     }
 

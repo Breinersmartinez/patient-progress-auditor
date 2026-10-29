@@ -27,6 +27,7 @@ import com.patientprogressauditor.session.DemoPrincipal;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 // Ejecuciones del agente (D24): se piden, se consultan y se siguen en vivo. Solo enfermeria (REPORTS_REQUEST); la traza
 // muestra el texto de los registros del paciente.
@@ -36,7 +37,10 @@ import jakarta.validation.constraints.NotNull;
 public class RunController {
 
     public record RequestRun(@NotNull(message = "Elija el paciente.") UUID patientId,
-            @NotNull(message = "Elija la semana.") LocalDate weekStart) {
+            @NotNull(message = "Elija la semana.") LocalDate weekStart,
+            // Indicacion libre para el agente. La interfaz no la expone: sirve para probar contra el sistema real que una
+            // peticion de diagnostico se declara fuera de alcance (eval/). Se trata como dato, nunca como orden.
+            @Size(max = 300, message = "La indicación no puede pasar de 300 caracteres.") String request) {
     }
 
     private final RunService service;
@@ -50,7 +54,7 @@ public class RunController {
     // Responde 202 al instante con el id; 200 si ya habia una ejecucion viva de ese paciente y semana (la misma, sin lanzar otra).
     @PostMapping
     public ResponseEntity<RunView> request(@Valid @RequestBody RequestRun request, @AuthenticationPrincipal DemoPrincipal principal) {
-        RunService.Requested requested = service.request(request.patientId(), request.weekStart(), principal);
+        RunService.Requested requested = service.request(request.patientId(), request.weekStart(), request.request(), principal);
         return ResponseEntity.status(requested.created() ? HttpStatus.ACCEPTED : HttpStatus.OK).body(requested.run());
     }
 

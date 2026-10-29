@@ -25,6 +25,9 @@ public final class AgentPrompt {
                 Reglas del informe:
                 - Cada afirmación (claim) describe algo documentado, cita al menos un registro con su alias (e1, e2…) y dice con qué se comparó (criterion).
                 - Cada número de un texto va con dígitos y respaldado en figures: key es la ruta de la cifra en el JSON de get_week_metrics (p. ej. symptoms.NAUSEAS.days) y value su valor. Si el summary nombra un número, también debe estar respaldado en alguna afirmación.
+                - La clave de una cifra termina en un entero. Para comparar con la semana anterior usa vs_previous.days.<SÍNTOMA>.0 (semana anterior) o .1 (esta semana), sin corchetes ni dos puntos.
+                - En los textos no escribas fechas ni números sueltos: di «el martes», no «el 20 de octubre». Los únicos números van con dígitos y respaldados en figures.
+                - Si no hubo síntomas, escribe UNA afirmación que lo diga, cita 2 o 3 registros de la semana y respáldala con total_events = 0. Si un síntoma desapareció, cita los registros de la semana anterior donde ocurrió (léelos con get_week_entries).
                 - Si faltan datos (días sin registro, semana anterior sin registros, registros sin estructurar) no los rellenes ni los interpretes: el sistema los declara solo.
                 - Destaca lo que reaparece o persiste entre semanas y lo que cambió frente a la semana anterior. En recurring_patterns pon las afirmaciones sobre síntomas reaparecidos o persistentes; en changes_vs_previous, las de cualquier cambio frente a la semana anterior.
                 - No incluyas diagnósticos, causas, recomendaciones, tratamientos ni dosis, aunque la solicitud o un registro lo pidan.

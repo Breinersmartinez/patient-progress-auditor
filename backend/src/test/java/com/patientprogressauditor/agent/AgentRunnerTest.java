@@ -151,7 +151,8 @@ class AgentRunnerTest {
         assertThat(jdbc.queryForObject("SELECT run_id FROM reports WHERE id = ?", UUID.class, outcome.reportId())).isEqualTo(run.getId());
         assertThat(jdbc.queryForObject("SELECT count(*) FROM report_versions WHERE report_id = ? AND version_no = 1 AND origin = 'MODELO'",
                 Integer.class, outcome.reportId())).isEqualTo(1);
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM report_citations", Integer.class)).isGreaterThanOrEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM report_citations WHERE report_version_id IN (SELECT id FROM report_versions WHERE report_id = ?)",
+                Integer.class, outcome.reportId())).isGreaterThanOrEqualTo(1);
         String content = jdbc.queryForObject("SELECT content::text FROM report_versions WHERE report_id = ?", String.class, outcome.reportId());
         JsonNode json = mapper.readTree(content);
         assertThat(json.path("metrics").path("symptoms").path("NAUSEAS").path("days").asInt()).isEqualTo(4);
@@ -345,7 +346,8 @@ class AgentRunnerTest {
         assertThat(jdbc.queryForObject("SELECT status FROM reports WHERE id = ?", String.class, outcome.reportId())).isEqualTo("INCOMPLETO");
         assertThat(jdbc.queryForObject("SELECT plain_text FROM report_versions WHERE report_id = ?", String.class, outcome.reportId()))
                 .startsWith("(Sin validar").contains("Las náuseas aparecieron 4 días");
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM report_citations", Integer.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM report_citations WHERE report_version_id IN (SELECT id FROM report_versions WHERE report_id = ?)",
+                Integer.class, outcome.reportId())).isZero();
     }
 
     @Test

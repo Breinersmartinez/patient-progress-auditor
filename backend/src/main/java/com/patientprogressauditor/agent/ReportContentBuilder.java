@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
@@ -28,6 +29,11 @@ public class ReportContentBuilder {
     public ReportContentBuilder(MetricsService metrics, ObjectMapper mapper) {
         this.metrics = metrics;
         this.mapper = mapper;
+    }
+
+    // Para quien arma un informe sin pasar por el agente (la semilla): las cifras salen igual del codigo.
+    public ObjectNode build(ObjectNode model, UUID patientId, LocalDate weekStart) {
+        return build(model, new AgentRunContext(patientId, weekStart));
     }
 
     public ObjectNode build(ObjectNode model, AgentRunContext context) {

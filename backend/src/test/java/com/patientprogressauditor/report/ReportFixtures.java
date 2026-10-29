@@ -12,7 +12,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.patientprogressauditor.entry.Entry;
 import com.patientprogressauditor.entry.EntryRepository;
 
-// Informes de prueba con contenido real: citan registros de P-014 de esa semana y traen las cifras (`metrics`) que el
+// Informes de prueba con contenido real: citan registros del paciente de esa semana y traen las cifras (`metrics`) que el
 // codigo guardaria. Se insertan por JDBC para fijar el estado sin pasar por el agente.
 final class ReportFixtures {
 

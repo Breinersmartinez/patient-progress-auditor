@@ -81,6 +81,37 @@ class DraftValidatorTest {
     }
 
     @Test
+    void keySyntaxSlipsAreForgivenButTheValueIsStillChecked() throws Exception {
+        String cite = "[\"" + nauseaAlias + "\"]";
+        // Corchetes, «:valor» pegado y la clave de una comparacion sin indice: se entiende de que cifra habla.
+        DraftValidator.Checked c = check("Las náuseas aparecieron 4 días esta semana y 0 días la semana anterior.", cite,
+                "[{\"key\":\"vs_previous.days.NAUSEAS[1]\",\"value\":4},{\"key\":\"symptoms.NAUSEAS.days:4\",\"value\":4},{\"key\":\"vs_previous.days.NAUSEAS\",\"value\":0}]");
+        assertThat(c.problems()).isEmpty();
+        // La clave que se guarda es la canonica: .1 y .0 elegidos por el valor.
+        assertThat(c.model().path("claims").get(0).path("figures").findValuesAsText("key"))
+                .containsExactly("vs_previous.days.NAUSEAS.1", "symptoms.NAUSEAS.days", "vs_previous.days.NAUSEAS.0");
+
+        // Perdonar la sintaxis no perdona el valor.
+        DraftValidator.Checked wrong = check("Las náuseas aparecieron 5 días.", cite, "[{\"key\":\"vs_previous.days.NAUSEAS[1]\",\"value\":5}]");
+        assertThat(wrong.problems()).anyMatch(p -> p.contains("vale 4") && p.contains("escribió 5"));
+        DraftValidator.Checked neither = check("Las náuseas aparecieron 9 días.", cite, "[{\"key\":\"vs_previous.days.NAUSEAS\",\"value\":9}]");
+        assertThat(neither.problems()).anyMatch(p -> p.contains(".0» vale 0") && p.contains(".1» vale 4"));
+    }
+
+    @Test
+    void theMessagesTellTheModelHowToFixTheThreeFailuresMeasuredInE14() throws Exception {
+        // Una fecha escrita como numero: se le dice que use el dia de la semana.
+        DraftValidator.Checked date = check("Las náuseas empezaron el 10 de octubre.", "[\"" + nauseaAlias + "\"]", "[]");
+        assertThat(date.problems()).anyMatch(p -> p.contains("10") && p.contains("día de la semana"));
+        // Sin afirmaciones (semana sin sintomas): se le dice como escribir la que corresponde.
+        DraftValidator.Checked none = validator.check(mapper.readTree("{\"summary\":\"Sin síntomas.\",\"claims\":[],\"changes_vs_previous\":[],\"recurring_patterns\":[]}"), ctx);
+        assertThat(none.problems()).anyMatch(p -> p.contains("total_events") && p.contains("No se registraron síntomas"));
+        // Sin cita porque trata de algo ausente: se le dice que cite la semana anterior.
+        DraftValidator.Checked uncited = check("Las náuseas ya no aparecen.", "[]", "[]");
+        assertThat(uncited.problems()).anyMatch(p -> p.contains("semana anterior") && p.contains("get_week_entries"));
+    }
+
+    @Test
     void anAlteredFigureIsRejectedWithTheRealValue() throws Exception {
         DraftValidator.Checked c = check("Las náuseas aparecieron 5 días.", "[\"" + nauseaAlias + "\"]",
                 "[{\"key\":\"NAUSEAS.days\",\"value\":5}]");

@@ -152,7 +152,7 @@ Solo hay una tarea: primero se retiran el manifiesto y el workflow, junto con su
 
 ### Seguimiento
 
-- [x] E1 · [x] E2 · [x] E3 · [x] E4 · [x] E5 · [x] E6 · [x] E7 · [x] E8 · [x] E9 · [x] E10 · [x] E11 · [x] E12a · [x] E12b · [ ] E14 · [ ] E15
+- [x] E1 · [x] E2 · [x] E3 · [x] E4 · [x] E5 · [x] E6 · [x] E7 · [x] E8 · [x] E9 · [x] E10 · [x] E11 · [x] E12a · [x] E12b · [x] E14 · [x] E15 (falta la prueba del compañero y el tag)
 - [ ] E12c (fuera por decisión del 28-oct) · [ ] E13 (al final, solo si sobra tiempo) · [ ] E16 (fuera)
 
 ## 5. Propuestas del §4.2 del prompt, cerradas para tu aprobación
@@ -1015,3 +1015,124 @@ Si W-1 no tiene ninguna entrada, no se puede decir que un síntoma «dejó de es
       Produce: generar → editar → aprobar en el navegador real; `docs/decisiones.md`
       Se comprueba: `ng test`, `ng build`, `mvn -B verify`
   > Generar → progreso → informe → traza → editar → aprobar, y en otro editar → versión de la IA → rechazar con motivo, todo en el navegador real; la base quedó con la versión 1 del modelo intacta y la 2 de enfermería. `ng test` 105 de 105 y `ng build` verdes (372 kB).
+
+---
+
+# E14 — Informes sembrados y evaluación
+
+> **Estado:** cerrada · **EDT:** 2.13 y 12.1 a 12.6 (15,5 h; «nunca se recorta»: la medición vale 25 de 100 puntos) · **Depende de:** E3, E7 y E12a (hechas) · **Reglas:** AGENTS.md «Medición»: 5 a 10 casos dorados verificados a mano (uno de rechazo), casos de estructuración, el script, y cuatro cifras con fecha y método (tasa de éxito, costo por tarea, **mediana** de latencia, recuperación) contra la solución convencional.
+
+## Encargo
+
+**En una frase.** Que la app arranque con los cinco informes de D11 ya hechos (cifras iguales a las métricas, citas válidas, sin llamar al modelo), y que un comando corra una suite de casos dorados contra el sistema real y contra una solución convencional sin modelo, y deje las cuatro cifras medidas o diciendo «no medido».
+
+**Criterio de aceptación.**
+- ¿Los 5 informes sembrados existen (4 `APROBADO` de P-014, semanas 1 a 4, y 1 `PENDIENTE_REVISION` de P-021, semana 3), con `metrics` iguales al cálculo del código, cada afirmación con citas del mismo paciente y de la semana (o anteriores), cifras que coinciden, sin diagnóstico y con aprobador y fecha los aprobados? ¿Reiniciar no los duplica y el arranque no llama al modelo?
+- ¿Hay entre 5 y 10 casos dorados de informes, verificados a mano contra los datos, con uno de rechazo (pedir un diagnóstico), uno de inyección (P-040), uno de datos insuficientes (P-007), uno sin síntomas (P-033) y uno de reaparición (P-014)?
+- ¿Hay casos de estructuración de la entrada (síntomas, intensidad, veces, negaciones, sin síntomas, inyección) con su respuesta esperada?
+- ¿Un comando (`python3 eval/run_eval.py`) corre todo contra la app levantada, sin librerías nuevas, y escribe un resultado con fecha?
+- ¿La solución convencional (plantilla sin modelo, solo dentro de `eval/`) corre los mismos casos con las mismas comprobaciones?
+- ¿`docs/decisiones/semana10.md` trae las cuatro cifras con fecha, método y n, la **mediana** de latencia, la comparación con la solución convencional, y «no medido» donde no se midió?
+
+**Queda fuera.** El informe mensual (E13), una suite en CI (necesita llaves y gasta cuota), medir con muchos usuarios, y evaluar la calidad del lenguaje del modelo más allá de lo que se comprueba por reglas.
+
+## Diseño (resumen)
+
+| Pieza | Decisión |
+|---|---|
+| Informes sembrados | Los redacta una plantilla sin modelo sobre las métricas (`eval/baseline.py`, la misma que es la solución convencional) y los guarda como datos en `seed/demo-reports.json`; el sembrador los inserta con `metrics` e `insufficient_data` calculados por el código en ese momento, así que las cifras no pueden diferir. Ids deterministas, `ON CONFLICT DO NOTHING` |
+| Validez de la semilla | Prueba que recorre los 5 informes: citas, cifras contra `MetricsService`, números del texto respaldados, sin diagnóstico, estados y aprobador |
+| Pedir con indicación | `POST /api/runs` acepta `request` opcional (≤300 caracteres): es la forma de probar el caso de rechazo (pedir un diagnóstico) contra el sistema real. La interfaz no lo expone |
+| La suite | `eval/run_eval.py` (Python 3 estándar) llama a la app por HTTP como lo haría una persona: pide, sigue la ejecución, lee el informe y comprueba reglas por caso. Cada ejecución deja el informe `RECHAZADO` con motivo «evaluación» para poder repetir la semana |
+| Comprobaciones por caso | Reglas verificables, no juicio del modelo: estado final, cifras citadas = cifras verdaderas, citas del mismo paciente, síntomas que deben y no deben aparecer, días sin registro declarados, ausencia de palabras de diagnóstico y de la orden inyectada |
+| Cuatro cifras | Tasa de éxito (informe válido a la primera y al final), costo por tarea (USD de lista, de `agent_runs`), **mediana** de latencia (de `POST` a `end`) y recuperación (de las ejecuciones con un rechazo del validador o un cambio de proveedor, cuántas terminan bien) |
+| Solución convencional | Plantilla en `eval/baseline.py` desde las entradas por la API: cuenta días con síntoma, compara con la semana anterior y escribe frases fijas. Mismas comprobaciones. Estructuración: diccionario de palabras con ventana de negación |
+
+## Plan
+
+- [x] 1. Pedir con indicación
+      Produce: `request` opcional en `POST /api/runs` hasta el ejecutor
+      Se comprueba: prueba del API; el texto llega a la tarea
+  > `request` opcional (máx. 300) hasta la tarea del agente; prueba en `RunsApiTest`.
+- [x] 2. Plantilla sin modelo y datos de la semilla
+      Produce: `eval/baseline.py` y `scripts/make_seed_reports.py` → `seed/demo-reports.json`
+      Se comprueba: los textos leídos a mano contra los datos
+  > `eval/baseline.py` coincide con el cálculo independiente en las 18 semanas; `scripts/make_seed_reports.py` genera `demo-reports.json` y `test_eval.py` comprueba que el archivo es lo que genera el script.
+- [x] 3. Sembrado de los informes
+      Produce: el sembrador inserta informes, versión 1, citas; contenido con `metrics` del código
+      Se comprueba: 5 informes, idempotente, validez por prueba, el médico ve 4 y no el pendiente
+  > `SeededReportsTest` (7): 5 informes, cifras iguales al código, citas, números respaldados, sin diagnóstico, idempotente, el médico ve 4 y no el pendiente. Las pruebas de informes pasaron a P-033 para no chocar con los sembrados.
+- [x] 4. Casos dorados y suite
+      Produce: `eval/cases/*.json` (informes y estructuración), `eval/run_eval.py`, `eval/README.md`
+      Se comprueba: la suite corre contra la solución convencional sin llave y falla cuando se le altera un caso
+  > 8 casos de informes y 16 de estructuración; `run_eval.py`; 18 pruebas de la propia evaluación; la solución convencional corre sin llave.
+- [x] 5. Medición con llave real
+      Produce: corridas reales (n por caso), resultado fechado en `eval/results/`
+      Se comprueba: las cuatro cifras salen del resultado, la latencia en mediana
+  > Línea base 01:30: informes 11 de 16 (69 %), mediana de latencia 17,8 s; estructuración 32 de 32 (el diccionario, 12 de 16). Resultados en `eval/results/`.
+- [x] 6. Ajuste del agente según lo medido
+      Produce: cambios al prompt o a la validación para las causas de fallo medidas, y la medición otra vez
+      Se comprueba: la tasa de éxito antes y después, con el mismo método
+  > Cuatro causas corregidas (claves, fechas como número, `claims` vacío, citas de lo que desapareció). Tras el ajuste, 16 de 16 (en Gemini: de 8 de 13 a 16 de 16) y 6 de 6 en la reserva. Groq tras el ajuste: no medido (cuota agotada).
+- [x] 7. Documentos y cierre
+      Produce: `docs/decisiones/semana10.md`, entrada en `docs/decisiones.md`, plan al día
+      Se comprueba: `mvn -B verify`, `ng test`
+  > `docs/decisiones/semana10.md` y entrada E14 en `docs/decisiones.md`. `mvn -B verify`: ver el reporte de la etapa.
+
+---
+
+# E15 — Documentación y entrega
+
+> **Estado:** cerrada, a falta de la prueba del compañero y del tag (los hace una persona del equipo) · **EDT:** 13.1 a 13.7 y 14.1 a 14.3 (12,5 h; «nunca se recorta»: un README que una IA no pueda ejecutar anula la entrega) · **Depende de:** E1 a E12b y E14 (hechas) · **Reglas:** AGENTS.md «Entrega y prueba del profesor», «Estructura de entrega» y «Qué NO hacer».
+
+## Encargo
+
+**En una frase.** Que una IA que solo lea el README, en un clon limpio con solo Docker Compose v2, deje la aplicación corriendo con un comando y sin trabajo manual, y que cada decisión técnica y cada librería tenga su razón y su alternativa por escrito.
+
+**Criterio de aceptación.**
+- ¿Un clon limpio (el árbol que se commitearía, sin `.env`, `target/` ni `node_modules/`) llega con `./run.sh` a base, backend y frontend sanos, sin terminal y sin llave, y avisa con claridad que falta la llave?
+- ¿Con una llave real en el entorno, la misma ruta deja funcionando la IA (estructurar una entrada y generar un informe con progreso por SSE a través de nginx)?
+- ¿El README dice el motor de BD, las imágenes con versión, el comando, las URL, los usuarios de demostración elegibles, el proveedor y modelo con su razón, cómo conseguir y entregar la llave, cómo cambiar de proveedor, cómo forzar los límites, qué pasa sin llave, y cómo correr pruebas y la evaluación?
+- ¿`docs/decisiones.md` trae, además de E1 a E14, Java 17, Spring Boot y Angular, la ausencia de RAG y la tabla de librerías con razón y alternativa, y existe `docs/decisiones/semana08.md`?
+- ¿Existe `docs/prueba_companero.md` listo para que lo llene una persona ajena al código?
+- ¿El escaneo del árbol **y del historial** no encuentra ningún secreto, ni siquiera los valores exactos de las llaves del `.env`?
+- ¿`AGENTS.md` ya no dice que el repositorio es un scaffold?
+
+**Queda fuera.** La prueba del compañero y el tag `m2-entrega` (los hace una persona del equipo), el push, la llave temporal del profesor (el equipo la crea), `seguridad.md`, `gobernanza.md` y `respuesta_auditoria.md` (Momento 3), el informe mensual (E13).
+
+## Diseño (resumen)
+
+| Pieza | Decisión |
+|---|---|
+| README | Orden de lectura de una IA: requisitos → comando → qué debe verse → llave → usuarios → verificación con `curl` → decisiones y justificación → pruebas. Cada paso con su salida esperada. Sin remitir a `AGENTS.md` para lo ejecutable |
+| Llave | Tres vías en el README: la propia del evaluador (Groq gratuita), la que envía el equipo por un medio privado, o ninguna (la app abre y avisa). `run.sh` además guarda en `.env` una llave que venga del entorno, para que `docker compose up -d` posterior no la pierda |
+| Prueba en frío | Copia del árbol que se commitearía (`git ls-files -co --exclude-standard`) a un directorio nuevo y `./run.sh` literal, primero sin llave y luego con ella; no hay commit aún de E14, así que un `git clone` no lo traería |
+| Escaneo | Patrones de llaves conocidas sobre el árbol y sobre `git log -p` de todas las ramas, y búsqueda de los valores exactos de las llaves del `.env` (sin imprimirlos). Sin instalar nada |
+| Documentos | `semana08.md` (datos, sin RAG, con lo medido), tabla de librerías, Java 17, stack y la lista de pendientes de `decisiones.md` cerrada |
+
+## Plan
+
+- [x] 1. `run.sh` guarda la llave del entorno
+      Produce: cambio mínimo en `run.sh`
+      Se comprueba: con la llave en el entorno queda en `.env`; sin terminal ni llave arranca y avisa
+  > Cuatro líneas en `run.sh`. Verificado en la prueba en frío: con la llave en el entorno quedó en `.env`, y un `./run.sh` posterior sin ella en el entorno siguió con la IA disponible.
+- [x] 2. README ejecutable
+      Produce: `README.md` reescrito
+      Se comprueba: cada comando y cada URL citados existen; `scripts/check-env-example.sh`
+  > README reescrito. La prueba en frío encontró un error mío (`/api/llm/status` pide un usuario en la cabecera) y se corrigió. Enlaces relativos revisados; `check-env-example.sh`: 28 variables.
+- [x] 3. Decisiones y documentos
+      Produce: `docs/decisiones/semana08.md`, secciones nuevas en `docs/decisiones.md`, `docs/prueba_companero.md`, índice de `docs/README.md`, «Estado actual» de `AGENTS.md`
+      Se comprueba: sin referencias a documentos que no existen; la lista de pendientes cerrada
+  > `semana08.md` con el tamaño del corpus medido (119 entradas, 2 584 caracteres), sección E15 de `decisiones.md` con Java 17, stack, sin RAG y la tabla de librerías, plantilla `prueba_companero.md`, índice de `docs/README.md` y «Estado actual» y pendientes de `AGENTS.md` reescritos.
+- [x] 4. Escaneo de secretos
+      Produce: resultado del escaneo del árbol y del historial
+      Se comprueba: cero coincidencias, incluidos los valores exactos de las llaves
+  > 322 archivos del árbol y 157 commits de todas las ramas: 0 coincidencias de patrón o de valor exacto de las llaves del `.env`; 1 falso positivo en el historial (una línea de código del proyecto anterior, `String token = extractBearerToken(request)`); ningún `.env` ni clave privada agregado alguna vez.
+- [x] 5. Prueba en frío con el árbol limpio
+      Produce: la app corriendo desde un directorio nuevo, siguiendo el README al pie de la letra
+      Se comprueba: sin llave (arranca y avisa) y con llave (estructurar, generar con SSE, aprobar)
+  > Árbol que se commitearía, copiado a un directorio nuevo, sin `.env`. Sin llave y sin terminal: 4 min 23 s, salida 0, aviso de llave, 3 servicios sanos, 5 pacientes, 5 informes (el médico ve 4), el informe sin llave termina `FALLIDA` con mensaje claro. Con llave: 1 min 24 s; estructuración (3,0 s), informe con SSE por nginx (14,5 s, con paso de Groq a Gemini por límite de Groq), médico 404/403 sobre el pendiente y 5 informes tras aprobar; `AGENT_MAX_ITERATIONS=1` deja el informe `INCOMPLETO`. La interfaz servida por nginx lista los 5 pacientes. Hecho por mí, que conozco el código: no sustituye la prueba del compañero.
+- [x] 6. Cierre
+      Produce: este plan al día y el reporte
+      Se comprueba: `mvn -B verify`, `ng test`, pruebas de `eval/`
+  > Esta etapa no cambió código Java ni TypeScript (solo `run.sh` y documentos), por lo que no repetí `mvn -B verify` ni `ng test`; el último resultado es el de E14 (281 y 105). Sí corrí `bash -n run.sh`, las 18 pruebas de `eval/` y `check-env-example.sh`.

@@ -31,13 +31,13 @@ import com.patientprogressauditor.entry.Entry;
 import com.patientprogressauditor.entry.EntryRepository;
 
 // Informes (E12a): la regla de estado para el medico, la edicion con versiones, aprobar y rechazar. Cada prueba corre en
-// su transaccion y no deja nada. Los informes citan registros reales de P-014 de la semilla.
+// su transaccion y no deja nada. Los informes citan registros reales de P-033 de la semilla (P-014 y P-021 ya traen sus informes sembrados, E14).
 @SpringBootTest(properties = "app.seed.demo=true")
 @AutoConfigureMockMvc
 @Transactional
 class ReportsApiTest {
 
-    private static final LocalDate W1 = LocalDate.of(2026, 9, 21);
+    private static final LocalDate W1 = LocalDate.of(2026, 10, 19);
     private static final LocalDate W2 = LocalDate.of(2026, 9, 28);
     private static final LocalDate W3 = LocalDate.of(2026, 10, 5);
     private static final LocalDate W4 = LocalDate.of(2026, 10, 12);
@@ -54,7 +54,7 @@ class ReportsApiTest {
     @BeforeEach
     void setUp() {
         fx = new ReportFixtures(jdbc, entries, mapper);
-        p014 = fx.patient("P-014");
+        p014 = fx.patient("P-033");
     }
 
     private JsonNode body(ResultActions result) throws Exception {
@@ -94,7 +94,7 @@ class ReportsApiTest {
         UUID rejected = fx.report(p014, W4, "RECHAZADO");
 
         List<String> nurse = ids(body(mockMvc.perform(get("/api/reports?patientId=" + p014).header("X-Demo-User", NURSE))));
-        assertThat(nurse).containsExactly(rejected.toString(), approved.toString(), incomplete.toString(), pending.toString());
+        assertThat(nurse).containsExactly(pending.toString(), rejected.toString(), approved.toString(), incomplete.toString());
 
         List<String> doctor = ids(body(mockMvc.perform(get("/api/reports?patientId=" + p014).header("X-Demo-User", DOCTOR))));
         assertThat(doctor).containsExactly(approved.toString());
@@ -126,7 +126,7 @@ class ReportsApiTest {
         List<Entry> week = fx.weekEntries(p014, W4);
 
         JsonNode detail = body(mockMvc.perform(get("/api/reports/" + report).header("X-Demo-User", NURSE)).andExpect(status().isOk()));
-        assertThat(detail.path("report").path("patientAlias").asText()).isEqualTo("P-014");
+        assertThat(detail.path("report").path("patientAlias").asText()).isEqualTo("P-033");
         assertThat(detail.path("report").path("status").asText()).isEqualTo("PENDIENTE_REVISION");
         assertThat(detail.path("version").path("versionNo").asInt()).isEqualTo(1);
         assertThat(detail.path("version").path("origin").asText()).isEqualTo("MODELO");

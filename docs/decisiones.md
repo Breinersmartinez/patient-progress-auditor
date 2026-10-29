@@ -266,6 +266,81 @@ Cuando se agota un límite el informe queda `INCOMPLETO` con el motivo, la ejecu
 
 **No verificado:** el médico no tiene pantallas (E12c, fuera por decisión del equipo); el informe mensual (E13); un fallo del proveedor forzado en la pantalla de generar (cubierto por pruebas unitarias del servicio y de la pantalla, no en vivo); el recorrido con el teclado y lector de pantalla de la hoja (las `[n]` son enlaces con `tabindex` y `Enter`, probado por pruebas, no con un lector); `PendingComponent` quedó sin uso y sin borrar (preguntar antes de borrar).
 
+## E14 — Informes sembrados y evaluación (2026-10-29)
+
+**Respuesta para el profesor — «¿cómo sabes que funciona y es mejor que no usar IA?»:** hay una suite de un comando (`python3 eval/run_eval.py`) con 8 casos dorados de informes (uno de rechazo y uno de inyección) y 16 de estructuración, verificados a mano contra los datos y con comprobaciones que no usan las reglas del propio servidor, y una **solución convencional sin modelo** que pasa por las mismas reglas. Las cifras, con fecha, método, n y lo no medido, están en [docs/decisiones/semana10.md](decisiones/semana10.md). La respuesta honesta: **en la estructuración de texto libre el modelo es mejor** (32 de 32 contra 12 de 16 del diccionario, que falla en las paráfrasis); **en los informes, la plantilla iguala al agente en validez** (las cifras las calcula el código), y lo que el agente aporta (redacción, decidir qué mirar) esta suite no lo mide.
+
+| Decisión | Razón | Alternativa descartada |
+|---|---|---|
+| **Los 5 informes sembrados los escribe una plantilla sin modelo** (`eval/baseline.py` → `scripts/make_seed_reports.py` → `seed/demo-reports.json`), y la base lo dice: `provider = 'semilla'`, `model = 'plantilla sin modelo'`. Son 4 aprobados de P-014 (semanas 1 a 4, aprobados por Marcela Rojas) y 1 pendiente de P-021 (semana del 12 de octubre) | D11: el arranque no llama al LLM. Que los escriba la plantilla y no el agente hace la semilla **reproducible** (una prueba comprueba que el archivo es exactamente lo que genera el script) y sin depender de una llave ni de un proveedor. La plantilla es la solución convencional de la evaluación, así que los datos de la demo y la línea de comparación salen del mismo código | Generarlos una vez con el agente real y pegarlos (no reproducible, depende de un día bueno del proveedor y hay que revisarlos a mano) |
+| **Las cifras de los informes sembrados no se guardan en el JSON: el sembrador las calcula con el código al insertar** (`metrics`, `insufficient_data` y `period` salen de `MetricsService`) | Una cifra sembrada no puede diferir del cálculo: no hay una segunda copia que se desactualice. Una prueba compara `metrics` de cada informe con el cálculo y cada cifra citada con su valor | Guardar las cifras en el JSON |
+| **`SeededReportsTest` exige a los informes sembrados lo mismo que a los del agente:** citas reales del mismo paciente y no posteriores a la semana, índice de citas igual al contenido, todo número del texto respaldado, sin palabras de diagnóstico, aprobador y fecha en los aprobados, sin duplicados al reiniciar, y el médico ve los 4 aprobados y recibe 404 en el pendiente | La demo muestra estos datos: deben pasar las mismas reglas que se le exigen al modelo | Confiar en haberlos leído |
+| **`POST /api/runs` acepta `request` (indicación libre, máx. 300 caracteres), sin pantalla** | Es la única forma de probar contra el sistema real el caso de rechazo que pide AGENTS.md (pedir un diagnóstico) con la ruta normal y sin modo simulado. Se trata como dato (el agente ya declara fuera de alcance una solicitud de diagnóstico, E10) | Un modo de prueba (D16 lo descarta); un caso solo con doble de prueba |
+| **La suite llama a la app por HTTP, como una persona, y no corre dentro de Java** (`eval/run_eval.py`, solo biblioteca estándar) | Mide el sistema completo (ejecutor, SSE, validación, informe guardado), no una pieza; no agrega dependencias; se puede entregar al profesor | Una prueba de JUnit con llave real (queda de `*LiveTest`, que mide piezas) |
+| **Cada informe de la evaluación se rechaza al terminar** («Ejecución de evaluación») | Solo puede haber un informe vigente por paciente y semana: sin esto, no se puede repetir un caso. Costo: la lista muestra rechazados; por eso se usa contra una base desechable | Borrar los informes (no hay operación de borrado, y no debe haberla) |
+| **Las comprobaciones usan su propia lista de palabras y su propio cálculo de cifras** | No medir al sistema con su propia regla: si el validador del servidor tuviera un error, la evaluación igual lo vería. Las comprobaciones se prueban solas (18 pruebas) | Reutilizar `DiagnosisGuard` y las métricas del servidor |
+| **Se mide con un conjunto de reserva** (`--holdout`: las 6 semanas libres que ningún caso dorado usa, con lo esperado derivado de los datos) | Los cambios al agente se hicieron mirando las fallas de los casos dorados: hay riesgo de sobreajuste. La reserva comprueba validez en otras semanas (6 de 6) | Declarar la mejora sin una segunda mirada |
+| **Se corrigieron las causas de las fallas medidas, no se relajaron las reglas del validador:** el resolvedor perdona errores de **sintaxis** de la clave de una cifra (`X[1]`, `X:4`, `X` sin índice) pero el valor se compara igual con el cálculo; el prompt y los mensajes de rechazo dicen cómo corregir las otras tres causas | RN-04 sigue intacta: ninguna cifra se acepta por venir del modelo. De 62 % a 100 % en Gemini, el mismo modelo, con 15 de 16 a la primera | Aceptar números sin respaldo; subir los intentos de corrección (el límite de 5 iteraciones es del equipo) |
+| **Los casos dorados usan semanas sin informe sembrado** (R1 a R8: P-014 del 19-oct, P-021 del 5 y 19-oct, P-007 del 12-oct, P-033 del 5 y 19-oct, P-040 del 19-oct) | Hay un solo informe vigente por semana; una prueba lo comprueba | Generar sobre las semanas sembradas |
+
+**Dos hallazgos que importan para la demo:** (1) **la ruta normal pasa por el respaldo**: con la capa gratuita, Groq (8 000 tokens por minuto y 200 000 por día) se agota; en las dos mediciones 13 y 16 de 16 ejecuciones terminaron en Gemini. El sistema funciona porque el respaldo funciona, y eso conviene decirlo en la demo; (2) **Groq tras el ajuste no está medido** (cuota agotada): repetir la medición cuando se renueve, antes de presentar.
+
+**Efecto en las pruebas existentes:** con los informes sembrados, las pruebas de informes (`ReportsApiTest`, `ReportConcurrencyTest`) pasaron de P-014 a P-033, que no trae informes sembrados, y las que contaban citas o informes en toda la base ahora cuentan los del informe que prueban.
+
+**No verificado:** el comportamiento de la semilla con una base que ya trae un informe real vigente en esas semanas (el `ON CONFLICT` lo salta, pero no se probó con datos de uso); la suite con otro modelo; el mensual (E13).
+
+## E15 — Documentación y entrega (2026-10-29)
+
+**Las decisiones que el profesor suele preguntar, en una tabla.** El detalle de cada una está en su etapa.
+
+| Decisión | Razón | Alternativa descartada |
+|---|---|---|
+| Java 17, no 21 (D9) | Es LTS y la versión mínima de Spring Boot 3.x; el `pom.xml`, el `Dockerfile` y el CI ya usan 17. Subir a 21 no cambia nada para el producto y agrega riesgo a días de la entrega. La página de entrega cita 21: el README declara 17 y esta fila explica por qué | Subir a 21 |
+| Spring Boot 3.4.1 y Angular 19 (D9) | Es el stack del scaffold, con Flyway, CI y seguridad ya montados: reescribirlo habría gastado el tiempo que necesita el agente. Para este producto (API con transacciones, un bucle de agente en segundo plano y SSE) el stack cubre lo necesario sin librerías nuevas (`SseEmitter`, JPA con bloqueo pesimista, `ThreadPoolExecutor`). Con builds multi-etapa en Docker el profesor solo necesita Docker. Angular: componentes independientes, formularios y `HttpClient` incluidos, sin librería de componentes | Python (FastAPI) como los talleres: obliga a reescribir lo existente. El bucle del agente en Java se escribe a mano (E10) |
+| Sin RAG (D8) | El corpus mide 2 584 caracteres (unos 650 tokens) y las preguntas son exactas (días, conteos, comparación): una consulta SQL las resuelve y no oculta los días sin registro. La medida y el criterio para volver a evaluarlo están en `docs/decisiones/semana08.md`. **Declarado:** no se midió una versión con RAG | Embeddings e índice vectorial: una pieza más para una consulta que la base ya resuelve |
+| El comando de arranque es `./run.sh`, no `docker compose up --build` | `DB_PASSWORD` es obligatoria y sin valor por defecto (E1): `run.sh` la genera. Además elige puertos libres y no se queda esperando entrada | Contraseña por defecto en el compose: una credencial en un repositorio público |
+| `run.sh` guarda en `.env` la llave que llega por el entorno | Sin eso, un `docker compose up -d` posterior desde otra terminal recrearía el backend sin llave y la IA dejaría de funcionar sin explicación. `.env` está en `.gitignore` | No guardarla: depende de que cada comando posterior vuelva a exportarla |
+| La llave del evaluador: la suya (Groq gratuita) o una temporal que el equipo envía por un medio privado | Decisión del equipo (29-oct). El repositorio es público: ninguna llave en archivos ni historial. Si no hay llave la app arranca y avisa; lo no-IA funciona | Una llave del equipo en el repositorio: se filtraría |
+| El README no remite a `AGENTS.md` para lo ejecutable | Una IA que solo lee el README debe poder llegar a la app corriendo con ese archivo solo; `AGENTS.md` es para quien desarrolla | README corto con enlaces |
+| Escaneo de secretos con patrones y con los valores exactos de las llaves, sin instalar nada | Cubre el árbol y todo el historial; buscar el valor exacto de las llaves reales del `.env` detecta una filtración que ningún patrón reconocería. El workflow `Security` ya corre `gitleaks-action` en cada PR | Instalar una herramienta nueva sin aprobación |
+
+### Librerías: cada una con su razón y su alternativa
+
+No se agregó ninguna librería nueva desde el scaffold (verificado: `pom.xml` y `package.json` sin cambios de dependencias en E2 a E14).
+
+**Backend (Maven, Spring Boot 3.4.1).**
+
+| Librería | Para qué | Alternativa descartada |
+|---|---|---|
+| `spring-boot-starter-web` | API REST, `SseEmitter` para el progreso (D24) y el servidor HTTP | WebFlux: un modelo reactivo que el equipo no necesita para 2 informes a la vez |
+| `spring-boot-starter-data-jpa` (Hibernate 6) | Entidades y repositorios; `@JdbcTypeCode(SqlTypes.JSON)` para `jsonb`; bloqueo pesimista al aprobar | JDBC a mano: más código repetido y más superficie de error |
+| `postgresql` (controlador JDBC) | Conexión a PostgreSQL 16 | — |
+| `flyway-core` y `flyway-database-postgresql` | Migraciones versionadas `V1` a `V6`; el esquema nace igual en cualquier máquina | Que Hibernate cree las tablas (`ddl-auto`): no deja historial ni índices parciales como `uq_agent_runs_live_report` |
+| `spring-boot-starter-security` | Cadena de seguridad y el filtro del usuario de demostración (D26); el servidor aplica los permisos | Sin seguridad: los permisos serían solo de pantalla, que la regla de oro del producto prohíbe |
+| `jjwt-api`, `jjwt-impl`, `jjwt-jackson` (0.13.0) | **Hoy sin uso en el código:** vienen del scaffold y se usan en el Momento 3 (RF-31, D23). Se dejan declaradas para no tocar el `pom.xml` dos veces | Quitarlas ahora y volver a agregarlas: cambio de dependencias sin beneficio hoy. **Pendiente de confirmar con el equipo** |
+| `spring-boot-starter-validation` | Validación de entradas de la API | Validar a mano en cada controlador |
+| `springdoc-openapi-starter-webmvc-ui` (2.7.0) | Swagger UI en `/swagger-ui.html` para probar la API sin el frontend | Documentar los endpoints solo en texto |
+| `lombok` (opcional) | Menos código repetido en 3 clases (`Entry`, `AppUser`, `AppRole`) | Escribir los métodos a mano |
+| `spring-boot-starter-test`, `spring-security-test` | JUnit 5, Mockito, AssertJ y `MockMvc` para las 281 pruebas | — |
+
+La llamada a Groq y Gemini usa el cliente HTTP de la JDK (`java.net.http`), sin SDK de proveedor (E8).
+
+**Frontend (npm, Angular 19.2).**
+
+| Librería | Para qué | Alternativa descartada |
+|---|---|---|
+| `@angular/*` (core, common, forms, router, platform-browser, animations, compiler) | Framework, rutas con hash, formularios y `HttpClient` | React o Vue: otro ecosistema que aprender; el scaffold ya era Angular |
+| `rxjs`, `zone.js`, `tslib` | Dependencias obligatorias de Angular | — |
+| `karma`, `jasmine`, `karma-chrome-launcher` y relacionados | Las 105 pruebas del frontend en Chrome sin interfaz | Jest: otra herramienta de pruebas sin ganancia |
+| `typescript`, `@angular/cli`, `@angular-devkit/build-angular` | Compilación | — |
+| `angular-cli-ghpages` (devDependency) | **Residuo del despliegue heredado**; no se usa. El plan del 27-oct (Plan 0, tarea 1) pedía retirarlo y sigue sin hacerse | Retirarlo: cambia `package.json` y `package-lock.json`; **pendiente de aprobación** |
+
+Sin Angular Material, Bootstrap, Tailwind, fuentes ni iconos externos: el diseño es el de los mockups, con CSS propio (E5).
+
+**Infraestructura y herramientas.** Docker Compose v2 con imágenes de versión fijada (`postgres:16.15-alpine`, `node:20-alpine`, `nginx:1.28-alpine`, `maven:3.9-eclipse-temurin-17`, `eclipse-temurin:17-jre`; `latest` haría el arranque irreproducible). La evaluación (`eval/`) y los generadores (`scripts/`) usan solo la biblioteca estándar de Python 3, sin `pip install`. El CI (`ci.yml`, `Security`, `Qodana`) es del scaffold.
+
+---
+
 ## Decisiones del equipo (2026-10-28)
 
 | Decisión | Razón | Alternativa descartada |
@@ -276,4 +351,4 @@ Cuando se agota un límite el informe queda `INCOMPLETO` con el motivo, la ejecu
 | Una sola sesión, sin frentes paralelos | Decisión del equipo. Orden: E2 a E12b, E14 y E15; E13 al final si sobra tiempo; E16 y «texto corregido» fuera | Dos frentes (A y B) |
 | Groq es el proveedor principal del LLM y Gemini (Google AI Studio) el de respaldo (D15) | Decisión del equipo el 2026-10-28, que invierte la propuesta inicial. La razón de fondo se escribe en E8 con latencia, costo, herramientas y ventana de contexto medidos. **Riesgo declarado:** los límites gratuitos de Groq por minuto son más estrechos que los de Gemini; el bucle del agente es lo que más tokens gasta, así que se mide en E8 y se ajustan las salidas de las herramientas | Gemini principal y Groq respaldo (propuesta original) |
 
-**Pendiente de redactar en etapas posteriores:** sin RAG (E15), Java 17 y por qué Spring Boot y Angular (E15), rutas con hash (E5).
+**Pendiente:** nada por redactar de las decisiones que el profesor suele preguntar (proveedor, RAG, síncrono o asíncrono, stack, Java, librerías). Lo que queda abierto está marcado «pendiente de confirmar» en su fila (`jjwt` sin uso hasta el Momento 3, `angular-cli-ghpages`, los límites gratuitos de Gemini).

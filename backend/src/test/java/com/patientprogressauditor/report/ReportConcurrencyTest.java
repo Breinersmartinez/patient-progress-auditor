@@ -53,7 +53,7 @@ class ReportConcurrencyTest {
     @Test
     void approvingAndEditingAtTheSameTimeNeverLeavesAnApprovedVersionThatIsNotTheLastOne() throws Exception {
         fx = new ReportFixtures(jdbc, entries, mapper);
-        patient = fx.patient("P-014");
+        patient = fx.patient("P-033");
         fx.delete(patient);
         List<Entry> week = fx.weekEntries(patient, WEEK);
         ExecutorService pool = Executors.newFixedThreadPool(2);

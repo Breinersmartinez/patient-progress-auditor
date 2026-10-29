@@ -69,6 +69,11 @@ fi
 
 # Llave del proveedor: entorno, o consola si hay terminal; si no, se avisa y se sigue.
 for key in GROQ_API_KEY GEMINI_API_KEY; do
+  # Una llave que llega por el entorno se guarda en .env (gitignored) para que un 'docker compose up -d' posterior no la pierda.
+  if [ -n "${!key:-}" ] && [ "$(get_var "$key")" != "${!key}" ]; then
+    set_var "$key" "${!key}"
+    echo "Se guardo $key en .env."
+  fi
   if ! have_key "$key" && [ -t 0 ]; then
     label="principal (Groq)"
     [ "$key" = GEMINI_API_KEY ] && label="de respaldo (Gemini)"

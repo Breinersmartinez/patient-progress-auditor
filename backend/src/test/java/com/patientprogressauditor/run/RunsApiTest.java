@@ -139,6 +139,23 @@ class RunsApiTest {
     }
 
     @Test
+    void theOptionalRequestTextReachesTheAgentTaskAndALongOneIsRefused() throws Exception {
+        agentWaitsForTheTest();
+        String ask = "¿Qué enfermedad tiene el paciente?";
+        MvcResult created = mockMvc.perform(post("/api/runs").header("X-Demo-User", NURSE).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"patientId\":\"" + patient + "\",\"weekStart\":\"" + WEEK + "\",\"request\":\"" + ask + "\"}")).andReturn();
+        assertThat(created.getResponse().getStatus()).isEqualTo(202);
+        assertThat(started.await(5, TimeUnit.SECONDS)).isTrue();
+        org.mockito.ArgumentCaptor<AgentRunner.Task> task = org.mockito.ArgumentCaptor.forClass(AgentRunner.Task.class);
+        verify(runner).run(any(), task.capture());
+        assertThat(task.getValue().request()).isEqualTo(ask);
+
+        mockMvc.perform(post("/api/runs").header("X-Demo-User", NURSE).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"patientId\":\"" + patient + "\",\"weekStart\":\"" + WEEK + "\",\"request\":\"" + "x".repeat(301) + "\"}"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields.request").exists());
+    }
+
+    @Test
     void eightSimultaneousRequestsCreateOneRun() throws Exception {
         agentWaitsForTheTest();
         ExecutorService pool = Executors.newFixedThreadPool(8);
@@ -199,16 +216,8 @@ class RunsApiTest {
         MvcResultHolder empty = request(NURSE, patient, "2026-01-05");
         assertThat(empty.status()).isEqualTo(409);
         assertThat(empty.json(mapper).path("message").asText()).contains("no tiene registros");
-        // La semilla aun no trae informes (E14): la prueba deja uno vigente de la semana 4 y lo borra al terminar.
-        UUID report = UUID.randomUUID();
-        jdbc.update("INSERT INTO reports (id, report_type, patient_id, period_start, period_end, status, requested_by) VALUES (?, 'SEMANAL', ?, '2026-10-12', '2026-10-18', 'PENDIENTE_REVISION', ?)",
-                report, patient, UUID.fromString(NURSE));
-        MvcResultHolder current;
-        try {
-            current = request(NURSE, patient, "2026-10-12");
-        } finally {
-            jdbc.update("DELETE FROM reports WHERE id = ?", report);
-        }
+        // P-014 trae sembrado el informe aprobado de la semana del 12 de octubre (E14): ya hay uno vigente.
+        MvcResultHolder current = request(NURSE, patient, "2026-10-12");
         assertThat(current.status()).isEqualTo(409);
         assertThat(current.json(mapper).path("message").asText()).contains("informe vigente");
 

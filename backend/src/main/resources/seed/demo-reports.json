@@ -1,0 +1,353 @@
+{
+  "reports": [
+    {
+      "alias": "P-014",
+      "weekStart": "2026-09-21",
+      "status": "APROBADO",
+      "requestedBy": "camilo",
+      "generatedAt": "2026-09-28T08:00:00-05:00",
+      "summary": "La semana tiene registros de 7 de 7 días. La semana anterior no tiene registros: no se pudo comparar.",
+      "claims": [
+        {
+          "claimKey": "c1",
+          "text": "Náuseas se registraron en 2 días de la semana.",
+          "criterion": "Eventos confirmados de la semana; la semana anterior no tiene registros para comparar",
+          "entryDates": [
+            "2026-09-22",
+            "2026-09-25"
+          ],
+          "figures": [
+            {
+              "key": "symptoms.NAUSEAS.days",
+              "value": 2
+            }
+          ]
+        },
+        {
+          "claimKey": "c2",
+          "text": "Dolor de hueso se registró en 1 día de la semana.",
+          "criterion": "Eventos confirmados de la semana; la semana anterior no tiene registros para comparar",
+          "entryDates": [
+            "2026-09-23"
+          ],
+          "figures": [
+            {
+              "key": "symptoms.DOLOR_HUESO.days",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "claimKey": "c3",
+          "text": "Apetito bajo se registró en 1 día de la semana.",
+          "criterion": "Eventos confirmados de la semana; la semana anterior no tiene registros para comparar",
+          "entryDates": [
+            "2026-09-25"
+          ],
+          "figures": [
+            {
+              "key": "symptoms.APETITO_BAJO.days",
+              "value": 1
+            }
+          ]
+        }
+      ],
+      "changesVsPrevious": [],
+      "recurringPatterns": [],
+      "reviewer": "marcela",
+      "reviewedAt": "2026-09-28T09:00:00-05:00"
+    },
+    {
+      "alias": "P-014",
+      "weekStart": "2026-09-28",
+      "status": "APROBADO",
+      "requestedBy": "camilo",
+      "generatedAt": "2026-10-05T08:00:00-05:00",
+      "summary": "La semana tiene registros de 7 de 7 días. Se comparó con la semana anterior.",
+      "claims": [
+        {
+          "claimKey": "c1",
+          "text": "Náuseas se registraron 2 días la semana anterior y no aparecen esta semana.",
+          "criterion": "Días con el síntoma la semana anterior frente a esta semana",
+          "entryDates": [
+            "2026-09-22",
+            "2026-09-25"
+          ],
+          "figures": [
+            {
+              "key": "vs_previous.days.NAUSEAS.0",
+              "value": 2
+            }
+          ]
+        },
+        {
+          "claimKey": "c2",
+          "text": "Dolor de hueso persiste: 2 días esta semana y 1 día la semana anterior.",
+          "criterion": "Días con el síntoma esta semana frente a la semana anterior",
+          "entryDates": [
+            "2026-09-29",
+            "2026-10-01"
+          ],
+          "figures": [
+            {
+              "key": "symptoms.DOLOR_HUESO.days",
+              "value": 2
+            },
+            {
+              "key": "vs_previous.days.DOLOR_HUESO.0",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "claimKey": "c3",
+          "text": "Apetito bajo se registró 1 día la semana anterior y no aparece esta semana.",
+          "criterion": "Días con el síntoma la semana anterior frente a esta semana",
+          "entryDates": [
+            "2026-09-25"
+          ],
+          "figures": [
+            {
+              "key": "vs_previous.days.APETITO_BAJO.0",
+              "value": 1
+            }
+          ]
+        }
+      ],
+      "changesVsPrevious": [
+        "c1",
+        "c3"
+      ],
+      "recurringPatterns": [
+        "c2"
+      ],
+      "reviewer": "marcela",
+      "reviewedAt": "2026-10-05T09:00:00-05:00"
+    },
+    {
+      "alias": "P-014",
+      "weekStart": "2026-10-05",
+      "status": "APROBADO",
+      "requestedBy": "camilo",
+      "generatedAt": "2026-10-12T08:00:00-05:00",
+      "summary": "La semana tiene registros de 7 de 7 días. Se comparó con la semana anterior.",
+      "claims": [
+        {
+          "claimKey": "c1",
+          "text": "Vómito aparece por primera vez en 1 día de la semana.",
+          "criterion": "Días con el síntoma esta semana frente a la semana anterior y a semanas previas",
+          "entryDates": [
+            "2026-10-07"
+          ],
+          "figures": [
+            {
+              "key": "symptoms.VOMITO.days",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "claimKey": "c2",
+          "text": "Náuseas reaparecieron en 3 días de la semana; no se registró la semana anterior.",
+          "criterion": "Días con el síntoma esta semana frente a la semana anterior y a semanas previas",
+          "entryDates": [
+            "2026-10-05",
+            "2026-10-07",
+            "2026-10-10"
+          ],
+          "figures": [
+            {
+              "key": "symptoms.NAUSEAS.days",
+              "value": 3
+            }
+          ]
+        },
+        {
+          "claimKey": "c3",
+          "text": "Dolor de hueso persiste: 1 día esta semana y 2 días la semana anterior.",
+          "criterion": "Días con el síntoma esta semana frente a la semana anterior",
+          "entryDates": [
+            "2026-10-08"
+          ],
+          "figures": [
+            {
+              "key": "symptoms.DOLOR_HUESO.days",
+              "value": 1
+            },
+            {
+              "key": "vs_previous.days.DOLOR_HUESO.0",
+              "value": 2
+            }
+          ]
+        },
+        {
+          "claimKey": "c4",
+          "text": "Apetito bajo reapareció en 1 día de la semana; no se registró la semana anterior.",
+          "criterion": "Días con el síntoma esta semana frente a la semana anterior y a semanas previas",
+          "entryDates": [
+            "2026-10-08"
+          ],
+          "figures": [
+            {
+              "key": "symptoms.APETITO_BAJO.days",
+              "value": 1
+            }
+          ]
+        }
+      ],
+      "changesVsPrevious": [
+        "c1",
+        "c2",
+        "c4"
+      ],
+      "recurringPatterns": [
+        "c2",
+        "c3",
+        "c4"
+      ],
+      "reviewer": "marcela",
+      "reviewedAt": "2026-10-12T09:00:00-05:00"
+    },
+    {
+      "alias": "P-014",
+      "weekStart": "2026-10-12",
+      "status": "APROBADO",
+      "requestedBy": "camilo",
+      "generatedAt": "2026-10-19T08:00:00-05:00",
+      "summary": "La semana tiene registros de 7 de 7 días. Se comparó con la semana anterior.",
+      "claims": [
+        {
+          "claimKey": "c1",
+          "text": "Vómito se registró 1 día la semana anterior y no aparece esta semana.",
+          "criterion": "Días con el síntoma la semana anterior frente a esta semana",
+          "entryDates": [
+            "2026-10-07"
+          ],
+          "figures": [
+            {
+              "key": "vs_previous.days.VOMITO.0",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "claimKey": "c2",
+          "text": "Náuseas se registraron 3 días la semana anterior y no aparecen esta semana.",
+          "criterion": "Días con el síntoma la semana anterior frente a esta semana",
+          "entryDates": [
+            "2026-10-05",
+            "2026-10-07",
+            "2026-10-10"
+          ],
+          "figures": [
+            {
+              "key": "vs_previous.days.NAUSEAS.0",
+              "value": 3
+            }
+          ]
+        },
+        {
+          "claimKey": "c3",
+          "text": "Dolor de hueso persiste: 1 día esta semana y 1 día la semana anterior.",
+          "criterion": "Días con el síntoma esta semana frente a la semana anterior",
+          "entryDates": [
+            "2026-10-14"
+          ],
+          "figures": [
+            {
+              "key": "symptoms.DOLOR_HUESO.days",
+              "value": 1
+            },
+            {
+              "key": "vs_previous.days.DOLOR_HUESO.0",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "claimKey": "c4",
+          "text": "Apetito bajo se registró 1 día la semana anterior y no aparece esta semana.",
+          "criterion": "Días con el síntoma la semana anterior frente a esta semana",
+          "entryDates": [
+            "2026-10-08"
+          ],
+          "figures": [
+            {
+              "key": "vs_previous.days.APETITO_BAJO.0",
+              "value": 1
+            }
+          ]
+        }
+      ],
+      "changesVsPrevious": [
+        "c1",
+        "c2",
+        "c4"
+      ],
+      "recurringPatterns": [
+        "c3"
+      ],
+      "reviewer": "marcela",
+      "reviewedAt": "2026-10-19T09:00:00-05:00"
+    },
+    {
+      "alias": "P-021",
+      "weekStart": "2026-10-12",
+      "status": "PENDIENTE_REVISION",
+      "requestedBy": "camilo",
+      "generatedAt": "2026-10-19T08:00:00-05:00",
+      "summary": "La semana tiene registros de 7 de 7 días. Se comparó con la semana anterior.",
+      "claims": [
+        {
+          "claimKey": "c1",
+          "text": "Fiebre aparece por primera vez en 2 días de la semana.",
+          "criterion": "Días con el síntoma esta semana frente a la semana anterior y a semanas previas",
+          "entryDates": [
+            "2026-10-15",
+            "2026-10-16"
+          ],
+          "figures": [
+            {
+              "key": "symptoms.FIEBRE.days",
+              "value": 2
+            }
+          ]
+        },
+        {
+          "claimKey": "c2",
+          "text": "Mareo se registró 1 día la semana anterior y no aparece esta semana.",
+          "criterion": "Días con el síntoma la semana anterior frente a esta semana",
+          "entryDates": [
+            "2026-10-09"
+          ],
+          "figures": [
+            {
+              "key": "vs_previous.days.MAREO.0",
+              "value": 1
+            }
+          ]
+        },
+        {
+          "claimKey": "c3",
+          "text": "Ánimo decaído aparece por primera vez en 1 día de la semana.",
+          "criterion": "Días con el síntoma esta semana frente a la semana anterior y a semanas previas",
+          "entryDates": [
+            "2026-10-16"
+          ],
+          "figures": [
+            {
+              "key": "symptoms.ANIMO_DECAIDO.days",
+              "value": 1
+            }
+          ]
+        }
+      ],
+      "changesVsPrevious": [
+        "c1",
+        "c2",
+        "c3"
+      ],
+      "recurringPatterns": []
+    }
+  ]
+}

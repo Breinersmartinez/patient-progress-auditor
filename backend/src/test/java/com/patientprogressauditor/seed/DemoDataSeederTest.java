@@ -125,7 +125,7 @@ class DemoDataSeederTest {
     void theProdProfileRejectsTheSeed() {
         MockEnvironment prod = new MockEnvironment();
         prod.setActiveProfiles("prod");
-        DemoDataSeeder seederInProd = new DemoDataSeeder(jdbc, transaction, mapper, prod);
+        DemoDataSeeder seederInProd = new DemoDataSeeder(jdbc, transaction, mapper, prod, null);
 
         assertThatThrownBy(seederInProd::seed).isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("perfil prod");
