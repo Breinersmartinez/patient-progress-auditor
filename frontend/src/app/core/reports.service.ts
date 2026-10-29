@@ -1,4 +1,4 @@
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
@@ -215,6 +215,22 @@ export class ReportsService {
 
   reject(id: string, reason: string): Promise<ReportDetail> {
     return firstValueFrom(this.http.post<ReportDetail>(`/api/reports/${encodeURIComponent(id)}/reject`, { reason }));
+  }
+
+  // El PDF de un informe aprobado (RF-37). Va por HttpClient y no por un enlace porque el usuario elegido viaja en una
+  // cabecera. Si el servidor lo niega (409, 404), el cuerpo del error llega como Blob: se vuelve a leer como JSON.
+  async pdf(id: string): Promise<{ blob: Blob; fileName: string | null }> {
+    try {
+      const response = await firstValueFrom(this.http.get(`/api/reports/${encodeURIComponent(id)}/pdf`, { observe: 'response', responseType: 'blob' }));
+      const name = /filename="?([^";]+)"?/.exec(response.headers.get('Content-Disposition') ?? '');
+      return { blob: response.body as Blob, fileName: name ? name[1] : null };
+    } catch (e) {
+      if (e instanceof HttpErrorResponse && e.error instanceof Blob) {
+        const body = JSON.parse(await e.error.text().catch(() => 'null')) as unknown;
+        throw new HttpErrorResponse({ status: e.status, statusText: e.statusText, error: body });
+      }
+      throw e;
+    }
   }
 
   // Semanas completas con registros y el informe vigente o la ejecucion en marcha de cada una.

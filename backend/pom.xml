@@ -21,6 +21,7 @@
         <java.version>17</java.version>
         <springdoc.version>2.7.0</springdoc.version>
         <jjwt.version>0.13.0</jjwt.version>
+        <jasperreports.version>7.0.8</jasperreports.version>
     </properties>
 
     <dependencies>
@@ -84,6 +85,35 @@
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
             <version>${springdoc.version}</version>
+        </dependency>
+
+        <!-- PDF de los informes aprobados (D13, E17): JasperReports. El nucleo, el exportador PDF (OpenPDF), el esquema de la plantilla
+             (metadata: sin el, el cargador de .jrxml no reconoce el archivo), el compilador de plantillas (JDT: la imagen
+             final es un JRE, sin javac) y las fuentes DejaVu embebidas. -->
+        <dependency>
+            <groupId>net.sf.jasperreports</groupId>
+            <artifactId>jasperreports</artifactId>
+            <version>${jasperreports.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>net.sf.jasperreports</groupId>
+            <artifactId>jasperreports-pdf</artifactId>
+            <version>${jasperreports.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>net.sf.jasperreports</groupId>
+            <artifactId>jasperreports-metadata</artifactId>
+            <version>${jasperreports.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>net.sf.jasperreports</groupId>
+            <artifactId>jasperreports-jdt</artifactId>
+            <version>${jasperreports.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>net.sf.jasperreports</groupId>
+            <artifactId>jasperreports-fonts</artifactId>
+            <version>${jasperreports.version}</version>
         </dependency>
 
         <!-- Lombok -->

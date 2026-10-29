@@ -39,7 +39,7 @@ Si falta la llave del proveedor de IA, debajo aparece un `AVISO` (ver §3). La a
 | Servicio | Imagen (versión fijada) | Qué es | Puerto en la máquina |
 |---|---|---|---|
 | `db` | `postgres:16.15-alpine` | **PostgreSQL 16**, base `patient_auditor`, usuario `patient_auditor`. Los datos viven en el volumen `pgdata` | ninguno (no se publica, para no chocar con un PostgreSQL local) |
-| `backend` | `maven:3.9-eclipse-temurin-17` (compila) → `eclipse-temurin:17-jre` (corre) | API Spring Boot 3.4.1, Java 17 | 8080 |
+| `backend` | `maven:3.9-eclipse-temurin-17` (compila) → `eclipse-temurin:17-jre` (corre) | API Spring Boot 3.4.1, Java 17; JasperReports 7.0.8 para el PDF | 8080 |
 | `frontend` | `node:20-alpine` (compila) → `nginx:1.28-alpine` (sirve) | Angular 19; nginx también reenvía `/api` al backend | 4200 |
 
 Al arrancar el backend, **solo** con esto y sin pasos manuales:
@@ -111,6 +111,7 @@ Fechas fijas: los registros terminan el domingo 25-oct-2026 y el reloj de la apl
 4. **Editar** (crea la versión 2; la versión 1 de la IA no se toca), **Rechazar** (con motivo) o **Aprobar informe**. Solo un informe aprobado llega al médico.
 5. En **Informes aprobados** están los 4 sembrados de P-014 y el que acaba de aprobar.
 6. **Informe mensual.** En **Generar informe**, elija **P-014**, el período **Un mes (cuatro semanas)** y la ventana **del 21 de septiembre al 18 de octubre** (sus cuatro semanas ya tienen informe semanal aprobado). El agente lee los cuatro informes y las cifras de cada semana y redacta la evolución; la hoja muestra la tabla **Evolución semana a semana**, enlaza los cuatro informes de origen y pasa por la misma revisión (editar, rechazar, aprobar). Con **P-021** la ventana no se puede generar: la pantalla dice qué semanas faltan y en qué estado está su informe (regla RN-10, decidida por el código y no por el modelo).
+7. **Imprimir.** En cualquier informe **aprobado** (semanal o mensual) pulse **Descargar PDF**: el servidor lo arma con JasperReports y trae el aprobador, la fecha de aprobación, el id del informe, el resumen con sus `[n]`, las cifras, las fuentes con el texto original y la nota de asistencia de IA. Solo se imprime lo aprobado: un informe pendiente responde 409, y para el médico «no existe». Por API: `curl -s -H 'X-Demo-User: 20000000-0000-0000-0000-000000000003' -o informe.pdf http://localhost:8080/api/reports/<id>/pdf` (el `<id>` sale de `GET /api/reports?status=APROBADO`).
 
 Sin llave (ver §3) los pasos 1, 2 y 6 muestran un aviso claro; todo lo demás (pacientes, historial, informes sembrados, revisión, aprobación, rechazo) funciona.
 
@@ -260,9 +261,9 @@ La suite rechaza cada informe que genera para poder repetir la semana: úsela en
 
 ## 7. Estado de la entrega y límites declarados
 
-**Momento 2.** Está: registro con estructuración por IA y confirmación humana, agente con cuatro límites, informe semanal y mensual (cuatro semanas aprobadas, RN-10) con citas y traza, revisión (editar con versiones, aprobar, rechazar), ejecución en segundo plano con progreso por SSE, semilla sin llamar al modelo, evaluación con cifras.
+**Momento 2.** Está: registro con estructuración por IA y confirmación humana, agente con cuatro límites, informe semanal y mensual (cuatro semanas aprobadas, RN-10) con citas y traza, revisión (editar con versiones, aprobar, rechazar), PDF del informe aprobado (JasperReports), ejecución en segundo plano con progreso por SSE, semilla sin llamar al modelo, evaluación con cifras.
 
-**No está (decidido y declarado):** autenticación y credenciales (Momento 3, D23); pantalla del médico (E12c fuera; la regla se aplica en el servidor y se prueba por API); PDF y voz (opcionales); fallos del proveedor forzables en vivo (se prueban con pruebas automáticas).
+**No está (decidido y declarado):** autenticación y credenciales (Momento 3, D23); pantalla del médico (E12c fuera; la regla se aplica en el servidor y se prueba por API); dictado por voz (opcional); fallos del proveedor forzables en vivo (se prueban con pruebas automáticas).
 
 **Lo que más conviene saber antes de confiar en las cifras:** casi todas las ejecuciones medidas terminaron en el proveedor de respaldo (la cuota diaria de Groq se agotó durante la medición); el tamaño de muestra es pequeño; la calidad de la redacción no se midió. Detalle en [docs/decisiones/semana10.md](docs/decisiones/semana10.md).
 

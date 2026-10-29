@@ -161,7 +161,7 @@
 | ID | El sistema debe… | Hito | Traza | Criterio de aceptación (sí/no) |
 |---|---|---|---|---|
 | RF-36 | Generar el informe mensual de cuatro semanas completas consecutivas (RN-10), a partir de las entradas y eventos de esas semanas, mostrando la evolución semana a semana. Solo se genera si las cuatro semanas tienen informe semanal aprobado; si falta alguna, no se genera y se indica cuál. Pasa por la misma revisión de enfermería antes de llegar al médico (RN-01, RN-02) | M2-N | OBJ-03 | Con cuatro semanas con informe semanal aprobado, ¿el informe muestra la evolución por semana, y con una semana sin aprobar el sistema no lo genera e indica cuál falta? |
-| RF-37 | Exportar a PDF un informe aprobado, con aprobador, fecha, id del informe y nota de asistencia de IA (D13) | Opc | — | ¿El texto extraído del PDF contiene la aprobación? |
+| RF-37 | Exportar a PDF un informe aprobado, con aprobador, fecha, id del informe y nota de asistencia de IA (D13: JasperReports, desde el 29-oct) | M2-S | — | ¿El texto extraído del PDF contiene la aprobación? |
 | RF-38 | Dictar una entrada por voz con transcripción editable antes de guardar, origen `VOZ` y sin guardar el audio (D14) | Opc | — | ¿La entrada dictada se puede corregir antes de guardar y queda con origen `VOZ` sin audio almacenado? |
 
 ---

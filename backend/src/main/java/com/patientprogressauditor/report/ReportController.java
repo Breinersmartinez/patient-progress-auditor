@@ -3,6 +3,10 @@ package com.patientprogressauditor.report;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.patientprogressauditor.report.ReportEditValidator.ClaimEdit;
+import com.patientprogressauditor.report.pdf.ReportPdfService;
 import com.patientprogressauditor.report.ReportEditValidator.Edit;
 import com.patientprogressauditor.report.ReportService.Detail;
 import com.patientprogressauditor.report.ReportService.Summary;
@@ -40,10 +45,12 @@ public class ReportController {
 
     private final ReportService service;
     private final MonthlyReportService monthly;
+    private final ReportPdfService pdf;
 
-    public ReportController(ReportService service, MonthlyReportService monthly) {
+    public ReportController(ReportService service, MonthlyReportService monthly, ReportPdfService pdf) {
         this.service = service;
         this.monthly = monthly;
+        this.pdf = pdf;
     }
 
     @GetMapping("/reports")
@@ -98,6 +105,18 @@ public class ReportController {
     @PreAuthorize("hasAuthority('REPORTS_REQUEST')")
     public List<WeekOption> weeks(@PathVariable UUID patientId) {
         return service.weeks(patientId);
+    }
+
+    // El PDF de un informe aprobado (RF-37). Lo piden enfermeria y medico con los mismos permisos que ver el informe; lo que
+    // el rol no puede ver responde 404 y lo que no esta aprobado, 409.
+    @GetMapping(value = "/reports/{id}/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+    @PreAuthorize("hasAuthority('REPORTS_READ')")
+    public ResponseEntity<byte[]> pdf(@PathVariable UUID id, @AuthenticationPrincipal DemoPrincipal principal) {
+        ReportPdfService.Pdf file = pdf.render(id, principal);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(file.fileName()).build().toString())
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .contentType(MediaType.APPLICATION_PDF).body(file.bytes());
     }
 
     // Ventanas de cuatro semanas con el estado de sus informes semanales (RN-10): cuales se pueden generar y por que no.

@@ -83,6 +83,9 @@ const SHORT = 90;
           }
         } @else if (d.report.status !== 'APROBADO') {
           <a class="btn btn--sec" [routerLink]="['/enf/informes/generar', d.report.patientId]">Generar de nuevo</a>
+        } @else {
+          <button appProcessButton #download="processButton" label="Descargar PDF" busyLabel="Descargando" icon="descargar"
+                  class="btn--sec" data-a="descargar" (click)="downloadPdf(download)"></button>
         }
         @if (note(); as text) { <p class="nota">{{ text }}</p> }
       </div>
@@ -332,7 +335,7 @@ export class ReportViewComponent implements OnInit, OnDestroy {
       case 'PENDIENTE_REVISION':
         return 'Revise el texto y las fuentes. Al aprobar, el informe queda guardado y el médico podrá consultarlo.';
       case 'APROBADO':
-        return 'Informe aprobado y guardado. Ya puede consultarlo el médico.';
+        return 'Informe aprobado y guardado. Ya puede consultarlo el médico y descargarlo en PDF.';
       default:
         return null;
     }
@@ -488,6 +491,28 @@ export class ReportViewComponent implements OnInit, OnDestroy {
       try {
         this.show(await this.reports.approve(d.report.id));
         this.toast.show('Informe aprobado y guardado');
+      } catch (e) {
+        this.formError.set(apiFailure(e).message);
+      }
+    });
+  }
+
+  // RF-37: el PDF lo arma el servidor (JasperReports); aqui solo se descarga con el nombre que el servidor propone.
+  protected async downloadPdf(button: ProcessButtonComponent): Promise<void> {
+    const d = this.detail();
+    if (!d) {
+      return;
+    }
+    this.formError.set(null);
+    await button.run(async () => {
+      try {
+        const file = await this.reports.pdf(d.report.id);
+        const url = URL.createObjectURL(file.blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = file.fileName ?? `informe-${d.report.patientAlias}-${d.report.periodStart}.pdf`;
+        link.click();
+        URL.revokeObjectURL(url);
       } catch (e) {
         this.formError.set(apiFailure(e).message);
       }

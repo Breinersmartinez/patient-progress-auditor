@@ -328,7 +328,7 @@ Cuando se agota un límite el informe queda `INCOMPLETO` con el motivo, la ejecu
 
 ### Librerías: cada una con su razón y su alternativa
 
-No se agregó ninguna librería nueva desde el scaffold (verificado: `pom.xml` y `package.json` sin cambios de dependencias en E2 a E14).
+No se agregó ninguna librería nueva desde el scaffold hasta E15 (verificado: `pom.xml` y `package.json` sin cambios de dependencias en E2 a E14). **E17 agrega JasperReports** (fila nueva abajo).
 
 **Backend (Maven, Spring Boot 3.4.1).**
 
@@ -342,6 +342,7 @@ No se agregó ninguna librería nueva desde el scaffold (verificado: `pom.xml` y
 | `jjwt-api`, `jjwt-impl`, `jjwt-jackson` (0.13.0) | **Hoy sin uso en el código:** vienen del scaffold y se usan en el Momento 3 (RF-31, D23). Se dejan declaradas para no tocar el `pom.xml` dos veces | Quitarlas ahora y volver a agregarlas: cambio de dependencias sin beneficio hoy. **Pendiente de confirmar con el equipo** |
 | `spring-boot-starter-validation` | Validación de entradas de la API | Validar a mano en cada controlador |
 | `springdoc-openapi-starter-webmvc-ui` (2.7.0) | Swagger UI en `/swagger-ui.html` para probar la API sin el frontend | Documentar los endpoints solo en texto |
+| `jasperreports`, `jasperreports-pdf`, `jasperreports-metadata`, `jasperreports-jdt`, `jasperreports-fonts` (7.0.8) | El PDF de los informes aprobados (RF-37, D13): motor, exportador con OpenPDF, esquema del `.jrxml`, compilador sin `javac` y fuentes DejaVu embebidas. **Agregada en E17 a pedido del equipo** | Thymeleaf + HTML→PDF (era D13); imprimir desde el navegador; OpenPDF a mano sin plantillas |
 | `lombok` (opcional) | Menos código repetido en 3 clases (`Entry`, `AppUser`, `AppRole`) | Escribir los métodos a mano |
 | `spring-boot-starter-test`, `spring-security-test` | JUnit 5, Mockito, AssertJ y `MockMvc` para las 281 pruebas | — |
 
@@ -360,6 +361,23 @@ La llamada a Groq y Gemini usa el cliente HTTP de la JDK (`java.net.http`), sin 
 Sin Angular Material, Bootstrap, Tailwind, fuentes ni iconos externos: el diseño es el de los mockups, con CSS propio (E5).
 
 **Infraestructura y herramientas.** Docker Compose v2 con imágenes de versión fijada (`postgres:16.15-alpine`, `node:20-alpine`, `nginx:1.28-alpine`, `maven:3.9-eclipse-temurin-17`, `eclipse-temurin:17-jre`; `latest` haría el arranque irreproducible). La evaluación (`eval/`) y los generadores (`scripts/`) usan solo la biblioteca estándar de Python 3, sin `pip install`. El CI (`ci.yml`, `Security`, `Qodana`) es del scaffold.
+
+## E17 — Imprimir los informes aprobados en PDF con JasperReports (2026-10-29)
+
+| Decisión | Razón | Alternativa descartada |
+|---|---|---|
+| **El motor del PDF es JasperReports 7.0.8** (D13 cambiada el 29-oct por pedido del equipo; RF-37 pasa de opcional a M2-S) | Lo pidió el equipo. D13 decía Thymeleaf + HTML→PDF y «Jasper solo si ya existen plantillas `.jrxml`, en 7.0.7 o superior»: no había plantillas, así que se escribió una (`backend/src/main/resources/reports/informe.jrxml`) y se cumple la versión. Jasper da un PDF con paginación, pie en cada página, fuentes embebidas y tablas, sin navegador ni servicio aparte, dentro del mismo backend | HTML→PDF con Thymeleaf y una biblioteca de conversión (era D13): una sola plantilla para pantalla y PDF, pero hay que mantener CSS de impresión y la paginación depende del motor; imprimir desde el navegador (`window.print`): depende de la máquina de quien imprime y no deja el aprobador ni el pie garantizados |
+| **Cinco módulos de Jasper**: `jasperreports` (núcleo), `jasperreports-pdf` (exportador, con OpenPDF), `jasperreports-metadata` (el esquema que el cargador de `.jrxml` necesita: sin él, «Unable to load report»), `jasperreports-jdt` (compila la plantilla sin `javac`, porque la imagen final es un JRE) y `jasperreports-fonts` (DejaVu Sans embebida) | Cada uno resuelve algo medido: sin `jdt` la plantilla no compila en la imagen `eclipse-temurin:17-jre`; sin `fonts` el PDF dependería de las fuentes del sistema. En el contenedor funciona sin instalar paquetes del sistema (comprobado) | Compilar las plantillas en el build con el plugin de Maven de Jasper: otra pieza más; usar las fuentes del sistema: frágil entre máquinas |
+| Es la **primera dependencia nueva desde el scaffold** (E2 a E15 no agregaron ninguna) | Se declara aquí y en la tabla de librerías. Licencias: JasperReports y OpenPDF son LGPL/MPL (se usan sin modificar, como dependencia); el repositorio es Apache 2.0. Jackson se queda en la versión que gobierna Spring Boot (2.18.2); Jasper trae `batik`, `commons-*` y `ecj` | — |
+| **Una sola plantilla con bloques**: Java arma una lista de bloques (encabezado, párrafo, nota, fuente, fila de tabla de 3 o de 5 columnas) y la plantilla solo les da formato | El informe tiene un número variable de afirmaciones y el semanal y el mensual tienen tablas distintas (3 y 5 columnas). Con bloques una sola plantilla sirve a los dos y el contenido (que es lo que se prueba) está en Java, no en XML | Dos plantillas, o subinformes de Jasper: más archivos y más XML para el mismo resultado |
+| El PDF imprime **la versión aprobada** (`approved_version_no`), con las cifras del código, las fuentes con el texto **original** de cada registro, el aprobador, la fecha de aprobación en hora de Bogotá, el id del informe y la nota «Redactado con asistencia de IA y revisado y aprobado por enfermería…» | RF-37 y las reglas del producto («fuente y criterio visibles», «sin diagnóstico»). Si enfermería corrigió el informe, el PDF dice «Versión aprobada: 2 (corregida por enfermería: …)». El texto de las afirmaciones nunca se interpreta como marcas de Jasper | Imprimir la versión 1 de la IA |
+| **Solo un informe `APROBADO` se imprime**, y lo decide el servidor: 409 a enfermería si está en otro estado, 404 al médico (que no sabe que existe), 401 sin usuario | Es la regla del producto: lo que no está aprobado no sale de la aplicación, ni siquiera como borrador marcado (D6). Reutiliza `ReportService.detail`, así que no hay una segunda regla de visibilidad que pueda desalinearse | Permitir el PDF con una marca «BORRADOR»: se pensó para el médico (D6) y no se decidió |
+| `GET /api/reports/{id}/pdf` con los mismos permisos que ver el informe; la pantalla lo pide con `HttpClient` y descarga el `Blob` | Un enlace directo no puede llevar la cabecera `X-Demo-User` del usuario elegido (D26). El nombre del archivo lo propone el servidor (`informe-semanal-P-014-2026-10-12.pdf`) | Un enlace `<a href>`: llegaría sin usuario y daría 401 |
+| El botón «Descargar PDF» (el del mockup) aparece solo en un informe aprobado; «Enviar al médico» sigue sin existir | Tabla 3.3: el botón se había quitado porque RF-37 era opcional; ahora entra. La nota del informe aprobado dice «Ya puede consultarlo el médico y descargarlo en PDF» | — |
+
+**Lo que se probó.** `ReportPdfApiTest` (7): extrae el texto de un PDF real con OpenPDF (ya viene con Jasper) y comprueba que contiene el aprobador, la fecha, el id, la nota de IA, el resumen, cada afirmación con su `[n]` y criterio, las cifras, las fuentes con el texto original, la versión editada (no la del modelo), el mensual (tabla de evolución y los cuatro informes de origen) y un informe largo que pasa a la segunda página con «Página 1 de 2», acentos, «ñ», comillas y caracteres especiales sin cortar texto; y los permisos (409, 404, 401, médico con el aprobado). Frontend: 3 pruebas nuevas. Con la aplicación real en Docker desde un árbol limpio: PDF semanal y mensual descargados, con las fuentes embebidas, `pdftotext` los lee y se revisaron como imagen.
+
+**Qué no se midió.** No se probó la impresión en papel ni en otros visores de PDF que Poppler (`pdftotext`, `pdftoppm`) y el visor de Chrome; no se midió el tiempo de generación (la primera petición compila la plantilla y es la más lenta; las siguientes la reutilizan); el PDF no lleva firma digital ni código QR.
 
 ---
 

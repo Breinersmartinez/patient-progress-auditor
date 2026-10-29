@@ -1201,3 +1201,62 @@ Si W-1 no tiene ninguna entrada, no se puede decir que un síntoma «dejó de es
       Produce: `decisiones.md` (E13), README, `AGENTS.md`, SPEC y este plan al día
       Se comprueba: `mvn -B verify`, `ng test`, y la prueba en frío otra vez (el contenedor aplica `V7`)
   > `decisiones.md` (E13), `semana10.md`, `semana06.md`, README, `AGENTS.md`, SPEC D4 y este plan. `mvn -B verify`: 313 pruebas, 0 fallos, 14 omitidas (antes 281). `ng test`: 113 de 113 y `ng build` aparte no se repitió (compila en la imagen de Docker). Prueba en frío con el árbol limpio: 4 min 22 s, tres servicios sanos, `V1` a `V7` aplicadas.
+
+---
+
+# E17 — Imprimir los informes aprobados en PDF con JasperReports
+
+> **Estado:** cerrada (el equipo lo pidió el 29-oct: «los informes aprobados se puedan imprimir con Jasper») · **Requisito:** RF-37, CU-09 (pasa de Opc a M2-S) · **Decisión:** D13 cambiada (SPEC §7) · **Depende de:** E12a, E12b y E13 (hechas) · **Reglas:** AGENTS.md «Reglas del producto» (el médico solo ve lo aprobado) y «Qué NO hacer» (decisiones y librerías con razón).
+
+## Encargo
+
+**En una frase.** Que un informe `APROBADO` (semanal o mensual) se pueda descargar como PDF, hecho con JasperReports desde una plantilla `.jrxml`, con el aprobador, la fecha, el id del informe y la nota de asistencia de IA, y que lo puedan pedir enfermería y el médico, pero solo si está aprobado.
+
+**Contradicción resuelta.** D13 decía Thymeleaf + HTML→PDF y Jasper «solo si ya existen plantillas». El equipo pidió Jasper: se actualiza D13 (hecho) y esta etapa escribe la plantilla. Es la **primera dependencia nueva desde el scaffold** (regla de etapas anteriores: «cero librerías nuevas»); el pedido de Jasper la autoriza y se declara.
+
+**Criterio de aceptación.**
+- ¿`GET /api/reports/{id}/pdf` de un informe aprobado devuelve `application/pdf` y el texto extraído del PDF contiene el id del informe, el aprobador, la fecha de aprobación, la nota de asistencia de IA, el resumen, cada afirmación con su `[n]` y las fuentes con el texto original?
+- ¿El del mensual trae además la tabla de evolución semana a semana y los cuatro informes semanales de origen?
+- ¿Un informe `PENDIENTE_REVISION`, `INCOMPLETO` o `RECHAZADO` responde 409 a enfermería y 404 al médico (que no sabe que existe), y sin usuario 401?
+- ¿El PDF muestra la versión **aprobada** (la editada por enfermería, si la hubo), no la del modelo?
+- ¿Un informe largo (8 afirmaciones de 320 caracteres con fuentes) pasa a una segunda página sin cortar texto, y los acentos y la «ñ» salen bien?
+- ¿La pantalla del informe aprobado tiene el botón «Descargar PDF» (y solo en los aprobados)?
+- ¿Funciona en el contenedor de Docker (fuentes incluidas) desde un árbol limpio, sin pasos manuales?
+- ¿`mvn -B verify`, `ng test` y la prueba en frío pasan?
+
+**Queda fuera.** PDF de informes no aprobados con marca de borrador (D6: el médico solo ve lo aprobado); exportar la traza; enviar el PDF por correo; firma digital; la pantalla propia del médico (E12c).
+
+## Diseño (resumen)
+
+| Pieza | Decisión |
+|---|---|
+| Motor | `net.sf.jasperreports` 7.0.8: `jasperreports` (núcleo), `jasperreports-pdf` (exportador, con OpenPDF), `jasperreports-jdt` (compila la plantilla sin `javac`, porque la imagen final es un JRE) y `jasperreports-fonts` (DejaVu Sans embebida: el PDF no depende de las fuentes del sistema) |
+| Plantilla | Una sola `reports/informe.jrxml` con parámetros (título, paciente, período, tipo, aprobador, fecha, id, nota de IA, pie) y una fuente de datos de **bloques** (encabezado, párrafo, fila de tabla de hasta 5 columnas, fuente citada). Los bloques los arma Java a partir del contenido validado del informe; la plantilla solo pone el formato. Cabe el semanal (3 columnas) y el mensual (5) sin dos plantillas |
+| Qué se imprime | La versión aprobada (`approved_version_no`): título, datos, resumen con `[n]`, cifras del código (tabla), patrón a destacar, lo que falta, fuentes con el texto **original** y fecha, y pie con aprobador, fecha, id y la nota «Redactado con asistencia de IA y revisado por enfermería. Describe evolución documentada; no es un diagnóstico» |
+| Permisos | Mismos que ver un informe (`REPORTS_READ`) y la regla de estado en el servidor: lo que el médico no puede ver da 404; lo que no está aprobado da 409 a enfermería |
+| Entrega al navegador | `Blob` con la cabecera `X-Demo-User` (un enlace directo no puede llevarla) y descarga con nombre `informe-<paciente>-<período>.pdf` |
+| Docker | El `Dockerfile` del backend instala las bibliotecas de fuentes que necesita AWT en un JRE si hacen falta (se comprueba en el contenedor) |
+| Prueba | PDF real extraído con `PdfTextExtractor` (viene con OpenPDF): sin dependencia de pruebas nueva |
+
+## Plan
+
+- [x] 1. La dependencia y una plantilla que imprime
+      Produce: las cuatro dependencias en `pom.xml`, `informe.jrxml` y un servicio que arma el PDF de un informe aprobado
+      Se comprueba: un PDF real de un informe sembrado se abre con `pdftotext` y con Chrome y se ve bien (fuentes, acentos, páginas)
+  > Cinco módulos de Jasper 7.0.8 (`jasperreports`, `-pdf`, `-metadata`, `-jdt`, `-fonts`). Dos hallazgos medidos: sin `jasperreports-metadata` el cargador falla con «Unable to load report» sin decir por qué, y Jasper 7 cambió el formato del `.jrxml` (`<element kind="textField">`), así que la plantilla se escribió en el formato nuevo. Primer PDF real abierto con `pdftotext`, `pdffonts` (DejaVu embebida) y como imagen.
+- [x] 2. El contenido (semanal y mensual) y las reglas de estado
+      Produce: constructor de bloques, `GET /api/reports/{id}/pdf`, 409/404/401
+      Se comprueba: pruebas con texto extraído del PDF (aprobación, fuentes, versión editada, mensual, página 2, acentos) y de permisos
+  > `ReportPdfBlocks` (el contenido), `ReportPdfService` (compila la plantilla una vez y exporta) y `GET /api/reports/{id}/pdf`. `ReportPdfApiTest`: 7 pruebas con texto extraído de un PDF real (aprobación, id, nota de IA, fuentes, versión editada, mensual, segunda página, caracteres especiales, 409/404/401, médico).
+- [x] 3. El botón en la pantalla
+      Produce: «Descargar PDF» en el informe aprobado y el servicio del frontend
+      Se comprueba: pruebas del frontend; Chrome a 1280×800 y 390×844
+  > «Descargar PDF» (el del mockup) solo en el aprobado; el `Blob` va por `HttpClient` porque el usuario viaja en una cabecera. 3 pruebas nuevas (116 en total) y `ng build` bien. Comprobado en Chrome: el clic descarga un `application/pdf` de 39 436 bytes con el nombre `informe-semanal-P-014-2026-10-12.pdf`; capturas a 1280×800 y 390×844.
+- [x] 4. En Docker
+      Produce: ajuste del `Dockerfile` si hacen falta fuentes; la prueba en frío con el árbol limpio
+      Se comprueba: PDF descargado del contenedor, con acentos, y `pdftotext` lo lee
+  > Árbol limpio con un nombre de proyecto de Compose propio (`ppa-e17`: ya existía un volumen de datos del proyecto que no era mío y no lo toqué): 4 min 48 s, PDF semanal y mensual real (con IA) descargados de nginx, fuentes embebidas, sin instalar paquetes del sistema en la imagen. Se vio el mensual de 2 páginas como imagen.
+- [x] 5. Documentos y cierre
+      Produce: `decisiones.md` (E17 y la tabla de librerías), README, `AGENTS.md`, SPEC y este plan al día
+      Se comprueba: `mvn -B verify`, `ng test`, enlaces y variables
+  > SPEC D13 y §3.1, REQUISITOS RF-37 (M2-S), CLAUDE.md, `decisiones.md` (E17 y la tabla de librerías), README (paso 7), `AGENTS.md` y este plan. `mvn -B verify`: 320 pruebas, 0 fallos, 14 omitidas (antes 313). `ng test`: 116 de 116.

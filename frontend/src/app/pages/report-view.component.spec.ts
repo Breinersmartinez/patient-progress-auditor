@@ -157,11 +157,55 @@ describe('ReportViewComponent (vInfVer y hojaHTML del mockup)', () => {
     await settle();
 
     expect(text('.acciones .est')).toBe('Aprobado');
-    expect(text('.acciones .nota')).toBe('Informe aprobado y guardado. Ya puede consultarlo el médico.');
+    expect(text('.acciones .nota')).toBe('Informe aprobado y guardado. Ya puede consultarlo el médico y descargarlo en PDF.');
     expect(text('.hoja .meta')).toContain('Aprobado por: Camilo Torres');
     expect(root.querySelector('[data-a="aprobar"]')).toBeNull();
     expect(root.querySelector('[data-a="editar"]')).toBeNull();
+    expect(root.querySelector('[data-a="descargar"]')).toBeTruthy();
     expect(root.textContent).not.toContain('vista previa tal como la verá el médico');
+  });
+
+  const APPROVED = () => detail({ approvedVersionNo: 1 }, { status: 'APROBADO', reviewedBy: 'Camilo Torres', reviewedAt: '2026-10-29T16:00:00Z' });
+
+  it('«Descargar PDF» solo existe en un informe aprobado', async () => {
+    await open();
+    expect(root.querySelector('[data-a="descargar"]')).toBeNull();
+  });
+
+  it('«Descargar PDF» pide el PDF al servidor y lo descarga con el nombre que el servidor propone (RF-37)', async () => {
+    await open(APPROVED());
+    const anchors: HTMLAnchorElement[] = [];
+    spyOn(URL, 'createObjectURL').and.returnValue('blob:informe');
+    const revoke = spyOn(URL, 'revokeObjectURL');
+    spyOn(HTMLAnchorElement.prototype, 'click').and.callFake(function (this: HTMLAnchorElement) { anchors.push(this); });
+
+    await click('[data-a="descargar"]');
+    const request = http.expectOne('/api/reports/rep1/pdf');
+    expect(request.request.method).toBe('GET');
+    expect(request.request.responseType).toBe('blob');
+    request.flush(new Blob(['%PDF-1.7'], { type: 'application/pdf' }),
+      { headers: { 'Content-Disposition': 'attachment; filename="informe-semanal-P-014-2026-10-19.pdf"' } });
+    await settle();
+
+    expect(anchors.length).toBe(1);
+    expect(anchors[0].download).toBe('informe-semanal-P-014-2026-10-19.pdf');
+    expect(anchors[0].href).toBe('blob:informe');
+    expect(revoke).toHaveBeenCalledWith('blob:informe');
+    expect(root.querySelector('.aviso[role="alert"]')).toBeNull();
+  });
+
+  it('si el servidor niega el PDF, muestra su motivo en un aviso y no descarga nada', async () => {
+    await open(APPROVED());
+    const create = spyOn(URL, 'createObjectURL');
+
+    await click('[data-a="descargar"]');
+    http.expectOne('/api/reports/rep1/pdf').flush(new Blob([JSON.stringify({ message: 'Solo se puede imprimir un informe aprobado. Este está pendiente revision.' })], { type: 'application/json' }),
+      { status: 409, statusText: 'Conflict' });
+    // Leer el cuerpo del error (un Blob) es asincrono: se espera a que aparezca el aviso.
+    for (let i = 0; i < 20 && !root.querySelector('.aviso[role="alert"]'); i++) { await settle(); }
+
+    expect(text('.aviso[role="alert"]')).toBe('Solo se puede imprimir un informe aprobado. Este está pendiente revision.');
+    expect(create).not.toHaveBeenCalled();
   });
 
   it('si el servidor no deja aprobar (409), lo explica en un aviso y el informe sigue igual', async () => {
