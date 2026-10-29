@@ -101,25 +101,34 @@ public class AgentRunner {
         State state = new State(run, task);
         try {
             state.begin();
-            String blocked = preconditions(task);
+            String blocked = blockedReason(task.patientId(), task.weekStart());
             if (blocked != null) {
+                state.step(AgentStep.Type.ERROR, blocked, true, null, null, null, null);
                 return state.fail(AgentRun.Status.FALLIDA, null, blocked);
             }
             return loop(state);
         } catch (RuntimeException e) {
             // Nada debe dejar una ejecucion «en curso» para siempre.
             log.error("La ejecución {} falló de forma no prevista", run.getId(), e);
-            return state.fail(AgentRun.Status.FALLIDA, null, "El agente falló de forma inesperada. Intente de nuevo en unos minutos.");
+            String message = "El agente falló de forma inesperada. Intente de nuevo en unos minutos.";
+            try {
+                state.step(AgentStep.Type.ERROR, message, true, null, null, null, null);
+            } catch (RuntimeException traceFailure) {
+                log.error("No se pudo registrar el fallo de la ejecución {} en la traza", run.getId(), traceFailure);
+            }
+            return state.fail(AgentRun.Status.FALLIDA, null, message);
         }
     }
 
-    private String preconditions(Task task) {
-        if (entries.findByPatientIdAndEntryDateBetweenOrderByEntryDateAscCreatedAtAsc(task.patientId(), task.weekStart(),
-                task.weekStart().plusDays(6)).isEmpty()) {
-            return "La semana del " + task.weekStart() + " no tiene registros: no hay nada que informar.";
+    // Por que no tiene sentido generar este informe (o null si se puede). Lo comprueba quien pide la ejecucion, antes de
+    // crearla, y el bucle otra vez al empezar: entre una cosa y otra puede haber pasado algo.
+    public String blockedReason(UUID patientId, LocalDate weekStart) {
+        if (entries.findByPatientIdAndEntryDateBetweenOrderByEntryDateAscCreatedAtAsc(patientId, weekStart,
+                weekStart.plusDays(6)).isEmpty()) {
+            return "La semana del " + weekStart + " no tiene registros: no hay nada que informar.";
         }
-        boolean current = reports.findByPatientIdOrderByPeriodStartDesc(task.patientId()).stream()
-                .anyMatch(r -> r.getReportType() == Report.Type.SEMANAL && r.getPeriodStart().equals(task.weekStart())
+        boolean current = reports.findByPatientIdOrderByPeriodStartDesc(patientId).stream()
+                .anyMatch(r -> r.getReportType() == Report.Type.SEMANAL && r.getPeriodStart().equals(weekStart)
                         && (r.getStatus() == Report.Status.PENDIENTE_REVISION || r.getStatus() == Report.Status.APROBADO));
         return current ? "Ya hay un informe vigente de esa semana." : null;
     }
@@ -343,8 +352,9 @@ public class AgentRunner {
         }
 
         Outcome success() {
-            finish(AgentRun.Status.COMPLETADA, AgentRun.StopReason.EXITO, null);
+            // El paso va antes del estado final: quien sigue la traza en vivo cierra al ver el estado final (D24).
             step(AgentStep.Type.ESTADO, "Borrador guardado: queda pendiente de revisión por enfermería", false, null, null, null, null);
+            finish(AgentRun.Status.COMPLETADA, AgentRun.StopReason.EXITO, null);
             return new Outcome(AgentRun.Status.COMPLETADA, AgentRun.StopReason.EXITO, context.savedReport(), null);
         }
 

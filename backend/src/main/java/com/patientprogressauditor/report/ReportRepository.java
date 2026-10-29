@@ -3,6 +3,7 @@ package com.patientprogressauditor.report;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -12,6 +13,9 @@ import org.springframework.data.repository.query.Param;
 public interface ReportRepository extends JpaRepository<Report, UUID> {
 
     List<Report> findByPatientIdOrderByPeriodStartDesc(UUID patientId);
+
+    // El informe que dejo una ejecucion (borrador o INCOMPLETO), si dejo alguno.
+    Optional<Report> findFirstByRunId(UUID runId);
 
     interface LatestReport {
         UUID getId();

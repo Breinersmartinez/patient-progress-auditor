@@ -24,6 +24,7 @@ import com.patientprogressauditor.session.ApiError;
 import com.patientprogressauditor.session.DemoUserFilter;
 import com.patientprogressauditor.user.AppUserRepository;
 
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
 
 @Configuration
@@ -38,6 +39,9 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // El SSE termina con una segunda pasada (ASYNC) por la cadena: la peticion ya se autorizo al llegar
+                        // y el filtro de sesion no corre en esa pasada, asi que no se vuelve a pedir usuario.
+                        .dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/system/status", "/api/demo-users").permitAll()
                         .requestMatchers("/api/**").authenticated()

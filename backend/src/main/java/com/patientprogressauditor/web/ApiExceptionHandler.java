@@ -6,6 +6,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
@@ -29,22 +30,27 @@ public class ApiExceptionHandler {
         Map<String, String> fields = new LinkedHashMap<>();
         e.getBindingResult().getFieldErrors()
                 .forEach(error -> fields.putIfAbsent(error.getField(), error.getDefaultMessage()));
-        return ResponseEntity.badRequest().body(new ApiError("Revise los datos indicados.", fields));
+        return ResponseEntity.badRequest().contentType(MediaType.APPLICATION_JSON).body(new ApiError("Revise los datos indicados.", fields));
     }
 
     @ExceptionHandler(FieldException.class)
     ResponseEntity<ApiError> invalidField(FieldException e) {
-        return ResponseEntity.status(e.status()).body(new ApiError(e.getMessage(), e.fields()));
+        return ResponseEntity.status(e.status()).contentType(MediaType.APPLICATION_JSON).body(new ApiError(e.getMessage(), e.fields()));
+    }
+
+    @ExceptionHandler(BusyException.class)
+    ResponseEntity<ApiError> busy(BusyException e) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).header("Retry-After", "30").contentType(MediaType.APPLICATION_JSON).body(new ApiError(e.getMessage()));
     }
 
     @ExceptionHandler(NotFoundException.class)
     ResponseEntity<ApiError> notFound(NotFoundException e) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiError(e.getMessage()));
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).contentType(MediaType.APPLICATION_JSON).body(new ApiError(e.getMessage()));
     }
 
     @ExceptionHandler({ HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class })
     ResponseEntity<ApiError> unreadable(Exception e) {
-        return ResponseEntity.badRequest().body(new ApiError("No se pudo leer lo enviado. Revise los datos e intente de nuevo."));
+        return ResponseEntity.badRequest().contentType(MediaType.APPLICATION_JSON).body(new ApiError("No se pudo leer lo enviado. Revise los datos e intente de nuevo."));
     }
 
     @ExceptionHandler(Exception.class)
@@ -56,10 +62,10 @@ public class ApiExceptionHandler {
         // Errores del propio Spring MVC (ruta o metodo inexistente, tipo de contenido): su estado, con un mensaje nuestro.
         if (e instanceof ErrorResponse mvc) {
             String message = mvc.getStatusCode().value() == 404 ? "No encontramos lo que busca." : "No se pudo completar la solicitud.";
-            return ResponseEntity.status(mvc.getStatusCode()).body(new ApiError(message));
+            return ResponseEntity.status(mvc.getStatusCode()).contentType(MediaType.APPLICATION_JSON).body(new ApiError(message));
         }
         log.error("Error no previsto en la API", e);
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).contentType(MediaType.APPLICATION_JSON)
                 .body(new ApiError("Ocurrió un error inesperado. Intente de nuevo en unos minutos."));
     }
 }

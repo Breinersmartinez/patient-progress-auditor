@@ -29,4 +29,8 @@ public class AgentProperties {
     private DescriptionVersion toolDescriptions = DescriptionVersion.V2;
     // Un texto de entrada mas largo se corta al mostrarselo al modelo: ahorra tokens (la cuota gratuita es de 8 000 por minuto).
     private int entryTextChars = 400;
+    // Ejecuciones simultaneas y en espera (D24). Dos, porque la cuota gratuita de Groq (8 000 tokens por minuto) no da para
+    // mas; con la cola llena, pedir otro informe responde 503 en lugar de esperar sin fin.
+    private int executorThreads = 2;
+    private int queueCapacity = 4;
 }

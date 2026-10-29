@@ -152,7 +152,7 @@ Solo hay una tarea: primero se retiran el manifiesto y el workflow, junto con su
 
 ### Seguimiento
 
-- [x] E1 · [x] E2 · [x] E3 · [x] E4 · [x] E5 · [x] E6 · [x] E7 · [x] E8 · [x] E9 · [x] E10 · [ ] E11 · [ ] E12a · [ ] E12b · [ ] E14 · [ ] E15
+- [x] E1 · [x] E2 · [x] E3 · [x] E4 · [x] E5 · [x] E6 · [x] E7 · [x] E8 · [x] E9 · [x] E10 · [x] E11 · [ ] E12a · [ ] E12b · [ ] E14 · [ ] E15
 - [ ] E12c (fuera por decisión del 28-oct) · [ ] E13 (al final, solo si sobra tiempo) · [ ] E16 (fuera)
 
 ## 5. Propuestas del §4.2 del prompt, cerradas para tu aprobación
@@ -831,3 +831,70 @@ Si W-1 no tiene ninguna entrada, no se puede decir que un síntoma «dejó de es
 - [x] 7. Cierre
       Se comprueba: `mvn -B verify` verde
   > Resultado en el reporte de la etapa.
+
+---
+
+# E11 — Segundo plano y SSE
+
+> **Estado:** cerrada · **EDT:** 8.10 y 8.11 (5 h) · **Depende de:** E10 (hecha) · **Decisión de fondo:** D24 (asíncrono, pasos por SSE, sin broker, se transmiten pasos y no tokens).
+
+## Encargo
+
+**En una frase.** Que pedir un informe semanal no bloquee la petición: responde de inmediato con el id de una ejecución que corre en segundo plano, y la pantalla ve cada paso real de la traza (`agent_steps`) a medida que ocurre, puede reanudar si se corta la conexión y nunca queda una ejecución «en curso» para siempre.
+
+**Criterio de aceptación.**
+- ¿La petición para generar responde (202) antes de que termine la ejecución, con el id, y una segunda petición igual (mismo paciente y semana, con la primera aún viva) devuelve la misma ejecución sin lanzar otra, incluso si llegan 8 a la vez?
+- ¿El primer evento llega al cliente antes de que la ejecución termine (comprobado con una conexión HTTP real, no con MockMvc)?
+- ¿Tras cortar la conexión, reconectar con `Last-Event-ID` entrega solo los pasos que faltan y el cierre, sin repetir ni perder ninguno?
+- ¿La respuesta del flujo lleva `X-Accel-Buffering: no` y, detrás del nginx de la imagen del frontend, los eventos llegan uno a uno y no todos al final?
+- ¿Una ejecución que quedó `EN_COLA` o `EN_CURSO` cuando el proceso se reinició aparece `FALLIDA` con «Interrumpida por un reinicio», con su paso de error en la traza?
+- ¿Si el ejecutor está lleno, la petición responde un 503 honesto (sin stack trace) y la ejecución queda `FALLIDA`, no colgada?
+- ¿Solo enfermería pide y lee ejecuciones (médico: 403; sin usuario: 401), y un lunes inválido, un paciente inexistente, una semana sin registros o un informe vigente se rechazan sin crear ejecución?
+- ¿La traza de una ejecución `ESTRUCTURACION` también se lee por la API?
+
+**Queda fuera.** Las pantallas (E12b): aquí solo el contrato; listar, ver, editar, aprobar y rechazar informes (E12a); el mensual (E13); un broker o una cola externa (descartados en D24); transmitir tokens (descartado).
+
+## Diseño (resumen)
+
+| Pieza | Decisión |
+|---|---|
+| Ejecutor | `ThreadPoolExecutor` acotado en el proceso: 2 hilos y cola de 4 (`agent.executor-threads`, `agent.queue-capacity`). 2 hilos porque la cuota gratuita de Groq (8 000 tokens por minuto) no soporta más ejecuciones a la vez; lleno responde 503, no espera sin fin |
+| Una ejecución por paciente y semana | Índice único parcial en `agent_runs` (`INFORME`, `EN_COLA`/`EN_CURSO`) en la migración V6: lo hace cumplir la base aunque lleguen peticiones a la vez; el servicio, al chocar, devuelve la ejecución ya viva |
+| Pedir | `POST /api/runs` `{patientId, weekStart}` → 202 con la ejecución nueva o 200 con la existente (`reused: true`). Valida antes de crear: lunes, no futura, paciente, registros en la semana y sin informe vigente; si no, 4xx y no se crea fila |
+| Leer | `GET /api/runs/{id}` (estado y `reportId`), `GET /api/runs/{id}/steps?after=` (traza completa con parámetros y resultado, para cualquier tipo de ejecución) y `GET /api/runs/{id}/events` (SSE) |
+| SSE | Eventos `step` (`id:` = id de la fila de `agent_steps`, el punto de reanudación) y `end` (la ejecución final). Se leen de la base cada 300 ms desde un solo hilo, así que lo que se ve en vivo es lo que luego se consulta y sobrevive a un reinicio. Latido cada 15 s. El estado final se lee **antes** de vaciar los pasos, para no cerrar con pasos sin enviar |
+| Reanudación | `Last-Event-ID` (lo manda solo `EventSource`) o `?after=`; `EventSource` no permite cabeceras, y el filtro de sesión ya acepta `?demoUser=` solo en esta ruta (E4) |
+| Huérfanas | Al arrancar, toda `EN_COLA`/`EN_CURSO` pasa a `FALLIDA` con «Interrumpida por un reinicio» y un paso `ERROR` en la traza: el ejecutor vive en el proceso y un reinicio mata la ejecución sin avisar |
+| Seguridad | `REPORTS_REQUEST` (enfermería) para pedir y leer; las llamadas asíncronas de Spring Security no se vuelven a autorizar (la petición ya lo fue) |
+| Proxy | `proxy_buffering off` ya está en `frontend/nginx.conf` desde E1; se prueba aquí con un nginx real |
+
+## Plan
+
+- [x] 1. Modelo y ejecutor
+      Produce: migración `V6` (índice único parcial), `agent.executor-threads` y `agent.queue-capacity`, el ejecutor, el cierre de `AgentRunner.success` con el paso antes del estado final, la comprobación previa compartida
+      Se comprueba: la base rechaza dos ejecuciones vivas del mismo paciente y semana; Flyway aplica V6 sobre V5
+  > `V6` (índice único parcial), `RunExecutor` de 2 hilos y cola de 4, y `AgentRunner.blockedReason` público. Hallazgo: `success()` guardaba el último paso después del estado final; se invirtió para que el flujo no pierda pasos.
+- [x] 2. Pedir en segundo plano
+      Produce: `RunService` (validar, deduplicar, crear, lanzar, 503 si está lleno, `FALLIDA` si el hilo muere) y `POST /api/runs`
+      Se comprueba: 202 antes de que la ejecución termine; 8 peticiones a la vez crean una; los rechazos no crean fila; lleno → 503 y `FALLIDA`
+  > `RunsApiTest` (6) y `RunSaturationTest` (1): 202 antes del final, la misma ejecución para una petición igual, 8 peticiones a la vez crean una, siete rechazos sin fila, 503 con `Retry-After`, hilo que muere → `FALLIDA`. La corrida real mostró que la respuesta decía `EN_CURSO` (entidad compartida con el hilo); ahora se toma la vista antes de lanzar.
+- [x] 3. Leer estado y traza
+      Produce: `GET /api/runs/{id}` y `/steps`
+      Se comprueba: el estado final trae `reportId`; la traza de una `ESTRUCTURACION` se lee; permisos
+  > `GET /api/runs/{id}` y `/steps`; la traza de una `ESTRUCTURACION` se lee; médico 403, sin usuario 401. El 404 de un flujo respondía 500 (el JSON no cabía en `text/event-stream`): todo error sale ahora como JSON.
+- [x] 4. SSE con reanudación
+      Produce: el emisor de eventos, el latido, las cabeceras sin acumulación y el ajuste de seguridad
+      Se comprueba: con HTTP real, el primer evento llega con la ejecución viva; reconectar con `Last-Event-ID` entrega solo lo que falta; una ejecución terminada se reproduce y cierra
+  > `RunEventsTest` (4) con HTTP real: el primer evento llega con la ejecución en `EN_CURSO`, `Last-Event-ID` entrega exactamente lo que falta, una terminada se reproduce y cierra, y las cabeceras van puestas.
+- [x] 5. Huérfanas
+      Produce: la recuperación al arrancar
+      Se comprueba: `EN_COLA` y `EN_CURSO` pasan a `FALLIDA` con su paso; `COMPLETADA` no se toca; repetirla no cambia nada
+  > `OrphanRunRecoveryTest` (2). Además, con `kill -9` real: quedó `EN_CURSO` con 4 pasos y tras reiniciar apareció `FALLIDA` con «Interrumpida por un reinicio del servidor» y su paso `ERROR`.
+- [x] 6. Corrida real y proxy
+      Produce: una ejecución real contra Groq y Gemini con el flujo leído con `curl -N` y marcas de tiempo; un `kill -9` en plena ejecución y el reinicio; un nginx real delante del flujo
+      Se comprueba: los pasos llegan espaciados en el tiempo (no juntos al final), tanto directo como por nginx; la huérfana aparece interrumpida
+  > Cinco ejecuciones reales (Groq y Gemini): los eventos llegan repartidos en 12 a 43 s, directo y por un nginx 1.28 real (con `proxy_buffering off` y también con `on`). POST en caliente: 0,12 s. Dos ejecuciones de P-007 terminaron `INCOMPLETA` por cifras sin respaldo del respaldo (Gemini): hallazgo para E14.
+- [x] 7. Documentos y cierre
+      Produce: `docs/decisiones.md` (por qué asíncrono, pasos y no tokens, 2 hilos, sin broker), contrato de la API en este plan, `.env.example` sin cambios, plan al día
+      Se comprueba: `mvn -B verify`, `scripts/check-env-example.sh`
+  > Entrada E11 en `docs/decisiones.md`. `mvn -B verify` y `check-env-example.sh`: ver el reporte de la etapa.
