@@ -23,6 +23,8 @@ springdoc:
     operations-sorter: alpha
 
 app:
+  seed:
+    demo: ${APP_SEED_DEMO:false}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200}
 

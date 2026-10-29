@@ -36,6 +36,19 @@
 | Las pruebas de esquema corren contra PostgreSQL real, no H2 | Los `CHECK`, `JSONB`, el índice parcial y `EXTRACT(ISODOW ...)` son de PostgreSQL | H2 en modo PostgreSQL: no garantiza lo mismo |
 | Se agregan `bed`, `age` y `admitted_on` a `patients`, y no salen al proveedor | La lista y la ficha del mockup las muestran. Sintéticas y anulables | Quitarlas del mockup (no se rediseña) |
 
+## E3 — Semilla (2026-10-28)
+
+| Decisión | Razón | Alternativa descartada |
+|---|---|---|
+| Los datos viven en `seed/demo-data.json` y no en código Java | Se revisan a mano sin leer Java, y es la fuente de los casos dorados | Construirlos en una clase |
+| Ids de entradas y eventos deterministas (`UUID.nameUUIDFromBytes`) | Idempotencia con `ON CONFLICT DO NOTHING` y los informes sembrados (E14) citan las mismas entradas sin una tabla de ids | UUID aleatorios: duplicarían datos al reiniciar |
+| Inserción con `JdbcTemplate` en una transacción, no con las entidades | Es una carga masiva y las entidades son `@Immutable` con id asignado (`save` haría un `SELECT` por fila) | `save()` de Spring Data fila por fila |
+| El perfil `prod` hace **fallar** el arranque si `APP_SEED_DEMO=true` | «Rechaza» (RF-05): ignorarlo en silencio ocultaría un error de configuración en producción | Ignorar la semilla en `prod` |
+| Los eventos sembrados dicen solo lo que dice el texto | RN-11: intensidad solo si el texto la menciona, veces solo si las dice; una prueba automática lo revisa. La semilla es el patrón con el que se mide la estructuración | Intensidades «razonables» no escritas en el texto, como hace el mockup |
+| Autor de cada entrada según el día de la semana (enfermería 5 de 7, médico 2 de 7); el evento lo confirma siempre una enfermera | D12 (el médico también registra) y el diccionario M2 §7.1 | Todas las entradas de una sola persona |
+| P-033 conserva un único evento (`APETITO_BAJO`) | «Casi sin eventos» (D11): sirve para medir falsos positivos sin que la semana quede vacía de eventos | Cero eventos |
+| P-040 lleva la instrucción en una nota que además trae un síntoma real (`VOMITO`) | Un agente que obedeciera la instrucción omitiría el vómito: el caso lo detecta | Una nota con solo la instrucción |
+
 ## Decisiones del equipo (2026-10-28)
 
 | Decisión | Razón | Alternativa descartada |

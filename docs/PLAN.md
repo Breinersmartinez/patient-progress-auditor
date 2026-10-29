@@ -152,7 +152,7 @@ Solo hay una tarea: primero se retiran el manifiesto y el workflow, junto con su
 
 ### Seguimiento
 
-- [x] E1 · [x] E2 · [ ] E3 · [ ] E4 · [ ] E5 · [ ] E6 · [ ] E7 · [ ] E8 · [ ] E9 · [ ] E10 · [ ] E11 · [ ] E12a · [ ] E12b · [ ] E14 · [ ] E15
+- [x] E1 · [x] E2 · [x] E3 · [ ] E4 · [ ] E5 · [ ] E6 · [ ] E7 · [ ] E8 · [ ] E9 · [ ] E10 · [ ] E11 · [ ] E12a · [ ] E12b · [ ] E14 · [ ] E15
 - [ ] E12c (fuera por decisión del 28-oct) · [ ] E13 (al final, solo si sobra tiempo) · [ ] E16 (fuera)
 
 ## 5. Propuestas del §4.2 del prompt, cerradas para tu aprobación
@@ -362,3 +362,74 @@ El 4: `validate` es estricto con los tipos. Si un campo no coincide, se corrige 
 | 3 | Una excepción en Postgres deja abortada la transacción de la prueba | Fallos en cascada: una prueba por restricción fallida |
 | 4 | `Instant`, `JsonNode` o `Short` no coinciden con `timestamptz`, `jsonb` o `smallint` | `Schema-validation: wrong column type` al arrancar |
 | 5 | El contenedor de prueba conserva datos de otra corrida | Violaciones de unicidad; se limpia con `@Transactional` |
+
+---
+
+# E3 — Semilla
+
+> **Estado:** en ejecución · **EDT:** 2.7 a 2.12 y 2.14 (11 h) · **Depende de:** E2 (hecha)
+
+## Encargo
+
+**En una frase.** Que al arrancar con `APP_SEED_DEMO=true` (y nunca con el perfil `prod`) existan 4 usuarios de demostración sin contraseña, 5 pacientes con 18 semanas-paciente y unas 120 entradas con sus eventos ya confirmados, con fechas fijas que terminan el domingo 25-oct-2026, sin llamar al LLM y sin duplicar nada al reiniciar.
+
+**Contexto.** Todos los casos dorados, las métricas (E7) y los informes sembrados (E14) salen de estos datos; si cambian, se invalida lo verificado a mano. La app abre con ellos en la demo (D26).
+
+**Qué se produce.**
+1. `backend/src/main/resources/seed/demo-data.json`: los datos, legibles y revisables a mano (sintéticos).
+2. Un `ApplicationRunner` idempotente que los inserta con UUID deterministas y `ON CONFLICT DO NOTHING`, en una sola transacción.
+3. Un guardia que hace fallar el arranque si `prod` y la semilla coinciden.
+4. Pruebas de conteos (D11), de idempotencia y de `prod`.
+
+**Reparto (D11).** P-014 (cinco semanas; el síntoma que reaparece: náuseas en las semanas 1, 3 y 5) · P-021 (cuatro; fiebre en la semana 3) · P-007 (tres; días sin registro y una semana con tres entradas) · P-033 (cuatro; sin síntomas y con negaciones, un solo evento) · P-040 (dos; una nota con una instrucción dentro del texto).
+
+**Criterio de aceptación.**
+- ¿Existen 4 usuarios (2 `ENFERMERIA`, 2 `MEDICO`), 5 pacientes, 18 semanas-paciente y entre 115 y 125 entradas?
+- ¿P-014 tiene náuseas en las semanas 1, 3 y 5 y en ninguna de la 2 y la 4? ¿P-007 tiene tres semanas con 5, 3 y 6 entradas? ¿P-033 tiene un solo evento y textos con negaciones? ¿P-040 tiene la nota con la instrucción?
+- ¿Cada evento es del catálogo de nueve, está confirmado por una enfermera y ninguna entrada trae datos reales?
+- ¿Correr la semilla dos veces deja los mismos conteos por tabla?
+- ¿Con el perfil `prod` y `APP_SEED_DEMO=true` el arranque falla con un mensaje claro, y sin `APP_SEED_DEMO` no se siembra nada?
+- ¿Por Compose (perfil `docker`) quedan los datos sembrados y reiniciar no los duplica?
+
+**Queda fuera.** Los 5 informes sembrados (E14), credenciales (Momento 3), llamar al LLM.
+
+**Riesgos.** Que un texto sembrado diga algo que su evento no recoge (o al revés) y falsee los casos dorados; que los datos parezcan reales. Se revisa la tabla de síntomas por semana contra los textos.
+
+**Decisiones tomadas.** Datos en JSON y no en código: se revisan sin leer Java. IDs de entradas y eventos derivados del contenido (`UUID.nameUUIDFromBytes`), para que E14 pueda citarlas sin tablas de ids. Inserción con `JdbcTemplate` y `ON CONFLICT DO NOTHING`: es una carga masiva, no pasa por las entidades inmutables. El autor de cada entrada depende del día de la semana (enfermería cinco de siete días, un médico los otros dos); los eventos los confirma siempre una enfermera, como pide el diccionario.
+
+## Plan
+
+- [x] 1. Generar `demo-data.json` y comprobar sus conteos contra D11
+      Produce: el JSON y una tabla de síntomas por paciente y semana
+      Se comprueba: 5 pacientes, 18 semanas-paciente, 115 a 125 entradas, náuseas de P-014 en 2-0-3-0-4 días por semana
+  > `demo-data.json`: 5 pacientes, 18 semanas-paciente, 119 entradas y 41 eventos. Entradas por semana: P-014 7·7·7·7·7, P-021 7·7·7·7, P-007 5·3·6, P-033 7·7·7·7, P-040 7·7. Días con náuseas de P-014 por semana: 2·0·3·0·4. P-033 tiene 1 evento y 20 de 28 textos con negación. La nota con la instrucción está en P-040, el 21-oct.
+  > OJO: la primera versión tenía intensidades («moderado», «leve») que el texto no decía (RN-11); se corrigieron los textos y un chequeo automático ya no encuentra inconsistencias entre texto, intensidad y veces.
+- [x] 2. Escribir el sembrador y su guardia de `prod`
+      Produce: `DemoDataSeeder`, registros de lectura del JSON, `app.seed.demo` en `application.yml`
+      Se comprueba: compila y el contexto arranca con la semilla activa contra `postgres:16`
+  > `DemoDataSeeder` (`seed/`), `app.seed.demo` en `application.yml`. Los ids de entradas y eventos son deterministas (`entryId(alias, fecha)`), públicos para que E14 cite las mismas entradas. Corre en una sola transacción y falla con un mensaje claro si el perfil es `prod`.
+- [x] 3. Probar conteos, idempotencia y `prod`
+      Produce: `DemoDataSeederTest`
+      Se comprueba: los conteos del criterio; dos corridas iguales; `prod` falla; sin la propiedad no hay filas nuevas
+  > 10 pruebas verdes (9 de la semilla y 1 sin bandera): 2 enfermeras y 2 médicos sin contraseña; 5 pacientes; 18 semanas; 119 entradas; última fecha 2026-10-25; todas a las 18:00 de Bogotá; náuseas en las semanas 1, 3 y 5; P-007 con 5·3·6; P-033 con 1 evento; nota de P-040 con su evento real (`VOMITO`); eventos confirmados solo por enfermería; dos corridas más no cambian ningún conteo; `prod` lanza `IllegalStateException`; sin la bandera no existe el sembrador.
+- [x] 4. Arrancar por Compose en una copia temporal y reiniciar
+      Produce: evidencia con `psql` del contenedor
+      Se comprueba: mismos conteos tras `docker compose restart backend`
+  > Por Compose (perfil `docker`): usuarios 4, pacientes 5, entradas 119, eventos 41. Tras `docker compose restart backend` los mismos conteos (el sembrador corrió dos veces, según el log) y `/api/system/status` 200. Con esto queda verificado que `validate` y las migraciones V3/V4 también funcionan bajo `docker`.
+- [x] 5. Cerrar la etapa
+      Produce: reporte del §7, decisiones en `docs/decisiones.md`
+      Se comprueba: cada pregunta del criterio contestada con evidencia
+  > Reporte abajo; decisiones en `docs/decisiones.md`.
+
+## El paso más riesgoso
+
+El 1: son unas 120 entradas escritas a mano; un error aquí se arrastra a E7, E10 y E14. Por eso el paso termina con una tabla que se compara contra el reparto de D11, y cada texto con síntoma lleva su evento.
+
+## Dónde se puede caer
+
+| Paso | Qué puede salir mal | Cómo se nota |
+|---|---|---|
+| 1 | Una semana que no empieza en lunes; una negación sembrada como evento | La tabla de semanas no cuadra; P-033 con más de un evento |
+| 2 | La zona horaria cambia el día de `created_at`; el JSON no se lee con UTF-8 | Fechas corridas; «Ã³» en los textos |
+| 3 | Las pruebas dejan filas en la base compartida | Conteos distintos entre corridas |
+| 4 | El perfil `docker` falla por `validate` con las columnas nuevas | El backend no queda `healthy` |
