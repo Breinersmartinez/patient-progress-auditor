@@ -11,6 +11,20 @@ export const SYMPTOM_LABELS: Record<string, string> = {
   ANIMO_DECAIDO: 'Ánimo decaído',
 };
 
+export const SYMPTOM_CODES = Object.keys(SYMPTOM_LABELS);
+
+// Las cuatro intensidades del mockup, en su orden (D27, confirmadas por el equipo el 28-oct).
+export const INTENSITY_OPTIONS = [
+  { code: 'SIN_INDICAR', label: 'Sin indicar' },
+  { code: 'LEVE', label: 'leve' },
+  { code: 'MODERADO', label: 'moderado' },
+  { code: 'INTENSO', label: 'intenso' },
+];
+
+// El código del catálogo para lo que se escribió en el campo del síntoma, o null si no es uno de los nueve.
+export const symptomCode = (typed: string): string | null =>
+  SYMPTOM_CODES.find((code) => SYMPTOM_LABELS[code].toLowerCase() === typed.trim().toLowerCase()) ?? null;
+
 const INTENSITY_LABELS: Record<string, string> = { LEVE: 'leve', MODERADO: 'moderado', INTENSO: 'intenso', SIN_INDICAR: '' };
 
 export interface EntrySymptom {

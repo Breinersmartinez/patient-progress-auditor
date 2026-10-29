@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 
 import { NotFoundComponent } from './pages/not-found.component';
 import { PendingComponent } from './pages/pending.component';
+import { EntryNewComponent } from './pages/entry-new.component';
 import { EntryHistoryComponent } from './pages/entry-history.component';
 import { PatientDetailComponent } from './pages/patient-detail.component';
 import { PatientFormComponent } from './pages/patient-form.component';
@@ -19,8 +20,8 @@ export const routes: Routes = [
   { path: 'enf/pacientes', component: PatientsListComponent, data: { title: 'Pacientes' } },
   { path: 'enf/pacientes/nuevo', component: PatientFormComponent, data: { title: 'Nuevo paciente', menu: '/enf/pacientes' } },
   { path: 'enf/pacientes/ficha/:id', component: PatientDetailComponent, data: { title: 'Paciente', menu: '/enf/pacientes' } },
-  { path: 'enf/registro/nuevo', component: PendingComponent, data: { title: 'Nuevo registro diario' } },
-  { path: 'enf/registro/nuevo/:id', component: PendingComponent, data: { title: 'Nuevo registro diario', menu: '/enf/registro/nuevo' } },
+  { path: 'enf/registro/nuevo', component: EntryNewComponent, data: { title: 'Nuevo registro diario' } },
+  { path: 'enf/registro/nuevo/:id', component: EntryNewComponent, data: { title: 'Nuevo registro diario', menu: '/enf/registro/nuevo' } },
   { path: 'enf/registro/historial', component: EntryHistoryComponent, data: { title: 'Historial de registros' } },
   { path: 'enf/informes/generar', component: PendingComponent, data: { title: 'Generar informe' } },
   { path: 'enf/informes/generar/:id', component: PendingComponent, data: { title: 'Generar informe', menu: '/enf/informes/generar' } },

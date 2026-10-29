@@ -169,7 +169,7 @@ class GeminiClientTest {
         server.replyWith(Reply.slow(Duration.ofMillis(800)));
 
         LlmException e = failure(client,
-                new LlmRequest(LlmPurpose.STRUCTURING, ASK, List.of(), EVENTS_SCHEMA, Duration.ofMillis(150)));
+                new LlmRequest(LlmPurpose.STRUCTURING, ASK, List.of(), EVENTS_SCHEMA, Duration.ofMillis(150), null));
 
         assertThat(e.kind()).isEqualTo(Kind.TIMEOUT);
     }

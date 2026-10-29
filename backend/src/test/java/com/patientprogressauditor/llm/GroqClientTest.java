@@ -130,7 +130,7 @@ class GroqClientTest {
     @Test
     void aSlowProviderTimesOutForReal() {
         server.replyWith(Reply.slow(Duration.ofMillis(800)));
-        LlmRequest request = new LlmRequest(LlmPurpose.STRUCTURING, ASK, List.of(), EVENTS_SCHEMA, Duration.ofMillis(150));
+        LlmRequest request = new LlmRequest(LlmPurpose.STRUCTURING, ASK, List.of(), EVENTS_SCHEMA, Duration.ofMillis(150), null);
 
         long start = System.nanoTime();
         assertThatThrownBy(() -> client.chat(request))

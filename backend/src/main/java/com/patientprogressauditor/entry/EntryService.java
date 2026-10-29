@@ -3,10 +3,13 @@ package com.patientprogressauditor.entry;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -20,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.patientprogressauditor.patient.Patient;
 import com.patientprogressauditor.patient.PatientRepository;
 import com.patientprogressauditor.session.DemoPrincipal;
+import com.patientprogressauditor.structuring.StructuringPrompt;
 import com.patientprogressauditor.user.AppUser;
 import com.patientprogressauditor.user.AppUserRepository;
 import com.patientprogressauditor.web.FieldException;
@@ -38,6 +42,11 @@ public class EntryService {
     }
 
     // `body` es el texto tal como se escribio: la fuente que citan los informes (RN-05, RN-07).
+    // Un evento que la persona confirmo al guardar. `origin`: IA (tal como lo propuso el modelo), EDITADO (lo cambio) o
+    // MANUAL (lo agrego ella). Lo informa la pantalla; no es un control de seguridad (D26).
+    public record ConfirmedEvent(String symptom, String intensity, Integer occurrences, String origin) {
+    }
+
     public record EntryView(UUID id, UUID patientId, String patientAlias, LocalDate entryDate, String body,
             String authorName, String structuringStatus, Instant createdAt, List<SymptomView> symptoms) {
     }
@@ -57,10 +66,12 @@ public class EntryService {
         this.clock = clock;
     }
 
-    // Guarda el texto sin tocarlo: ni recorte, ni normalizacion, ni correccion. Sin eventos, la entrada queda
-    // SIN_ESTRUCTURAR; la propuesta de la IA y su confirmacion llegan en E9 (D27).
+    // Guarda el texto sin tocarlo: ni recorte, ni normalizacion, ni correccion. `requestedEvents` null es «guardar solo el texto»
+    // y la entrada queda SIN_ESTRUCTURAR (RF-41); una lista (aunque vacia) es lo que la persona confirmo y la entrada
+    // queda ESTRUCTURADA. La entrada y sus eventos se guardan en una sola transaccion: todo o nada (RN-11, D27).
     @Transactional
-    public EntryView create(UUID patientId, LocalDate entryDate, String body, DemoPrincipal principal) {
+    public EntryView create(UUID patientId, LocalDate entryDate, String body, List<ConfirmedEvent> requestedEvents,
+            DemoPrincipal principal) {
         Patient patient = patients.findById(patientId).orElseThrow(() -> new NotFoundException("No encontramos ese paciente."));
         if (entryDate.isAfter(LocalDate.now(clock))) {
             throw new FieldException(HttpStatus.BAD_REQUEST, "entryDate", "La fecha del registro no puede ser futura.");
@@ -68,15 +79,69 @@ public class EntryService {
         if (body.indexOf('\u0000') >= 0) {
             throw new FieldException(HttpStatus.BAD_REQUEST, "body", "El registro tiene un carácter que no se puede guardar.");
         }
+        List<EntryEvent> confirmed = requestedEvents == null ? List.of() : toEvents(requestedEvents, principal);
         Entry entry = new Entry();
         entry.setPatientId(patientId);
         entry.setEntryDate(entryDate);
         entry.setBody(body);
         entry.setAuthorId(principal.id());
-        entry.setStructuringStatus(Entry.StructuringStatus.SIN_ESTRUCTURAR);
+        entry.setStructuringStatus(requestedEvents == null ? Entry.StructuringStatus.SIN_ESTRUCTURAR : Entry.StructuringStatus.ESTRUCTURADA);
         entries.saveAndFlush(entry);
+        confirmed.forEach(event -> event.setEntryId(entry.getId()));
+        events.saveAllAndFlush(confirmed);
         return new EntryView(entry.getId(), patientId, patient.getAlias(), entryDate, body, principal.displayName(),
-                entry.getStructuringStatus().name(), entry.getCreatedAt(), List.of());
+                entry.getStructuringStatus().name(), entry.getCreatedAt(),
+                confirmed.stream().sorted(Comparator.comparing(e -> e.getSymptom().name()))
+                        .map(e -> new SymptomView(e.getSymptom().name(), e.getIntensity().name(), e.getOccurrences())).toList());
+    }
+
+    // Valida lo que la persona confirma contra el catalogo cerrado (D18) y deja quien lo confirmo y cuando.
+    private List<EntryEvent> toEvents(List<ConfirmedEvent> requested, DemoPrincipal principal) {
+        List<EntryEvent> out = new ArrayList<>();
+        Set<Symptom> seen = EnumSet.noneOf(Symptom.class);
+        Instant now = clock.instant();
+        for (ConfirmedEvent requestedEvent : requested) {
+            Symptom symptom = parse(Symptom.class, requestedEvent.symptom());
+            if (symptom == null) {
+                throw new FieldException(HttpStatus.BAD_REQUEST, "events", "Elija un síntoma de la lista.");
+            }
+            if (!seen.add(symptom)) {
+                throw new FieldException(HttpStatus.BAD_REQUEST, "events", "Hay un síntoma repetido. Déjelo una sola vez.");
+            }
+            Intensity intensity = requestedEvent.intensity() == null || requestedEvent.intensity().isBlank()
+                    ? Intensity.SIN_INDICAR : parse(Intensity.class, requestedEvent.intensity());
+            if (intensity == null) {
+                throw new FieldException(HttpStatus.BAD_REQUEST, "events", "La intensidad debe ser leve, moderado, intenso o sin indicar.");
+            }
+            Integer times = requestedEvent.occurrences();
+            if (times != null && (times < 1 || times > StructuringPrompt.MAX_OCCURRENCES)) {
+                throw new FieldException(HttpStatus.BAD_REQUEST, "events",
+                        "Las veces deben estar entre 1 y " + StructuringPrompt.MAX_OCCURRENCES + ".");
+            }
+            EntryEvent.Origin origin = requestedEvent.origin() == null ? EntryEvent.Origin.MANUAL
+                    : parse(EntryEvent.Origin.class, requestedEvent.origin());
+            if (origin == null) {
+                throw new FieldException(HttpStatus.BAD_REQUEST, "events", "El origen del síntoma no es válido.");
+            }
+            EntryEvent event = new EntryEvent();
+            event.setSymptom(symptom);
+            event.setIntensity(intensity);
+            event.setOccurrences(times == null ? null : times.shortValue());
+            event.setOrigin(origin);
+            event.setConfirmedBy(principal.id());
+            event.setConfirmedAt(now);
+            out.add(event);
+        }
+        return out;
+    }
+
+    private static <E extends Enum<E>> E parse(Class<E> type, String value) {
+        for (E constant : type.getEnumConstants()) {
+            if (constant.name().equals(value)) {
+                return constant;
+            }
+        }
+        return null;
     }
 
     // Entradas de un paciente por fecha (RF-04): cronologico por defecto y, el mismo dia, por hora de creacion (RN-09).

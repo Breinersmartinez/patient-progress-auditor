@@ -23,7 +23,9 @@ public class LlmProperties {
     // Si el proveedor pide esperar mas que esto, no se espera: se pasa al respaldo.
     private Duration maxRetryAfter = Duration.ofSeconds(8);
 
-    private Duration structuringTimeout = Duration.ofSeconds(20);
+    private Duration structuringTimeout = Duration.ofSeconds(15);
+    // Tope de TODA una estructuracion (reintentos, esperas y respaldo): la persona espera la respuesta en pantalla.
+    private Duration structuringBudget = Duration.ofSeconds(30);
     private Duration agentTimeout = Duration.ofSeconds(60);
     private double temperature = 0;
 

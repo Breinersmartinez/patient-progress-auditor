@@ -19,6 +19,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.patientprogressauditor.entry.EntryService.EntryView;
 import com.patientprogressauditor.session.DemoPrincipal;
+import com.patientprogressauditor.structuring.Proposal;
+import com.patientprogressauditor.structuring.StructuringService;
 import com.patientprogressauditor.web.FieldException;
 
 import jakarta.validation.Valid;
@@ -31,16 +33,34 @@ import jakarta.validation.constraints.Size;
 public class EntryController {
 
     // `body` no se recorta ni se normaliza: se valida que no este en blanco y se guarda tal cual.
+    // `events` ausente: «guardar solo el texto». Presente (aunque vacio): lo que la persona confirmo.
     public record CreateEntryRequest(
             @NotNull(message = "Elija la fecha del registro.") LocalDate entryDate,
+            @NotBlank(message = "El registro no puede quedar vacío.")
+            @Size(max = EntryService.MAX_BODY_LENGTH, message = "El registro no puede pasar de 4000 caracteres.") String body,
+            @Valid List<EntryService.ConfirmedEvent> events) {
+    }
+
+    public record ProposeRequest(
             @NotBlank(message = "El registro no puede quedar vacío.")
             @Size(max = EntryService.MAX_BODY_LENGTH, message = "El registro no puede pasar de 4000 caracteres.") String body) {
     }
 
     private final EntryService service;
+    private final StructuringService structuring;
 
-    public EntryController(EntryService service) {
+    public EntryController(EntryService service, StructuringService structuring) {
         this.service = service;
+        this.structuring = structuring;
+    }
+
+    // Propone los sintomas con IA. NO guarda nada: la entrada y los eventos se guardan al confirmar (POST de abajo, RN-11).
+    // Si la IA falla responde 200 con `failure` y sin eventos, para que la persona guarde solo el texto o agregue a mano.
+    @PostMapping("/patients/{patientId}/entries/propose")
+    @PreAuthorize("hasAuthority('ENTRIES_CREATE')")
+    public Proposal propose(@PathVariable UUID patientId, @Valid @RequestBody ProposeRequest request,
+            @AuthenticationPrincipal DemoPrincipal principal) {
+        return structuring.propose(patientId, request.body(), principal);
     }
 
     @PostMapping("/patients/{patientId}/entries")
@@ -48,7 +68,7 @@ public class EntryController {
     @PreAuthorize("hasAuthority('ENTRIES_CREATE')")
     public EntryView create(@PathVariable UUID patientId, @Valid @RequestBody CreateEntryRequest request,
             @AuthenticationPrincipal DemoPrincipal principal) {
-        return service.create(patientId, request.entryDate(), request.body(), principal);
+        return service.create(patientId, request.entryDate(), request.body(), request.events(), principal);
     }
 
     // order=asc (cronologico, por defecto) o desc (mas reciente primero); from y to incluyen sus dos extremos.

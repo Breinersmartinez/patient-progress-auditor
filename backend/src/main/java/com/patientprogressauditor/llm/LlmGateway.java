@@ -64,16 +64,24 @@ public class LlmGateway {
         List<Attempt> attempts = new ArrayList<>();
         long start = System.nanoTime();
         for (LlmClient client : order) {
+            if (outOfTime(request, start)) {
+                break;
+            }
             String model = client.model(request.purpose());
             if (!client.configured()) {
                 attempts.add(new Attempt(client.id(), model, 0, Kind.MISSING_KEY, 0, client.keyVariable() + " no esta definida"));
                 continue;
             }
             for (int number = 1;; number++) {
+                Duration left = remaining(request, start);
+                if (left != null && exhausted(left)) {
+                    attempts.add(new Attempt(client.id(), model, number, Kind.TIMEOUT, 0, "Presupuesto de tiempo agotado"));
+                    break;
+                }
                 long t = System.nanoTime();
                 try {
-                    LlmResponse response = client.chat(request);
-                    attempts.add(new Attempt(client.id(), model, number, null, millisSince(t), null));
+                    LlmResponse response = client.chat(shortened(request, left));
+                    attempts.add(new Attempt(client.id(), model, number, null, millisSince(t), null, response.tokensIn(), response.tokensOut()));
                     BigDecimal cost = LlmPricing.cost(client.id(), model, response.tokensIn(), response.tokensOut());
                     log.info("IA {} {} {}: {} tokens de entrada, {} de salida, {} ms, intento {}", client.id(), model,
                             request.purpose(), response.tokensIn(), response.tokensOut(), millisSince(t), number);
@@ -85,11 +93,40 @@ public class LlmGateway {
                     if (wait == null) {
                         break;
                     }
+                    Duration afterWait = remaining(request, start);
+                    if (afterWait != null && afterWait.compareTo(wait) <= 0) {
+                        // Esperar y reintentar ya no cabe en el tiempo que la persona esta dispuesta a esperar.
+                        attempts.add(new Attempt(client.id(), model, number + 1, Kind.TIMEOUT, 0, "Presupuesto de tiempo agotado"));
+                        break;
+                    }
                     pause(wait);
                 }
             }
         }
         throw new LlmUnavailableException(honestMessage(attempts), attempts);
+    }
+
+    // Lo que queda del presupuesto total, o null si la solicitud no tiene tope.
+    private static Duration remaining(LlmRequest request, long startNanos) {
+        return request.budget() == null ? null : request.budget().minus(Duration.ofNanos(System.nanoTime() - startNanos));
+    }
+
+    private static boolean exhausted(Duration left) {
+        return left.isNegative() || left.isZero();
+    }
+
+    private static boolean outOfTime(LlmRequest request, long startNanos) {
+        Duration left = remaining(request, startNanos);
+        return left != null && exhausted(left);
+    }
+
+    // Una llamada nunca dura mas de lo que queda del presupuesto.
+    private LlmRequest shortened(LlmRequest request, Duration left) {
+        if (left == null) {
+            return request;
+        }
+        Duration own = request.timeout() != null ? request.timeout() : properties.timeoutFor(request.purpose());
+        return left.compareTo(own) < 0 ? request.withTimeout(left) : request;
     }
 
     // null = no se reintenta con este proveedor.
@@ -122,7 +159,8 @@ public class LlmGateway {
         LlmResult first = complete(request);
         Parsed parsed = parse(first.response().text(), validator);
         if (parsed.problems().isEmpty()) {
-            return new StructuredResult(parsed.json(), first, first.tokensIn(), first.tokensOut(), first.costUsd(), false);
+            return new StructuredResult(parsed.json(), first, first.tokensIn(), first.tokensOut(), first.costUsd(), false, List.of(),
+                    first.attempts());
         }
         log.warn("IA {}: la salida no valida ({}); se reintenta una vez", first.provider(), parsed.problems());
         List<LlmMessage> retry = new ArrayList<>(request.messages());
@@ -140,7 +178,7 @@ public class LlmGateway {
         }
         BigDecimal cost = first.costUsd() == null || second.costUsd() == null ? null : first.costUsd().add(second.costUsd());
         return new StructuredResult(again.json(), second, first.tokensIn() + second.tokensIn(),
-                first.tokensOut() + second.tokensOut(), cost, true);
+                first.tokensOut() + second.tokensOut(), cost, true, parsed.problems(), all);
     }
 
     private record Parsed(JsonNode json, List<String> problems) {

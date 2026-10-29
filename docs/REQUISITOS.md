@@ -269,7 +269,7 @@ Para poder avanzar, el análisis usa estos supuestos. Si cambian, se actualiza e
 | Patrón de integración | Ejecución asíncrona del agente con eventos de progreso por SSE | RF-22, RNF-05 | D24 |
 | Evaluaciones y observabilidad | En clase el profesor las trató como deseables; la rúbrica escrita las puntúa; versión mínima: 3 a 5 casos dorados con script y traza visible en la app | RF-22, OBJ-11 | D25 |
 
-**Estado de las decisiones de la SPEC §7:** decididas D1, D2, D3, D4, D5, D7, D8, D9, D10, D11, D12, D13, D14, D17, D21, D22, D23, D24; propuestas D15, D27; decidida también D26 (confirmada el 2026-10-28); supuestos D6, D19, D20, D25; por confirmar D18; descartada D16.
+**Estado de las decisiones de la SPEC §7:** decididas D1, D2, D3, D4, D5, D7, D8, D9, D10, D11, D12, D13, D14, D17, D21, D22, D23, D24; propuesta D15 solo en sus modelos (el orden Groq principal y Gemini respaldo está decidido); decidida D27 (28-oct); decidida también D26 (confirmada el 2026-10-28); supuestos D6, D19, D20, D25; por confirmar D18; descartada D16.
 
 **Para el diseño (no bloquean el análisis):** proveedor del LLM (D15, propuesta), cómo recibe el profesor la llave si no tiene una (parte pendiente de D22), valores de intensidad y tipos de evento de la estructuración (D27, D18) y qué hace «Descartar». Ya decididas: stack con Java 17 (D9), conjunto sintético de 5 pacientes y 18 semanas-paciente con un paciente de cuatro semanas aprobadas para el mensual (D11), `JWT_SECRET` y JWT en el Momento 3 (D23), estrategia de datos (D8), motor de PDF (D13), voz (D14), patrón de integración (D24) y dónde se derivan los eventos (al registrar la entrada, D27 propuesta).
 

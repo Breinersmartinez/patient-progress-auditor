@@ -7,6 +7,7 @@ import { ICONOS_ANIMADOS } from '../core/icons';
 // muestra el texto en gerundio. Un icono del catalogo se anima; con uno propio, el anillo toma su lugar.
 @Component({
   selector: 'button[appProcessButton]',
+  exportAs: 'processButton',
   standalone: true,
   imports: [IconComponent],
   host: {

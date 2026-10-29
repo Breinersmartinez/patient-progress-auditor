@@ -223,6 +223,57 @@ class LlmGatewayTest {
         assertThat(LlmPricing.cost("groq", "modelo-nuevo", 100, 100)).isNull();
     }
 
+    // --- presupuesto total (llamadas sincronas) ---
+
+    // Un reloj falso no sirve para el presupuesto (usa el tiempo real), asi que estas pruebas usan esperas y
+    // presupuestos pequeños de verdad.
+    @Test
+    void aBudgetThatCannotCoverTheNextWaitStopsRetryingAndSaysSo() {
+        properties.setBackoff(List.of(Duration.ofSeconds(5)));
+        ScriptedClient groq = new ScriptedClient("groq", true).thenAlways(fail("groq", Kind.UNAVAILABLE), 1);
+        ScriptedClient gemini = new ScriptedClient("gemini", true).thenAlways(fail("gemini", Kind.UNAVAILABLE), 1);
+
+        assertThatThrownBy(() -> gateway(groq, gemini).complete(request.withBudget(Duration.ofSeconds(2))))
+                .isInstanceOfSatisfying(LlmUnavailableException.class, e -> {
+                    assertThat(e.getMessage()).startsWith("No se pudo obtener respuesta de la IA.");
+                    assertThat(e.attempts()).extracting(Attempt::failure).contains(Kind.TIMEOUT);
+                });
+        assertThat(slept).isEmpty();
+        assertThat(groq.calls).hasSize(1);
+        // Sin tiempo para esperar, tampoco hay para el respaldo con la misma espera: se intenta una vez y se rinde.
+        assertThat(gemini.calls.size()).isLessThanOrEqualTo(1);
+    }
+
+    @Test
+    void aBudgetStillLetsTheBackupAnswerWhenThereIsTime() {
+        ScriptedClient groq = new ScriptedClient("groq", true).then(fail("groq", Kind.AUTH));
+        ScriptedClient gemini = new ScriptedClient("gemini", true).then(answer("{}", 1, 1));
+
+        LlmResult result = gateway(groq, gemini).complete(request.withBudget(Duration.ofSeconds(30)));
+
+        assertThat(result.provider()).isEqualTo("gemini");
+    }
+
+    @Test
+    void eachCallIsShortenedToWhatIsLeftOfTheBudget() {
+        ScriptedClient groq = new ScriptedClient("groq", true).then(answer("{}", 1, 1));
+
+        gateway(groq, new ScriptedClient("gemini", true)).complete(request.withBudget(Duration.ofSeconds(3)));
+
+        Duration sent = groq.calls.get(0).timeout();
+        assertThat(sent).isNotNull();
+        assertThat(sent).isLessThanOrEqualTo(Duration.ofSeconds(3));
+    }
+
+    @Test
+    void withoutABudgetTheTimeoutIsLeftAlone() {
+        ScriptedClient groq = new ScriptedClient("groq", true).then(answer("{}", 1, 1));
+
+        gateway(groq, new ScriptedClient("gemini", true)).complete(request);
+
+        assertThat(groq.calls.get(0).timeout()).isNull();
+    }
+
     // --- salida estructurada ---
 
     private static List<String> needsEvents(JsonNode json) {

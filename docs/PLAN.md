@@ -152,7 +152,7 @@ Solo hay una tarea: primero se retiran el manifiesto y el workflow, junto con su
 
 ### Seguimiento
 
-- [x] E1 · [x] E2 · [x] E3 · [x] E4 · [x] E5 · [x] E6 · [x] E7 · [x] E8 · [ ] E9 · [ ] E10 · [ ] E11 · [ ] E12a · [ ] E12b · [ ] E14 · [ ] E15
+- [x] E1 · [x] E2 · [x] E3 · [x] E4 · [x] E5 · [x] E6 · [x] E7 · [x] E8 · [x] E9 · [ ] E10 · [ ] E11 · [ ] E12a · [ ] E12b · [ ] E14 · [ ] E15
 - [ ] E12c (fuera por decisión del 28-oct) · [ ] E13 (al final, solo si sobra tiempo) · [ ] E16 (fuera)
 
 ## 5. Propuestas del §4.2 del prompt, cerradas para tu aprobación
@@ -717,3 +717,54 @@ Si W-1 no tiene ninguna entrada, no se puede decir que un síntoma «dejó de es
       Produce: `docs/decisiones.md` (proveedor, modelos, razón, límites, alternativas) y procedimiento de cambio de proveedor
       Se comprueba: cada cifra con su origen y fecha; lo no verificado, dicho
   > Quedan escritos el procedimiento de cambio, el riesgo de la cuota compartida y que los límites de Gemini no están verificados.
+
+---
+
+# E9 — Estructuración al registrar
+
+> **Estado:** cerrada · **EDT:** 5.1 a 5.7 (13,5 h) · **Depende de:** E6 y E8 (hechas) · **Decisiones del equipo (2026-10-28):** intensidades las del mockup, botón «Aprobar y guardar», catálogo de nueve síntomas y «Descartar» cierra la vista previa sin guardar; el «texto corregido» queda fuera.
+
+## Encargo
+
+**En una frase.** Al registrar una entrada, una sola llamada corta al modelo (sin herramientas, en la misma petición, D27) propone los síntomas que el texto dice, con intensidad y veces; la persona los confirma, edita, quita, agrega o descarta en la pantalla «Así quedaría el registro», y solo lo confirmado se guarda, junto con el texto tal como se escribió.
+
+**Criterio de aceptación.**
+- Con «Dolor de cabeza intenso desde la mañana. Tuvo diarrea intensa dos veces. Comió poco.», ¿la propuesta trae dolor de cabeza (intenso), diarrea (intensa, 2 veces) y apetito bajo (sin indicar) y valida contra el esquema?
+- ¿«Sin vómito» no crea evento, y una nota que trae una instrucción se trata como dato?
+- ¿Proponer no guarda nada, y confirmar guarda la entrada y los eventos en una sola transacción, con quién los confirmó y su origen (`IA`, `EDITADO`, `MANUAL`)?
+- ¿Si la IA falla (caída, 429, tiempo agotado o salida que no valida tras un reintento) la persona ve un mensaje claro, no pierde lo escrito y puede guardar solo el texto (la entrada queda `SIN_ESTRUCTURAR`) o agregar los síntomas a mano?
+- ¿Cada propuesta deja su traza `ESTRUCTURACION` (proveedor, modelo, tokens, costo, intentos) y nada del paciente salvo el texto sale al proveedor?
+- F8: ¿la pantalla, con la vista previa y con el fallo, a 1280×800 y a 390×844, no difiere del mockup salvo contenido y tabla 3.3?
+
+**Queda fuera.** El «texto corregido» (RF-42) y su campo, mostrar la traza en una pantalla (la API de ejecuciones llega en E11), el dictado por voz, editar una entrada ya guardada (RF-03) y la auditoría (RF-35).
+
+## Plan
+
+- [x] 1. Presupuesto total de una llamada síncrona
+      Produce: `budget` en `LlmRequest` y en la pasarela: ningún reintento ni espera pasa del presupuesto, y cada llamada se acorta a lo que queda
+      Se comprueba: pruebas de la pasarela con reloj falso: con presupuesto agotado no reintenta y falla con mensaje honesto
+  > Presupuesto de 30 s en `LlmRequest` y en la pasarela. Una espera que ya no cabe corta el reintento y no se prueba el respaldo con tiempo agotado. 4 pruebas nuevas.
+- [x] 2. Propuesta de eventos
+      Produce: esquema y prompt de la estructuración (catálogo, negaciones, texto como dato), validador, `StructuringService.propose` y la traza `ESTRUCTURACION` en `agent_runs` y `agent_steps`
+      Se comprueba: pruebas con la pasarela simulada: la petición al modelo no lleva alias, cama ni id del paciente; cada fallo termina con mensaje; la traza queda
+  > 13 pruebas (6 del prompt y 7 del servicio). La petición al modelo lleva el texto entre etiquetas y no lleva alias, cama, edad ni id.
+- [x] 3. API de proponer y confirmar
+      Produce: `POST /api/patients/{id}/entries/propose` (no guarda) y `POST /api/patients/{id}/entries` con eventos opcionales (entrada y eventos en una transacción; sin eventos, `SIN_ESTRUCTURAR`)
+      Se comprueba: pruebas de MockMvc: proponer no crea entradas; confirmar guarda todo o nada; síntoma fuera del catálogo y repetido se rechazan; permisos
+  > 10 pruebas. Un evento inválido deja la base como estaba (ni la entrada). Los eventos se envían con `saveAllAndFlush` para que una restricción de la base falle dentro del servicio.
+- [x] 4. Prueba con el modelo real
+      Produce: pruebas opcionales (`RUN_LIVE_LLM=true`) con el ejemplo, la negación y una nota con instrucción
+      Se comprueba: ejemplo exacto, sin vómito, y la instrucción no cambia la salida
+  > `StructuringLiveTest`: 5 casos × 2 proveedores × 3 repeticiones = 30 llamadas reales, todas exactas, también con la nota sembrada de P-040 y con un intento de cerrar la etiqueta.
+- [x] 5. Pantalla «Nuevo registro diario»
+      Produce: `EntryNewComponent` (`vRegNuevo`, `filaSintoma`, `vistaPrevia`), servicios y aviso de llave
+      Se comprueba: pruebas unitarias: enviar, propuesta, editar, quitar, agregar, descartar, guardar, fallo con «Guardar solo el texto»
+  > 16 pruebas, 0 fallos. `ProcessButtonComponent` ahora tiene `exportAs` para usarlo desde la plantilla.
+- [x] 6. F8
+      Produce: capturas del mockup y de la app, con vista previa y con fallo
+      Se comprueba: diferencias listadas
+  > Con backend real y llaves reales, y Chrome manejado por su protocolo de depuración (`ws` ya estaba instalado como dependencia de Angular; nada nuevo) para escribir y pulsar «Enviar». La estructura coincide a 1280 y a 390. Diferencias: sin «Texto corregido» (decidido), el texto de ayuda y el contenido. El estado de fallo se vio con el backend sin llaves. Hallazgo: la caja de texto no se vaciaba en un caso límite; corregido.
+- [x] 7. Documentos y cierre
+      Produce: `docs/decisiones.md` (por qué síncrono, el prompt, el origen de los eventos), plan al día
+      Se comprueba: `mvn -B verify`, `ng test` y `npm run build` verdes
+  > Resultados en el reporte de la etapa.
