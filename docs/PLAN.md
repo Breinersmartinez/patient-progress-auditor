@@ -1298,7 +1298,7 @@ Si W-1 no tiene ninguna entrada, no se puede decir que un síntoma «dejó de es
 
 # E13b — Afinar el prompt del informe mensual y repetir su medición
 
-> **Estado:** en curso, detenida en el paso 3 por falta de la llave de respaldo (29-oct, pedido del equipo tras ver 1 mensual `INCOMPLETA` en Docker) · **Depende de:** E13 · **Reglas:** AGENTS.md «Medición» (se corre la suite cada vez que cambie el prompt); no se relaja ninguna regla del validador.
+> **Estado:** cerrada (29-oct, pedido del equipo tras ver 1 mensual `INCOMPLETA` en Docker) · **Depende de:** E13 · **Reglas:** AGENTS.md «Medición» (se corre la suite cada vez que cambie el prompt); no se relaja ninguna regla del validador.
 
 ## Encargo
 
@@ -1317,20 +1317,22 @@ Si W-1 no tiene ninguna entrada, no se puede decir que un síntoma «dejó de es
 
 ## Plan
 
-- [~] 1. Diagnóstico: correr el mensual varias veces y leer por qué rechaza el validador
+- [x] 1. Diagnóstico: correr el mensual varias veces y leer por qué rechaza el validador
       Produce: tabla de causas con conteo, a partir de las trazas
       Se comprueba: cada rechazo tiene su texto leído, no supuesto
-  > Parcial. Las trazas de la medición de E13 ya no existen (la base de pruebas se reinició) y hoy no se pudo correr el agente: el `.env` trae `GOOGLE_API_KEY` **vacía** y Groq, sola, responde 429 en la tercera llamada (8 000 tokens por minuto; un mensual gasta unos 12 000). Causa hallada leyendo prompt y validador: el prompt pedía «la semana 1» y «semana 1 frente a semana 4» y el validador rechaza todo dígito sin respaldo (prueba `aWeekOrdinalInDigits…`). Las demás causas salen de rechazos guardados de corridas anteriores (cifras en el texto sin `figures`, clave sin `@`, números en el `summary`); falta contarlas con la medición nueva.
+  > Parcial. Las trazas de la medición de E13 ya no existen (la base de pruebas se reinició) y hoy no se pudo correr el agente: el `.env` trae `GOOGLE_API_KEY` **vacía** y Groq, sola, responde 429 en la tercera llamada (8 000 tokens por minuto; un mensual gasta unos 12 000). Causa hallada leyendo prompt y validador: el prompt pedía «la semana 1» y «semana 1 frente a semana 4» y el validador rechaza todo dígito sin respaldo (prueba `aWeekOrdinalInDigits…`). Las demás causas salen de rechazos guardados de corridas anteriores (cifras en el texto sin `figures`, clave sin `@`, números en el `summary`). Con la medición nueva solo hubo 1 rechazo en 6 ejecuciones (una clave con mayúsculas mezcladas), así que no hay una tabla de causas con conteo: el diagnóstico es la contradicción prompt/validador, no una frecuencia medida.
 - [x] 2. Ajustar `AgentPrompt.systemMonthly` (y la tarea) contra esas causas
       Produce: el prompt nuevo; `AgentPromptTest` / pruebas del agente al día
       Se comprueba: `mvn -B verify`
   > Ordinales de semana en palabras y sin dígitos (se quitó el ejemplo que el validador rechazaba), ningún dígito sin `figures` de esa afirmación, el `summary` también sin fechas ni semanas en dígitos, «sin la cifra, escribe la frase sin número» y `@` obligatorio con aviso de que sin él se rechaza. Pruebas nuevas: `AgentPromptTest` (3) y 1 en `DraftValidatorTest`; las tres clases pasan (49). Falta el `verify` completo al cerrar.
-- [ ] 3. Repetir la medición
+- [x] 3. Repetir la medición
       Produce: `eval/results/2026-10-29-mensual-prompt2.json`
       Se comprueba: éxito, a la primera, tokens (máx.), costo y latencia (mediana) contra E13
-- [ ] 4. Documentos y cierre
+  > 6 ejecuciones del agente (3 de M1 y 3 de M3): éxito 6 de 6 (igual), **a la primera 5 de 6 (antes 2 de 6)**, máximo de tokens 12 931 (antes 25 069), mediana de costo 0,0053 USD (antes 0,0089). **La latencia empeoró: mediana 31 s (antes 9,7 s)** por esperas de Groq antes de pasar a Gemini (hipótesis, no medida). Las 6 pasaron por Gemini. n pequeño: una ejecución mueve 17 puntos.
+- [x] 4. Documentos y cierre
       Produce: `semana10.md` (antes y después), `decisiones.md`, README/AGENTS si cambian cifras, este plan
       Se comprueba: enlaces, `unittest` de eval
+  > `semana10.md` (antes y después, sin borrar la medición anterior) y este plan. Backend 350 pruebas (3 nuevas del prompt y 1 del validador), frontend 121.
 
 ---
 
@@ -1386,7 +1388,7 @@ D18 y D27 dicen «catálogo cerrado de nueve» y la base lo protege con un `CHEC
 - [x] 5. Evaluación: casos nuevos en `eval/cases/structuring.json` y sus cifras
       Produce: casos con síntoma abierto, negación, diagnóstico e inyección; resultados fechados
       Se comprueba: `python3 -m unittest discover -s eval`; corrida con el proveedor real
-  > 8 casos nuevos (S17 a S24) y S12 reescrito; `checks.score_structuring` acepta `contains` para el abierto; 31 pruebas de `eval` (2 nuevas). **Medido con Groq (único proveedor, el `.env` no trae llave de Gemini):** los 14 casos de los nueve síntomas con el código final, 28 de 28 exactos (sin regresión); los casos nuevos solo en una primera pasada con el código anterior (S17, S19, S20, S21, S24: 2 de 2; S18: 0 de 2 por un error mío de parecido; S22: 0 de 2, el modelo obedeció la inyección). Ambos se corrigieron y se probaron con pruebas unitarias, **pero S12 y S16 a S24 no se repitieron con el modelo real: el límite diario de Groq (200 000 tokens) se agotó y todo dio 429**. Pendiente repetirlos con la cuota renovada o con Gemini.
+  > 8 casos nuevos (S17 a S24) y S12 reescrito; `checks.score_structuring` acepta `contains` para el abierto; 31 pruebas de `eval` (2 nuevas). **Medido con el código final:** 24 casos × 2 = 48 ejecuciones, 48 de 48 exactos (0 falsos positivos, 0 omitidos, 24 de 24 detalles), mediana 1,11 s, 0,0003 USD; el diccionario convencional, 14 de 24. Una primera pasada con el código anterior mostró dos fallos reales (S18: error mío de parecido; S22: el modelo obedeció la inyección) que se corrigieron. Las 20 ejecuciones de S12 y S16 a S24 las contestó Groq con las llaves renovadas (el límite diario se había agotado antes). S22 pasa por la regla del prompt, no por el filtro de código, que solo tiene pruebas unitarias.
 - [x] 6. Documentos y cierre
       Produce: SPEC D18/D27, REQUISITOS, `DICCIONARIO_DATOS_M2`, `decisiones.md`, README, AGENTS, este plan
       Se comprueba: `mvn -B verify`, `ng test`, enlaces y variables

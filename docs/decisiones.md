@@ -400,7 +400,7 @@ Sin Angular Material, Bootstrap, Tailwind, fuentes ni iconos externos: el diseñ
 | El orden de los síntomas en la API sigue siendo alfabético por código; en las métricas, los nueve primero en el orden del catálogo y luego los demás por código | No cambia lo que ya veía la pantalla ni las cifras de los nueve | — |
 | **No se fusionan sinónimos** entre síntomas abiertos («lumbalgia» y «dolor de espalda» son dos) | Fusionarlos es otra decisión (un diccionario o un modelo más) y no se midió. El modelo debe usar uno de los nueve cuando sirve; para los demás, dos nombres para lo mismo cuentan por separado. **Riesgo declarado** | Un diccionario de sinónimos |
 
-**Qué no se midió.** La precisión con muchos síntomas distintos ni con notas largas: son 8 casos nuevos en `eval/` (cifras en `docs/decisiones/semana10.md`), con un solo proveedor (Groq) porque la llave de Gemini del `.env` estaba vacía.
+**Qué no se midió.** La precisión con muchos síntomas distintos ni con notas largas: son 9 casos nuevos o cambiados en `eval/` (48 de 48 exactos en 2 repeticiones, cifras y límites en `docs/decisiones/semana10.md`), y todos los contestó Groq: la ruta por Gemini no se midió. El filtro de órdenes no lo puso a prueba el modelo real (el prompt ya frenó la inyección), solo pruebas unitarias.
 
 ## Decisiones del equipo (2026-10-28)
 

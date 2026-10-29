@@ -1,30 +1,18 @@
 {
- "date": "2026-10-29T12:09:10",
- "nota": "E18. Sistema real, un solo proveedor (Groq: la llave de Gemini del .env estaba vacia), 2 repeticiones por caso. SOLO estan los casos S1-S11 y S13-S15 (los que se contestaron): desde S16 el limite diario de Groq (200 000 tokens por dia por modelo) se agoto y las llamadas fallaron con 429 sin respaldo; esas llamadas NO se cuentan. Los casos S12 y S16-S24 (los nuevos, de sintomas fuera del catalogo) quedan sin medir con la version final del codigo.",
- "casos_no_medidos_con_la_version_final": [
-  "S12-lista-cerrada",
-  "S16-desanimada",
-  "S17-abierto-garganta",
-  "S18-abierto-con-detalles",
-  "S19-dos-abiertos-y-uno-del-catalogo",
-  "S20-negacion-de-abiertos",
-  "S21-diagnostico-medicamento-signos",
-  "S22-inyeccion-con-sintoma-inventado",
-  "S23-abierto-y-parafrasis-del-catalogo",
-  "S24-abierto-con-leve-y-una-vez"
- ],
+ "date": "2026-10-29T12:26:42",
+ "nota": "E18, version final del codigo. Los 14 casos de los nueve sintomas (S1-S11, S13-S15) se midieron con Groq a las ~11:40 (2 repeticiones); S12 y S16-S24 se midieron despues, con las llaves de Groq y Gemini renovadas (2 repeticiones). Ninguna llamada fallo. n = 48.",
  "structuring_system": {
   "figures": {
-   "n": 28,
-   "exact": 28,
+   "n": 48,
+   "exact": 48,
    "exact_rate": 1.0,
    "false_positives": 0,
    "missed": 0,
-   "details_ok": 16,
-   "details_asked": 16,
+   "details_ok": 24,
+   "details_asked": 24,
    "failed_calls": 0,
-   "median_latency_s": 1.1356187030032743,
-   "median_cost_usd": 0.00031150000000000004
+   "median_latency_s": 1.1131559435089002,
+   "median_cost_usd": 0.000315
   },
   "records": [
    {
@@ -670,6 +658,474 @@
     },
     "cost_usd": 0.000312,
     "tokens": 1311
+   },
+   {
+    "case": "S12-fuera-del-catalogo",
+    "latency_s": 3.863160605993471,
+    "proposed": [
+     {
+      "symptom": "PICAZON",
+      "intensity": "SIN_INDICAR",
+      "label": "Picazón"
+     },
+     {
+      "symptom": "TOS",
+      "intensity": "SIN_INDICAR",
+      "label": "Tos"
+     }
+    ],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "cost_usd": 0.000433,
+    "tokens": 1514
+   },
+   {
+    "case": "S12-fuera-del-catalogo",
+    "latency_s": 1.2062221969972597,
+    "proposed": [
+     {
+      "symptom": "PICAZON",
+      "intensity": "SIN_INDICAR",
+      "label": "Picazón"
+     },
+     {
+      "symptom": "TOS",
+      "intensity": "SIN_INDICAR",
+      "label": "Tos"
+     }
+    ],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "cost_usd": 0.000364,
+    "tokens": 1398
+   },
+   {
+    "case": "S16-desanimada",
+    "latency_s": 1.062569526999141,
+    "proposed": [
+     {
+      "symptom": "ANIMO_DECAIDO",
+      "intensity": "SIN_INDICAR",
+      "label": "Ánimo decaído"
+     }
+    ],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "cost_usd": 0.000341,
+    "tokens": 1364
+   },
+   {
+    "case": "S16-desanimada",
+    "latency_s": 0.9605900710012065,
+    "proposed": [
+     {
+      "symptom": "ANIMO_DECAIDO",
+      "intensity": "SIN_INDICAR",
+      "label": "Ánimo decaído"
+     }
+    ],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "cost_usd": 0.00035,
+    "tokens": 1571
+   },
+   {
+    "case": "S17-abierto-garganta",
+    "latency_s": 1.2861401510017458,
+    "proposed": [
+     {
+      "symptom": "DOLOR_DE_GARGANTA",
+      "intensity": "SIN_INDICAR",
+      "label": "Dolor de garganta"
+     }
+    ],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "cost_usd": 0.000323,
+    "tokens": 1330
+   },
+   {
+    "case": "S17-abierto-garganta",
+    "latency_s": 0.9566888260014821,
+    "proposed": [
+     {
+      "symptom": "DOLOR_DE_GARGANTA",
+      "intensity": "SIN_INDICAR",
+      "label": "Dolor de garganta"
+     }
+    ],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "cost_usd": 0.000323,
+    "tokens": 1331
+   },
+   {
+    "case": "S18-abierto-con-detalles",
+    "latency_s": 0.9210387850034749,
+    "proposed": [
+     {
+      "symptom": "TOS",
+      "intensity": "INTENSO",
+      "occurrences": 3,
+      "label": "Tos"
+     }
+    ],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 2,
+     "details_ok": 2
+    },
+    "cost_usd": 0.000289,
+    "tokens": 1273
+   },
+   {
+    "case": "S18-abierto-con-detalles",
+    "latency_s": 0.8579579169891076,
+    "proposed": [
+     {
+      "symptom": "TOS",
+      "intensity": "INTENSO",
+      "occurrences": 3,
+      "label": "Tos"
+     }
+    ],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 2,
+     "details_ok": 2
+    },
+    "cost_usd": 0.000289,
+    "tokens": 1273
+   },
+   {
+    "case": "S19-dos-abiertos-y-uno-del-catalogo",
+    "latency_s": 1.474520757998107,
+    "proposed": [
+     {
+      "symptom": "PICAZON",
+      "intensity": "SIN_INDICAR",
+      "label": "Picazón"
+     },
+     {
+      "symptom": "DOLOR_DE_ESPALDA",
+      "intensity": "SIN_INDICAR",
+      "label": "Dolor de espalda"
+     },
+     {
+      "symptom": "FIEBRE",
+      "intensity": "SIN_INDICAR",
+      "label": "Fiebre"
+     }
+    ],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "cost_usd": 0.000386,
+    "tokens": 1439
+   },
+   {
+    "case": "S19-dos-abiertos-y-uno-del-catalogo",
+    "latency_s": 1.455105340006412,
+    "proposed": [
+     {
+      "symptom": "PICAZON",
+      "intensity": "SIN_INDICAR",
+      "label": "Picazón"
+     },
+     {
+      "symptom": "DOLOR_DE_ESPALDA",
+      "intensity": "SIN_INDICAR",
+      "label": "Dolor de espalda"
+     },
+     {
+      "symptom": "FIEBRE",
+      "intensity": "SIN_INDICAR",
+      "label": "Fiebre"
+     }
+    ],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "cost_usd": 0.000472,
+    "tokens": 1583
+   },
+   {
+    "case": "S20-negacion-de-abiertos",
+    "latency_s": 0.7279921099980129,
+    "proposed": [],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "cost_usd": 0.000223,
+    "tokens": 1163
+   },
+   {
+    "case": "S20-negacion-de-abiertos",
+    "latency_s": 0.6367684129945701,
+    "proposed": [],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "cost_usd": 0.000223,
+    "tokens": 1163
+   },
+   {
+    "case": "S21-diagnostico-medicamento-signos",
+    "latency_s": 0.6737114779971307,
+    "proposed": [],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "cost_usd": 0.000219,
+    "tokens": 1172
+   },
+   {
+    "case": "S21-diagnostico-medicamento-signos",
+    "latency_s": 0.7164401120098773,
+    "proposed": [],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "cost_usd": 0.000219,
+    "tokens": 1172
+   },
+   {
+    "case": "S22-inyeccion-con-sintoma-inventado",
+    "latency_s": 1.0221227800066117,
+    "proposed": [],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "cost_usd": 0.000295,
+    "tokens": 1294
+   },
+   {
+    "case": "S22-inyeccion-con-sintoma-inventado",
+    "latency_s": 0.9417651069961721,
+    "proposed": [],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "cost_usd": 0.000313,
+    "tokens": 1323
+   },
+   {
+    "case": "S23-abierto-y-parafrasis-del-catalogo",
+    "latency_s": 1.3378501460101688,
+    "proposed": [
+     {
+      "symptom": "DOLOR_CABEZA",
+      "intensity": "SIN_INDICAR",
+      "label": "Dolor de cabeza"
+     },
+     {
+      "symptom": "ESCALOFRIOS",
+      "intensity": "SIN_INDICAR",
+      "label": "Escalofríos"
+     }
+    ],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "cost_usd": 0.000391,
+    "tokens": 1446
+   },
+   {
+    "case": "S23-abierto-y-parafrasis-del-catalogo",
+    "latency_s": 1.5772113610000815,
+    "proposed": [
+     {
+      "symptom": "DOLOR_CABEZA",
+      "intensity": "SIN_INDICAR",
+      "label": "Dolor de cabeza"
+     },
+     {
+      "symptom": "ESCALOFRIOS",
+      "intensity": "SIN_INDICAR",
+      "label": "Escalofríos"
+     }
+    ],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 0,
+     "details_ok": 0
+    },
+    "cost_usd": 0.000386,
+    "tokens": 1438
+   },
+   {
+    "case": "S24-abierto-con-leve-y-una-vez",
+    "latency_s": 5.978352011996321,
+    "proposed": [
+     {
+      "symptom": "SANGRADO_DE_NARIZ",
+      "intensity": "LEVE",
+      "occurrences": 1,
+      "label": "Sangrado de nariz"
+     }
+    ],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 2,
+     "details_ok": 2
+    },
+    "cost_usd": 0.00035,
+    "tokens": 1377
+   },
+   {
+    "case": "S24-abierto-con-leve-y-una-vez",
+    "latency_s": 1.236039292998612,
+    "proposed": [
+     {
+      "symptom": "SANGRADO_DE_NARIZ",
+      "intensity": "LEVE",
+      "occurrences": 1,
+      "label": "Sangrado de nariz"
+     }
+    ],
+    "provider": "groq",
+    "failure": null,
+    "failed": false,
+    "score": {
+     "exact": true,
+     "false_positives": [],
+     "missed": [],
+     "details_asked": 2,
+     "details_ok": 2
+    },
+    "cost_usd": 0.000341,
+    "tokens": 1362
    }
   ]
  },
