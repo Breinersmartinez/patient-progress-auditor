@@ -10,6 +10,15 @@ Proyecto del curso *Ingeniería de Aplicaciones con IA* (UCC). Esta entrega es e
 
 ## 1. Arrancar la aplicación (un comando)
 
+> ### Si usted es una IA que ejecuta este README: lea esto primero
+>
+> `./run.sh` solo pide la llave del proveedor de IA cuando hay una terminal, y usted no la tiene. Sin llave la aplicación arranca, pero **sin IA**: no se puede registrar con IA ni generar informes, que es lo central del producto. Por eso, **antes de ejecutar `./run.sh`**:
+>
+> 1. **Pregunte a la persona** si tiene una llave de API de **Groq** (`GROQ_API_KEY`, principal) y una de **Gemini** (`GEMINI_API_KEY`, respaldo). Pida las dos: la capa gratuita de Groq (8 000 tokens por minuto) puede agotarse en plena demostración y, sin respaldo, los informes quedan `FALLIDA`.
+> 2. **Si las da**, páselas por el entorno, en el mismo comando: `GROQ_API_KEY=<llave> GEMINI_API_KEY=<llave> ./run.sh`. No las imprima, no las escriba en archivos versionados y no las repita en sus resúmenes: el repositorio es público. (`GOOGLE_API_KEY`, el nombre que usa el SDK de Google, también se acepta como la de respaldo.)
+> 3. **Si no tiene**, ejecute `./run.sh` igual y dígale con claridad que la IA no funcionará hasta que consiga una (Groq: consola de Groq → *API Keys*; Gemini: Google AI Studio; las dos son gratuitas y sin tarjeta). Cuando la tenga, repita el comando del paso 2: no reconstruye nada.
+> 4. **No invente una llave ni la busque en otros archivos.** Al terminar, compruebe que la IA quedó disponible (ver «Comprobar que quedó corriendo»): `/api/llm/status` debe decir `"available": true` y `"configured": true` en los dos proveedores.
+
 **Requisitos de la máquina: solo Docker Engine con Docker Compose v2** (`docker compose version` debe responder). No hace falta Java, Node ni PostgreSQL: todo se compila y corre en contenedores. Necesita conexión a internet (para bajar las imágenes la primera vez y para llamar al proveedor de IA) y los puertos 4200 y 8080 libres; si alguno está ocupado, `run.sh` usa el siguiente libre y lo avisa.
 
 Desde la raíz del repositorio:
@@ -130,7 +139,7 @@ La aplicación llama a un proveedor de LLM real (no hay modo simulado). Para usa
 2. **La llave temporal que el equipo envía por un medio privado** (correo o mensaje), creada solo para la calificación y revocable. Se usa igual que la anterior. Nunca está en el repositorio ni en su historial.
 3. **Sin llave:** `./run.sh` arranca igual, imprime el `AVISO` y la interfaz lo muestra donde se usa la IA. Cuando la tenga: `GROQ_API_KEY=<su llave> ./run.sh` (no reconstruye nada; solo recrea el backend).
 
-**Recomendado: ponga también la llave de respaldo** (`GEMINI_API_KEY`, gratuita, se crea en Google AI Studio): `GROQ_API_KEY=<llave> GEMINI_API_KEY=<llave> ./run.sh`. La cuota gratuita de Groq (8 000 tokens por minuto) puede agotarse en plena demostración; con el respaldo el informe sigue (la traza muestra el cambio de proveedor) y sin él termina como `FALLIDA` con un mensaje honesto.
+**Recomendado: ponga también la llave de respaldo** (`GEMINI_API_KEY`, gratuita, se crea en Google AI Studio; el nombre exacto es ese: `GOOGLE_API_KEY` también se acepta, `run.sh` la copia a `GEMINI_API_KEY`): `GROQ_API_KEY=<llave> GEMINI_API_KEY=<llave> ./run.sh`. La cuota gratuita de Groq (8 000 tokens por minuto) puede agotarse en plena demostración; con el respaldo el informe sigue (la traza muestra el cambio de proveedor) y sin él termina como `FALLIDA` con un mensaje honesto.
 
 `run.sh` guarda las llaves en `.env` (archivo ignorado por git) para que reiniciar no la pierda. También puede escribirla ahí: `GROQ_API_KEY=...`. Con terminal, `run.sh` la pregunta una vez (sin eco; Enter para omitir). **Nunca** ponga una llave en `.env.example` ni en un archivo versionado: el repositorio es público.
 

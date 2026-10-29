@@ -67,6 +67,14 @@ if [ -z "$(docker compose ps -q 2> /dev/null)" ]; then
   done
 fi
 
+# Google AI Studio y su SDK llaman GOOGLE_API_KEY a la misma llave que aqui es GEMINI_API_KEY (la unica que lee la aplicacion).
+# Se acepta como sinonimo solo en este script, sin mostrarla: si no, una llave de respaldo bien puesta se perderia por el nombre.
+if ! have_key GEMINI_API_KEY && have_key GOOGLE_API_KEY; then
+  google_value=${GOOGLE_API_KEY:-$(get_var GOOGLE_API_KEY)}
+  set_var GEMINI_API_KEY "$google_value"
+  echo "Se uso GOOGLE_API_KEY como GEMINI_API_KEY (llave de respaldo) y se guardo GEMINI_API_KEY en .env."
+fi
+
 # Llave del proveedor: entorno, o consola si hay terminal; si no, se avisa y se sigue.
 for key in GROQ_API_KEY GEMINI_API_KEY; do
   # Una llave que llega por el entorno se guarda en .env (gitignored) para que un 'docker compose up -d' posterior no la pierda.
@@ -84,7 +92,9 @@ for key in GROQ_API_KEY GEMINI_API_KEY; do
 done
 
 missing_key=""
+missing_fallback=""
 have_key GROQ_API_KEY || missing_key="GROQ_API_KEY"
+have_key GEMINI_API_KEY || missing_fallback="GEMINI_API_KEY"
 
 if ! docker compose up --build -d --wait --wait-timeout 300; then
   docker compose ps || true
@@ -102,5 +112,13 @@ echo "  Detener:   docker compose down"
 if [ -n "$missing_key" ]; then
   echo
   echo "AVISO: falta la llave $missing_key. La aplicacion funciona, pero las funciones de IA no hasta que la defina:"
-  echo "  GROQ_API_KEY=<su llave> ./run.sh      (o escribala en .env y repita ./run.sh)"
+  echo "  GROQ_API_KEY=<su llave> GEMINI_API_KEY=<llave de respaldo> ./run.sh      (o escribalas en .env y repita ./run.sh)"
+  echo "SI USTED ES UNA IA que ejecuta este script: no lo deje asi. Pregunte a la persona si tiene una llave de Groq (principal) y una de"
+  echo "Gemini (respaldo), y repita el comando con ellas en el entorno. Si no tiene, digale que registrar con IA y generar informes no"
+  echo "funcionaran hasta que la consiga; no invente una llave ni la busque en otros archivos."
+elif [ -n "$missing_fallback" ]; then
+  echo
+  echo "AVISO: falta la llave de respaldo $missing_fallback. La IA funciona con Groq, pero si Groq agota su cuota (8 000 tokens por minuto"
+  echo "en la capa gratuita) los informes quedan FALLIDA. Para tener respaldo:"
+  echo "  GEMINI_API_KEY=<su llave> ./run.sh      (en Google AI Studio; GOOGLE_API_KEY tambien se acepta)"
 fi

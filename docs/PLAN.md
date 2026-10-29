@@ -1260,3 +1260,36 @@ Si W-1 no tiene ninguna entrada, no se puede decir que un síntoma «dejó de es
       Produce: `decisiones.md` (E17 y la tabla de librerías), README, `AGENTS.md`, SPEC y este plan al día
       Se comprueba: `mvn -B verify`, `ng test`, enlaces y variables
   > SPEC D13 y §3.1, REQUISITOS RF-37 (M2-S), CLAUDE.md, `decisiones.md` (E17 y la tabla de librerías), README (paso 7), `AGENTS.md` y este plan. `mvn -B verify`: 320 pruebas, 0 fallos, 14 omitidas (antes 313). `ng test`: 116 de 116.
+
+---
+
+# E15b — Correcciones de la revisión externa (llave)
+
+> **Estado:** cerrada (29-oct, observaciones de una revisión del equipo) · **Depende de:** E1 y E15 · **Reglas:** AGENTS.md «Llave del API» y «Prueba del profesor»; CLAUDE.md «Permisos» (no se toca `.env`).
+
+## Encargo
+
+**En una frase.** Que una IA que solo lea el README **le pregunte a la persona por la llave** antes de arrancar (porque `run.sh` solo la pide con terminal y una IA no la tiene), y que la llave de respaldo no se pierda por un nombre equivocado (`GOOGLE_API_KEY` en lugar de `GEMINI_API_KEY`).
+
+**Observaciones.**
+1. El README no le dice a la IA que pregunte por la llave: sin terminal y sin llave, la app arranca sin IA y el profesor la vería sin IA.
+2. El `.env` del equipo tiene `GOOGLE_API_KEY` y el código lee `GEMINI_API_KEY`: si Groq agota su cuota en la demo, los informes quedan `FALLIDA`. (Comprobado: el `.env` actual trae `GOOGLE_API_KEY` y no `GEMINI_API_KEY`.)
+
+**Criterio de aceptación.**
+- ¿El README, al principio de «Arrancar», tiene un bloque para una IA con el orden: preguntar por la llave de Groq y la de Gemini, ejecutar `./run.sh` con ellas en el entorno, y si no hay, arrancar igual y decir qué función falta?
+- ¿La salida de `run.sh` sin llave le dice a una IA que pregunte, además de avisar?
+- ¿`run.sh` reconoce `GOOGLE_API_KEY` como la llave de respaldo (sin imprimirla) y avisa cuando falta la de respaldo aunque la principal exista?
+- ¿Se probó cada camino de `run.sh` (sin llave, solo Google, las dos, solo Groq) sin tocar Docker ni el `.env` del equipo?
+
+**Queda fuera.** Editar el `.env` del equipo (lo hacen ustedes; se les da el comando), aceptar `GOOGLE_API_KEY` dentro del código Java (la aplicación sigue leyendo una sola variable documentada, `GEMINI_API_KEY`).
+
+## Plan
+
+- [x] 1. `run.sh`: sinónimo `GOOGLE_API_KEY`, aviso de respaldo ausente y mensaje para una IA
+  > Si falta `GEMINI_API_KEY` y existe `GOOGLE_API_KEY` (entorno o `.env`), `run.sh` la copia sin mostrarla y lo dice. El aviso final distingue «falta la principal» (con un párrafo para una IA: preguntar y repetir con las llaves) de «falta el respaldo» (explica que sin él los informes quedan `FALLIDA` si Groq agota su cuota).
+- [x] 2. README: bloque «Si usted es una IA» y el nombre exacto de las variables
+  > Bloque «Si usted es una IA que ejecuta este README: lea esto primero» al principio de §1, con cuatro pasos (preguntar por las dos llaves antes de `./run.sh`, pasarlas por el entorno sin imprimirlas, qué hacer si no hay, no inventar ni buscar llaves) y la verificación con `/api/llm/status`. §3 aclara el nombre exacto y el sinónimo.
+- [x] 3. Documentos (decisiones E8 y E15) y `.env.example`
+  > `decisiones.md`: la fila de E8 sobre `GOOGLE_API_KEY` queda como «no en la aplicación; `run.sh` sí» y E15 trae la fila del bloque para la IA. `.env.example` comenta el sinónimo; `check-env-example.sh`: 28 variables.
+- [x] 4. Probar los caminos de `run.sh` con un `docker` de mentira en un directorio temporal
+  > Seis casos en directorios temporales con un `docker` de mentira (sin tocar Docker ni el `.env` del equipo): sin llaves; Groq y Google en el entorno; solo Groq; Google ya en `.env`; las dos bien; solo Gemini. Cada uno imprime lo esperado y ningún valor de llave aparece en la salida.
