@@ -152,7 +152,7 @@ Solo hay una tarea: primero se retiran el manifiesto y el workflow, junto con su
 
 ### Seguimiento
 
-- [x] E1 · [x] E2 · [x] E3 · [ ] E4 · [ ] E5 · [ ] E6 · [ ] E7 · [ ] E8 · [ ] E9 · [ ] E10 · [ ] E11 · [ ] E12a · [ ] E12b · [ ] E14 · [ ] E15
+- [x] E1 · [x] E2 · [x] E3 · [x] E4 · [ ] E5 · [ ] E6 · [ ] E7 · [ ] E8 · [ ] E9 · [ ] E10 · [ ] E11 · [ ] E12a · [ ] E12b · [ ] E14 · [ ] E15
 - [ ] E12c (fuera por decisión del 28-oct) · [ ] E13 (al final, solo si sobra tiempo) · [ ] E16 (fuera)
 
 ## 5. Propuestas del §4.2 del prompt, cerradas para tu aprobación
@@ -433,3 +433,67 @@ El 1: son unas 120 entradas escritas a mano; un error aquí se arrastra a E7, E1
 | 2 | La zona horaria cambia el día de `created_at`; el JSON no se lee con UTF-8 | Fechas corridas; «Ã³» en los textos |
 | 3 | Las pruebas dejan filas en la base compartida | Conteos distintos entre corridas |
 | 4 | El perfil `docker` falla por `validate` con las columnas nuevas | El backend no queda `healthy` |
+
+---
+
+# E4 — Sesión y permisos
+
+> **Estado:** en ejecución · **EDT:** 3.1 y 3.2 (4 h) · **Depende de:** E3 (hecha)
+
+## Encargo
+
+**En una frase.** Que cada petición a `/api/**` (salvo el estado y la lista de usuarios de demostración) lleve el usuario elegido, que el servidor tome de él su rol y sus permisos, y que cada permiso del §3.4 del diccionario M2 se pueda exigir en un endpoint y se niegue a quien no lo tiene.
+
+**Contexto.** D26: sin autenticación en el Momento 2, pero solo enfermería aprueba y el médico solo ve lo aprobado; eso lo decide el servidor, no la pantalla (RNF-01). E5 necesita la lista de usuarios y la sesión actual; E6 en adelante necesita los permisos en los endpoints.
+
+**Qué se produce.**
+1. `GET /api/demo-users` (público): id, nombre y rol de los usuarios de demostración activos.
+2. `GET /api/session`: usuario, rol y permisos de quien hace la petición.
+3. Un filtro que lee la cabecera `X-Demo-User` (y el parámetro `demoUser` solo en la ruta SSE `/api/runs/*/events`, donde `EventSource` no envía cabeceras) y deja en el contexto el usuario con sus permisos como autoridades.
+4. `/api/**` exige usuario; `@PreAuthorize("hasAuthority('…')")` queda habilitado para los endpoints de las etapas siguientes; errores 401 y 403 en JSON, en español, sin rastro de pila.
+5. Pruebas: la matriz de permisos escrita a mano contra los usuarios sembrados, y los casos sin usuario, con uno inválido o desconocido.
+
+**Criterio de aceptación.**
+- ¿Una petición a `/api/**` sin usuario elegido, con un id mal formado o con uno desconocido recibe 401 con mensaje claro, y `status` y `demo-users` siguen abiertos?
+- ¿Cada usuario sembrado puede ejercer exactamente los permisos que dice el diccionario M2 §3.4 para su rol y ninguno más (probado permiso por permiso con una matriz escrita en la prueba, no leída de la base)?
+- ¿Falta de permiso da 403, distinto de 401?
+- ¿El parámetro `demoUser` se acepta solo en la ruta SSE?
+- ¿Un usuario inactivo o que no es de demostración no puede hacerse pasar por sesión?
+
+**Queda fuera.** Endpoints de pacientes, entradas e informes (E6 en adelante; allí se aplica `@PreAuthorize` y se prueban sus reglas, incluida «el médico no aprueba»), el rol `AGENTE` como sesión (no inicia sesión), JWT y contraseñas (Momento 3).
+
+**Riesgos.** Que parezca seguridad: cualquiera puede mandar el id de una enfermera. Está declarado en D26 y se repite en el README y en la defensa.
+
+**Decisiones tomadas.** Cabecera `X-Demo-User` con el UUID. El filtro no es un bean (si lo fuera, el contenedor lo registraría dos veces). La sonda de la matriz vive solo en las pruebas.
+
+## Plan
+
+- [x] 1. Escribir el filtro, la sesión, los manejadores de 401 y 403 y los endpoints de usuarios y sesión
+      Produce: paquete `session` y `SecurityConfig` actualizada
+      Se comprueba: compila y el contexto arranca
+  > Paquete `session` (`DemoUserFilter`, `DemoPrincipal`, `SessionController`, `ApiError`) y `SecurityConfig` con `@EnableMethodSecurity`: `/api/system/status` y `/api/demo-users` públicos, el resto de `/api/**` exige usuario; 401 y 403 en JSON. El filtro no es un bean.
+- [x] 2. Probar la matriz de permisos con una sonda
+      Produce: `PermissionMatrixTest`
+      Se comprueba: 2 usuarios × 11 permisos coinciden con la matriz escrita; faltante da 403
+  > `PermissionMatrixTest`: 3 pruebas; 4 usuarios sembrados × 11 permisos coinciden con la matriz escrita a mano (enfermería 10, médico 4; `REPORTS_CREATE_DRAFT` no es de nadie que elija sesión).
+- [x] 3. Probar los casos de identidad y la ruta SSE
+      Produce: `SessionEndpointsTest` y `DemoUserFilterTest`
+      Se comprueba: 401 sin usuario, mal formado, desconocido o inactivo; `demoUser` solo en la ruta SSE
+  > `SessionEndpointsTest` (9) y `DemoUserFilterTest` (3): 401 sin usuario, mal formado, desconocido, no demo e inactivo; 403 distinto de 401, con mensaje y sin traza; la lista pública no trae correo ni hash; `OPTIONS` de CORS pasa sin usuario; `demoUser` solo vale en `GET /api/runs/*/events`.
+  > OJO: la prueba unitaria destapó que `AntPathRequestMatcher` depende de `servletPath`, que puede llegar vacío; se compara `getRequestURI`. La ruta SSE real se prueba otra vez en E11.
+- [x] 4. Correr la verificación completa y cerrar
+      Produce: reporte del §7
+      Se comprueba: `mvn -B verify` verde y cada pregunta del criterio contestada
+  > `mvn -B verify`: 48 pruebas, 0 fallos, `JWT_SECRET` sin definir. La sonda de permisos no está en el jar (0 coincidencias).
+
+## El paso más riesgoso
+
+El 1: un orden equivocado de filtros deja pasar sin usuario o bloquea la petición previa de CORS.
+
+## Dónde se puede caer
+
+| Paso | Qué puede salir mal | Cómo se nota |
+|---|---|---|
+| 1 | El filtro corre antes del de CORS; el 401 sale en HTML | Prueba de `OPTIONS` falla; el cuerpo no es JSON |
+| 2 | La sonda de pruebas se registra también en producción | Falla `mvn package`; no debe estar en `src/main` |
+| 3 | Un usuario no demo con id válido entra | La prueba de usuario inactivo lo detecta |

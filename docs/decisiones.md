@@ -49,6 +49,17 @@
 | P-033 conserva un único evento (`APETITO_BAJO`) | «Casi sin eventos» (D11): sirve para medir falsos positivos sin que la semana quede vacía de eventos | Cero eventos |
 | P-040 lleva la instrucción en una nota que además trae un síntoma real (`VOMITO`) | Un agente que obedeciera la instrucción omitiría el vómito: el caso lo detecta | Una nota con solo la instrucción |
 
+## E4 — Sesión y permisos (2026-10-28)
+
+| Decisión | Razón | Alternativa descartada |
+|---|---|---|
+| El usuario elegido viaja en la cabecera `X-Demo-User` (su UUID); en la ruta SSE `GET /api/runs/*/events` también vale el parámetro `demoUser` | `EventSource` no envía cabeceras (D24). El parámetro se limita a una ruta de solo lectura. No es un control de seguridad: cualquiera puede mandar el id de otra persona (D26) | `fetch` en streaming para poder mandar la cabecera: más código sin ganancia en el Momento 2; un parámetro en todo el API |
+| Los permisos del rol se cargan como autoridades y los endpoints los exigen con `@PreAuthorize("hasAuthority('…')")` | La regla vive junto al endpoint y la matriz sale de la base, donde `V4` la fija | Preguntar el rol por nombre en cada servicio |
+| 401 (no hay usuario válido) y 403 (hay usuario, falta permiso) son distintos, en JSON y en español | La interfaz debe distinguir «elija un usuario» de «su rol no puede» (RNF-04) | Una respuesta única de error |
+| Solo cuenta como sesión un usuario activo, de demostración y con rol | Un usuario real que se agregue después no puede usarse por esta vía sin credenciales | Aceptar cualquier id existente |
+| La matriz de la prueba está escrita a mano desde el diccionario y no se lee de la base | Si `V4` y el documento se desvían, la prueba falla; leerla de la base solo compararía la base consigo misma | Generar lo esperado desde la propia base |
+| La ruta SSE se compara por `getRequestURI`, no por `servletPath` | `AntPathRequestMatcher` dependía de `servletPath`, que según el despliegue llega vacío; la prueba unitaria lo detectó | `AntPathRequestMatcher` de Spring Security |
+
 ## Decisiones del equipo (2026-10-28)
 
 | Decisión | Razón | Alternativa descartada |
