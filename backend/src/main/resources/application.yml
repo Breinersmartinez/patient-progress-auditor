@@ -40,6 +40,14 @@ llm:
     api-key: ${GEMINI_API_KEY:}
     model: ${GEMINI_MODEL:gemini-3.5-flash-lite}
 
+# Limites del agente (AGENTS.md; valores y razon en docs/decisiones.md). Cambiarlos por variable fuerza cada limite en la
+# demo sin simular nada: por ejemplo AGENT_MAX_ITERATIONS=1.
+agent:
+  max-iterations: ${AGENT_MAX_ITERATIONS:5}
+  max-tokens: ${AGENT_MAX_TOKENS:30000}
+  tool-timeout: ${AGENT_TOOL_TIMEOUT_SECONDS:5}s
+  tool-descriptions: ${AGENT_TOOL_DESCRIPTIONS:V2}
+
 server:
   port: ${PORT:8080}
   error:

@@ -152,7 +152,7 @@ Solo hay una tarea: primero se retiran el manifiesto y el workflow, junto con su
 
 ### Seguimiento
 
-- [x] E1 · [x] E2 · [x] E3 · [x] E4 · [x] E5 · [x] E6 · [x] E7 · [x] E8 · [x] E9 · [ ] E10 · [ ] E11 · [ ] E12a · [ ] E12b · [ ] E14 · [ ] E15
+- [x] E1 · [x] E2 · [x] E3 · [x] E4 · [x] E5 · [x] E6 · [x] E7 · [x] E8 · [x] E9 · [x] E10 · [ ] E11 · [ ] E12a · [ ] E12b · [ ] E14 · [ ] E15
 - [ ] E12c (fuera por decisión del 28-oct) · [ ] E13 (al final, solo si sobra tiempo) · [ ] E16 (fuera)
 
 ## 5. Propuestas del §4.2 del prompt, cerradas para tu aprobación
@@ -768,3 +768,66 @@ Si W-1 no tiene ninguna entrada, no se puede decir que un síntoma «dejó de es
       Produce: `docs/decisiones.md` (por qué síncrono, el prompt, el origen de los eventos), plan al día
       Se comprueba: `mvn -B verify`, `ng test` y `npm run build` verdes
   > Resultados en el reporte de la etapa.
+
+---
+
+# E10 — El agente
+
+> **Estado:** cerrada · **EDT:** 8.1 a 8.9, 8.12 y 8.13 (22,5 h; la etapa de más riesgo) · **Depende de:** E7 y E8 (hechas) · **Valores de los límites (decisión del equipo y recomendación, 2026-10-28):** 5 iteraciones (pedido del equipo), 30 000 tokens por solicitud (recomendación: unas 2 veces lo esperado y protege la cuota diaria de 200 000 de Groq; se calibra con las corridas reales), 5 s por herramienta y confirmación humana (el agente solo escribe el borrador en `PENDIENTE_REVISION`; aprobar no está a su alcance).
+
+## Encargo
+
+**En una frase.** Un agente que, dado un paciente y una semana, decide qué consultar con sus herramientas (registros, métricas, historial de un síntoma, cuántas semanas atrás mirar), redacta el informe semanal y lo guarda como borrador `PENDIENTE_REVISION`, con cada afirmación citando entradas reales y cada cifra igual a la que calculó el código; y que se detiene y lo dice cuando agota un límite.
+
+**Criterio de aceptación.**
+- ¿Se fuerza cada límite (5 iteraciones, tokens, 5 s por herramienta) y el agente se detiene, deja el informe `INCOMPLETO` con el motivo y la traza lo muestra?
+- ¿Una cifra alterada y una cita inexistente se rechazan antes de guardar, y el modelo recibe el error como observación para corregir?
+- ¿Un diagnóstico, una recomendación o una dosis en la salida se rechazan, y una solicitud de diagnóstico se declara fuera de alcance?
+- ¿La nota sembrada de P-040, que trae una orden, no cambia la conducta del agente?
+- ¿El inventario de herramientas no tiene salida (internet, correo) ni escritura distinta del borrador, y el agente no puede aprobar?
+- ¿Con el modelo real, el informe de P-014 en la semana 5 (náuseas reaparecidas) sale válido, con la reaparición señalada y cifras iguales a las métricas?
+- ¿Hay un registro de dos versiones de la descripción de cada herramienta con el resultado medido de cada una?
+
+**Queda fuera.** Ejecución en segundo plano, SSE y la API de ejecuciones (E11); pedir el informe por HTTP, estados, edición y aprobación (E12a); el informe mensual y `get_approved_weekly_reports` (E13); la evaluación completa y las cuatro cifras (E14).
+
+## Diseño (resumen)
+
+| Pieza | Decisión |
+|---|---|
+| Herramientas (5, todas de lectura salvo una) | `list_patient_weeks`, `get_week_entries`, `get_week_metrics`, `get_symptom_history` y `save_draft`. Ninguna recibe el id del paciente: la tarea ya lo fija (menos tokens, menos errores, mínimo privilegio). Ninguna lee semanas posteriores a la del informe |
+| Citas | Cada entrada que el agente lee recibe un alias corto por ejecución (`e1`, `e2`…). Se cita con el alias; el código lo traduce al id real. Un alias que no se emitió en la ejecución es una cita inexistente |
+| Cifras | Las calcula `MetricsService`. El borrador no copia cifras a mano: el código agrega `metrics` y `insufficient_data` al contenido. Cada cifra que el texto de una afirmación nombra debe venir respaldada por `figures` (`clave`, `valor`) y coincidir con las métricas |
+| Salida de `save_draft` | `summary` (sin números), `claims` (`claim_key`, `text`, `criterion`, `entry_ids`, `figures`), `changes_vs_previous` y `recurring_patterns` (listas de `claim_key`) |
+| Parada | Éxito: `save_draft` válido. Límite: iteraciones, tokens o un segundo tiempo agotado de herramienta. Salida inválida dos veces: se degrada a texto plano y queda `INCOMPLETO`. Proveedor caído: la ejecución falla con mensaje honesto |
+| Errores de herramienta | Vuelven al modelo como observación; no matan el bucle |
+| Traza | Cada paso se guarda al ocurrir (`agent_steps`), con un mensaje en lenguaje claro («Consultando los registros de la semana…»), para que E11 lo emita por SSE |
+
+## Plan
+
+- [x] 1. Límites, contexto y herramientas de lectura
+      Produce: `AgentProperties`, `AgentRunContext` (alias de entradas, semana y paciente de la tarea), la interfaz de herramienta con su tiempo máximo y las cuatro herramientas de lectura con salida compacta
+      Se comprueba: pruebas con la semilla: el alias, el alcance (semana posterior rechazada, lunes obligatorio), salidas iguales a las métricas
+  > `ReadToolsTest`, 10 pruebas. La salida de métricas de una semana mide menos de 1 500 caracteres. Los alias son estables entre herramientas y un texto de 1 000 caracteres se corta a 400.
+- [x] 2. Contenido, validador y guardado
+      Produce: esquema de `save_draft`, validador (esquema, citas, cifras, sin números en el resumen, sin diagnóstico ni dosis), armado del contenido con `metrics` e `insufficient_data` del código y guardado de informe, versión 1 y citas
+      Se comprueba: una cifra alterada, una cita inexistente, un diagnóstico y un número sin respaldo se rechazan con un mensaje que el modelo pueda corregir; lo válido se guarda en `PENDIENTE_REVISION` con sus citas
+  > `DraftValidatorTest` (15) y `DiagnosisGuardTest` (20). La primera versión de las claves de las cifras y la regla del resumen fallaron con el modelo real y se corrigieron (ver paso 4); el rechazo ahora trae la clave exacta que el modelo podría escribir.
+- [x] 3. El bucle
+      Produce: `AgentRunner` (prompt del sistema, bucle a mano, cuatro límites, parada, `INCOMPLETO`, texto plano, traza progresiva)
+      Se comprueba: con la pasarela simulada: éxito, cada límite, herramienta lenta, error de herramienta, salida inválida dos veces, proveedor caído, sin herramienta de aprobar
+  > `AgentRunnerTest`, 17 pruebas con un proveedor con guion: éxito con citas y traza, cada límite (5 llamadas; 14 000 + 2 000 tokens; herramienta de 3 s cortada a 200 ms), error de herramienta como observación, rechazo corregido, salida inválida dos veces → texto plano e `INCOMPLETO`, proveedor caído → `FALLIDA`, y pedir `approve_report` o `send_email` devuelve «no existe». Los límites se fuerzan también por configuración (`AgentPropertiesForcedTest`).
+- [x] 4. Corridas reales y ajuste
+      Produce: corridas con Groq y Gemini en P-014 (semana 5), P-040 (nota con orden) y una solicitud de diagnóstico; el valor de los tokens se fija con los datos
+      Se comprueba: informe válido, reaparición señalada, la orden no se obedece, el diagnóstico se declara fuera de alcance
+  > `AgentLiveTest` con Groq y Gemini reales: P-014 semana 5 válido a la primera con la reaparición de las náuseas señalada; P-040 documenta el vómito real y no obedece la orden de la nota; la solicitud de diagnóstico se declara fuera de alcance y no se responde. Cada corrida usa de 10 700 a 14 400 tokens y termina en Gemini por el límite de 8 000 tokens por minuto de Groq.
+- [x] 5. Dos versiones de cada descripción de herramienta
+      Produce: `v1` (escueta) y `v2` (cuándo usarla, cuándo no, prerrequisitos), seleccionable por configuración, y la medición de cada una
+      Se comprueba: tabla con tasa de borrador válido, iteraciones y tokens por versión
+  > 18 corridas con Gemini: V1 acierta a la primera 4 de 9 y V2, 7 de 9, con el 1,7 % más de tokens. Se usa V2. Registro completo en `docs/decisiones/semana06.md`.
+- [x] 6. Documentos
+      Produce: `docs/decisiones.md` (los cuatro límites con valor y razón, herramientas, citas por alias, cifras por código) y `docs/decisiones/semana06.md`
+      Se comprueba: cada valor con su origen y lo no verificado dicho
+  > Tabla de límites con valor, razón y variable para forzarlos.
+- [x] 7. Cierre
+      Se comprueba: `mvn -B verify` verde
+  > Resultado en el reporte de la etapa.

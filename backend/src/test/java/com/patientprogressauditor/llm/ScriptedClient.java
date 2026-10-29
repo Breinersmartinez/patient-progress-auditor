@@ -7,32 +7,32 @@ import java.util.List;
 
 // Un proveedor con guion para probar la pasarela: devuelve en orden lo que se le programo (una respuesta o un fallo).
 // Cuando se acaba el guion repite el ultimo resultado.
-final class ScriptedClient implements LlmClient {
+public final class ScriptedClient implements LlmClient {
 
     private final String id;
     private final boolean configured;
     private final Deque<Object> script = new ArrayDeque<>();
     private Object last;
-    final List<LlmRequest> calls = new ArrayList<>();
+    public final List<LlmRequest> calls = new ArrayList<>();
 
-    ScriptedClient(String id, boolean configured) {
+    public ScriptedClient(String id, boolean configured) {
         this.id = id;
         this.configured = configured;
     }
 
-    ScriptedClient then(Object outcome) {
+    public ScriptedClient then(Object outcome) {
         script.add(outcome);
         return this;
     }
 
-    ScriptedClient thenAlways(Object outcome, int times) {
+    public ScriptedClient thenAlways(Object outcome, int times) {
         for (int i = 0; i < times; i++) {
             script.add(outcome);
         }
         return this;
     }
 
-    static LlmResponse answer(String text, int in, int out) {
+    public static LlmResponse answer(String text, int in, int out) {
         return new LlmResponse(text, List.of(), LlmResponse.FinishReason.STOP, in, out);
     }
 
