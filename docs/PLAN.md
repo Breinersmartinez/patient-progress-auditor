@@ -152,7 +152,7 @@ Solo hay una tarea: primero se retiran el manifiesto y el workflow, junto con su
 
 ### Seguimiento
 
-- [x] E1 · [x] E2 · [x] E3 · [x] E4 · [x] E5 · [x] E6 · [x] E7 · [x] E8 · [x] E9 · [x] E10 · [x] E11 · [ ] E12a · [ ] E12b · [ ] E14 · [ ] E15
+- [x] E1 · [x] E2 · [x] E3 · [x] E4 · [x] E5 · [x] E6 · [x] E7 · [x] E8 · [x] E9 · [x] E10 · [x] E11 · [x] E12a · [ ] E12b · [ ] E14 · [ ] E15
 - [ ] E12c (fuera por decisión del 28-oct) · [ ] E13 (al final, solo si sobra tiempo) · [ ] E16 (fuera)
 
 ## 5. Propuestas del §4.2 del prompt, cerradas para tu aprobación
@@ -174,7 +174,7 @@ Solo hay una tarea: primero se retiran el manifiesto y el workflow, junto con su
 | Semana en curso | No se puede pedir; solo semanas completas con entradas (propuesta del prompt). «Hoy» se calcula en `America/Bogota` | — |
 | Informes sembrados | Escritos a mano con las cifras que calcula el módulo de métricas y revisados uno por uno; no dependen de la llave. Se archivan como JSON en `backend/src/main/resources/seed/` | Generarlos con el agente: la semilla dependería de que E10 funcione |
 
-**Contrato de API (borrador para acordar antes de separarnos).** `GET /api/system/status` · `GET /api/demo-users` · `GET|POST /api/patients` · `GET /api/patients/{id}/entries?from&to` · `GET /api/patients/{id}/weeks` · `POST /api/entries/propose` (no guarda) · `POST /api/entries/confirm` y `POST /api/entries` (solo texto) · `POST /api/reports/requests` (202 con `runId`) · `GET /api/runs/{id}` · `GET /api/runs/{id}/events` (SSE) · `GET /api/reports?status&patientId` · `GET /api/reports/{id}` · `PUT /api/reports/{id}/content` (nueva versión) · `POST /api/reports/{id}/approve` · `GET /api/reports/{id}/trace`.
+**Contrato de API (borrador para acordar antes de separarnos).** `GET /api/system/status` · `GET /api/demo-users` · `GET|POST /api/patients` · `GET /api/patients/{id}/entries?from&to` · `GET /api/patients/{id}/weeks` · `POST /api/entries/propose` (no guarda) · `POST /api/entries/confirm` y `POST /api/entries` (solo texto) · `POST /api/runs` (202 con el id; ver E11 y E12a) · `GET /api/runs/{id}` · `GET /api/runs/{id}/events` (SSE) · `GET /api/reports?status&patientId` · `GET /api/reports/{id}` · `PUT /api/reports/{id}/content` (nueva versión) · `POST /api/reports/{id}/approve` · `GET /api/reports/{id}/trace`.
 
 ## 6. Dependencias nuevas que prevés (para aprobar juntas)
 
@@ -898,3 +898,60 @@ Si W-1 no tiene ninguna entrada, no se puede decir que un síntoma «dejó de es
       Produce: `docs/decisiones.md` (por qué asíncrono, pasos y no tokens, 2 hilos, sin broker), contrato de la API en este plan, `.env.example` sin cambios, plan al día
       Se comprueba: `mvn -B verify`, `scripts/check-env-example.sh`
   > Entrada E11 en `docs/decisiones.md`. `mvn -B verify` y `check-env-example.sh`: ver el reporte de la etapa.
+
+---
+
+# E12a — Informes: backend
+
+> **Estado:** cerrada · **EDT:** 9.1 a 9.4 (8,5 h) · **Depende de:** E11 y E4 (hechas) · **Reglas:** RN-01, RN-02, RN-03, RN-05, RF-23 a RF-28 y la tabla 3.3 del prompt (solo semanas completas).
+
+## Encargo
+
+**En una frase.** Que enfermería pueda ver un informe con su evidencia, corregirlo sin perder lo que redactó el modelo, y aprobarlo o rechazarlo con motivo, y que el médico solo vea los aprobados, todo decidido por el servidor y no por la pantalla.
+
+**Criterio de aceptación.**
+- ¿Una transición no definida se rechaza (409)? Solo `PENDIENTE_REVISION` pasa a `APROBADO` o `RECHAZADO` y solo `PENDIENTE_REVISION` se edita; `INCOMPLETO`, `APROBADO` y `RECHAZADO` son finales.
+- ¿El médico recibe 403 al aprobar, rechazar o editar, y un informe pendiente, incompleto o rechazado no aparece en su lista ni en su detalle (404, sin revelar que existe)?
+- ¿Tras editar quedan la versión 1 del modelo (intacta) y la de enfermería, con quién editó, y la lista de citas se rehace? ¿Una edición con una cita de otro paciente o posterior a la semana, un diagnóstico o un número que ninguna cifra respalda se rechaza con el motivo por campo?
+- ¿Aprobar registra quién, cuándo y qué versión se aprobó, y el médico ve esa versión?
+- ¿Aprobar y editar a la vez no producen un estado incoherente (bloqueo de la fila)?
+- ¿Rechazar exige motivo, lo guarda y deja pedir un informe nuevo de esa semana?
+- ¿Cada afirmación del detalle trae sus entradas citadas con fecha y texto original, y se puede leer la traza de la ejecución que lo produjo?
+- ¿La lista de semanas para generar solo trae semanas completas con registros, y pedir una semana en curso se rechaza (tabla 3.3)?
+
+**Queda fuera.** Las pantallas (E12b), el informe mensual (E13), la auditoría (E16, RF-35), la vista propia del médico (E12c) y exportar a PDF.
+
+## Diseño (resumen)
+
+| Pieza | Decisión |
+|---|---|
+| Lectura | `GET /api/reports?status&patientId&type` (resumen, del período más reciente al más antiguo) y `GET /api/reports/{id}` (cabecera, versión vigente con su contenido, lista de versiones y citas resueltas con fecha y texto original). La versión vigente es la aprobada si la hay; si no, la última |
+| Visibilidad | `ReportVisibility` decide en el servidor: médico solo `APROBADO`; lo demás es 404 |
+| Edición | `PUT /api/reports/{id}/content` (`REPORTS_UPDATE`) crea la versión n+1 con origen `ENFERMERIA`; nunca se toca una versión anterior. Se cambian resumen, texto y criterio de cada afirmación y sus citas; las cifras (`metrics`, `insufficient_data`, `period`) las copia el servidor de la versión anterior, la persona no las puede cambiar (RN-04) |
+| Validación de la edición | Mismas reglas que el borrador, adaptadas: citas reales del mismo paciente y no posteriores a la semana (RN-05), sin diagnóstico ni dosis (RN-03), y todo número del texto debe existir entre las cifras guardadas del informe o ser un día de las fechas citadas. Errores por campo |
+| Decisión | `POST /api/reports/{id}/approve` y `/reject` (`REPORTS_APPROVE`, solo enfermería). Con bloqueo de fila para que aprobar y editar a la vez no se crucen |
+| Evidencia | `GET /api/reports/{id}/trace`: los pasos de la ejecución que lo produjo (`REPORTS_READ` y visible); `GET /api/reports/{id}/versions/{n}` para ver la versión del modelo (`REPORTS_UPDATE`) |
+| Semanas | `GET /api/patients/{id}/report-weeks` (`REPORTS_REQUEST`): semanas completas con registros y el informe vigente de cada una. `POST /api/runs` rechaza una semana que no terminó |
+
+## Plan
+
+- [x] 1. Lectura con la regla de estado
+      Produce: repositorio con bloqueo, `ReportService` (lista, detalle, versiones, traza), `ReportController`
+      Se comprueba: el médico solo ve `APROBADO` en lista y detalle; enfermería ve todos; el detalle trae citas con texto original
+  > `ReportsApiTest`: el médico lista solo `APROBADO` y recibe 404 en el detalle y la traza de los otros tres estados; enfermería ve los cuatro. El detalle trae cada cita con fecha, texto original y autor.
+- [x] 2. Edición con versiones
+      Produce: validador de la edición y `PUT .../content`
+      Se comprueba: la versión 1 no cambia; cada rechazo trae su campo; solo `PENDIENTE_REVISION`
+  > La versión 1 queda idéntica tras editar; la 2 es `ENFERMERIA` con quién editó y sus citas. Rechazos con el campo: cita de otro paciente, cita posterior a la semana, diagnóstico, dosis, número sin respaldo, resumen vacío, sin afirmaciones y sin cambios.
+- [x] 3. Aprobar y rechazar
+      Produce: las dos transiciones con bloqueo, quién, cuándo y versión
+      Se comprueba: todas las transiciones no definidas dan 409; médico 403; aprobar y editar a la vez
+  > `ReportTransitionsTest` (16 combinaciones) y 409 para las tres transiciones no definidas desde cada estado final, más aprobar dos veces. `ReportConcurrencyTest`: aprobar y editar a la vez, 12 rondas, la versión aprobada fue siempre la última.
+- [x] 4. Semanas para generar
+      Produce: `report-weeks` y la regla de semana completa en `POST /api/runs`
+      Se comprueba: solo semanas completas con registros
+  > `report-weeks` solo trae semanas completas con registros y el informe vigente de cada una; `POST /api/runs` rechaza la semana en curso (la regla se añadió al servicio de E11).
+- [x] 5. Documentos y cierre
+      Produce: contrato de la API en este plan y entrada en `docs/decisiones.md`
+      Se comprueba: `mvn -B verify`
+  > Entrada E12a en `docs/decisiones.md` con el contrato. `mvn -B verify`: ver el reporte de la etapa.

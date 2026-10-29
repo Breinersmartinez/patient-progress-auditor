@@ -17,6 +17,13 @@ public class FieldException extends RuntimeException {
         this.fields = Map.of(field, message);
     }
 
+    // Varios campos a la vez (p. ej. una edicion con mas de un problema): el mensaje general y un texto por campo.
+    public FieldException(HttpStatus status, String message, Map<String, String> fields) {
+        super(message);
+        this.status = status;
+        this.fields = Map.copyOf(fields);
+    }
+
     public HttpStatus status() {
         return status;
     }

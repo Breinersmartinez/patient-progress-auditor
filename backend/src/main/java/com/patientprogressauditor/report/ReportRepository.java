@@ -7,12 +7,24 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
+import jakarta.persistence.LockModeType;
 
 public interface ReportRepository extends JpaRepository<Report, UUID> {
 
     List<Report> findByPatientIdOrderByPeriodStartDesc(UUID patientId);
+
+    List<Report> findByStatusInOrderByPeriodStartDescCreatedAtDesc(Collection<Report.Status> statuses);
+
+    List<Report> findByStatusInAndPatientIdOrderByPeriodStartDescCreatedAtDesc(Collection<Report.Status> statuses, UUID patientId);
+
+    // Bloquea la fila hasta el final de la transaccion: aprobar, rechazar y editar no se cruzan.
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select r from Report r where r.id = :id")
+    Optional<Report> findForUpdate(@Param("id") UUID id);
 
     // El informe que dejo una ejecucion (borrador o INCOMPLETO), si dejo alguno.
     Optional<Report> findFirstByRunId(UUID runId);

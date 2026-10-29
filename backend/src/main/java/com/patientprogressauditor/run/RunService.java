@@ -78,8 +78,9 @@ public class RunService {
         if (weekStart.getDayOfWeek() != DayOfWeek.MONDAY) {
             throw new FieldException(HttpStatus.BAD_REQUEST, "weekStart", "La semana debe empezar un lunes.");
         }
-        if (weekStart.isAfter(LocalDate.now(clock))) {
-            throw new FieldException(HttpStatus.BAD_REQUEST, "weekStart", "Esa semana todavía no empieza.");
+        // Solo semanas completas (tabla 3.3 del prompt): una semana en curso daria un informe con la mitad de los registros.
+        if (!weekStart.plusDays(6).isBefore(LocalDate.now(clock))) {
+            throw new FieldException(HttpStatus.BAD_REQUEST, "weekStart", "Solo se puede informar una semana completa: esa todavía no termina.");
         }
         if (!patients.existsById(patientId)) {
             throw new NotFoundException("No encontramos al paciente.");
@@ -146,7 +147,7 @@ public class RunService {
     }
 
     List<StepView> stepsAfter(UUID runId, long afterId) {
-        return steps.findByRunIdAndIdGreaterThanOrderByIdAsc(runId, afterId).stream().map(RunService::view).toList();
+        return steps.findByRunIdAndIdGreaterThanOrderByIdAsc(runId, afterId).stream().map(RunService::stepView).toList();
     }
 
     AgentRun find(UUID runId) {
@@ -161,7 +162,7 @@ public class RunService {
                 run.getCreatedAt(), run.getStartedAt(), run.getFinishedAt());
     }
 
-    static StepView view(AgentStep s) {
+    public static StepView stepView(AgentStep s) {
         return new StepView(s.getId(), s.getSeq(), s.getStepType(), s.getMessage(), s.getToolName(), s.getParams(),
                 s.getResult(), s.isError(), s.getDurationMs(), s.getTokensIn(), s.getTokensOut(), s.getCreatedAt());
     }
