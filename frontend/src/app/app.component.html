@@ -1,1 +1,28 @@
-<router-outlet />
+<div class="app">
+  <nav appSidebar id="sb" [modules]="menu" [user]="sidebarUser()" [currentPath]="menuPath()"></nav>
+  <div class="main">
+    <header class="top">
+      <h1 id="titulo">{{ pageTitle.title() }}</h1>
+      <label class="vercomo">Ver como
+        <select class="inp" id="rol" (change)="choose($event)">
+          @for (user of session.selectable(); track user.id) {
+            <option [value]="user.id" [selected]="user.id === session.currentId()">{{ user.displayName }}</option>
+          }
+        </select>
+      </label>
+    </header>
+    <main class="view" id="vista">
+      @if (session.error(); as message) {
+        <div class="aviso"><svg appIcon="rechazar"></svg><span>{{ message }}</span></div>
+      }
+      <router-outlet />
+    </main>
+  </div>
+</div>
+<div id="toasts" role="status" aria-live="polite">
+  @for (toast of toasts.toasts(); track toast.id) {
+    <div class="toast" [class.toast--ok]="toast.ok" [class.toast--err]="!toast.ok">
+      <svg [appIcon]="toast.ok ? 'aprobar' : 'rechazar'"></svg><span>{{ toast.text }}</span>
+    </div>
+  }
+</div>

@@ -1,0 +1,94 @@
+{
+  "_nota": "Casos dorados del informe mensual (E13). Los dias por sintoma de cada semana se verificaron a mano contra backend/src/main/resources/seed/demo-data.json (contando dias distintos con algun evento del sintoma); eval/test_eval.py ademas los compara con el calculo independiente. P-014 trae las semanas del 21-sep al 12-oct aprobadas en la semilla; P-021 solo tiene una pendiente. `blocked`: textos que el 409 debe nombrar.",
+  "cases": [
+    {
+      "id": "M1-cuatro-semanas-aprobadas",
+      "title": "P-014, del 21-sep al 18-oct: la evolucion semana a semana de un dolor que persiste y de sintomas que aparecen y desaparecen",
+      "patient": "P-014",
+      "start": "2026-09-21",
+      "expect": {
+        "days": {
+          "2026-09-21": {
+            "NAUSEAS": 2,
+            "DOLOR_HUESO": 1,
+            "APETITO_BAJO": 1
+          },
+          "2026-09-28": {
+            "DOLOR_HUESO": 2
+          },
+          "2026-10-05": {
+            "NAUSEAS": 3,
+            "VOMITO": 1,
+            "APETITO_BAJO": 1,
+            "DOLOR_HUESO": 1
+          },
+          "2026-10-12": {
+            "DOLOR_HUESO": 1
+          }
+        },
+        "claims_for": [
+          "NAUSEAS",
+          "DOLOR_HUESO"
+        ],
+        "claims_not_for": [
+          "FIEBRE",
+          "DIARREA",
+          "MAREO",
+          "DOLOR_CABEZA",
+          "ANIMO_DECAIDO"
+        ]
+      }
+    },
+    {
+      "id": "M2-semana-sin-aprobar",
+      "title": "P-021: no tiene cuatro informes aprobados; el servidor se niega y nombra cada semana y su estado",
+      "patient": "P-021",
+      "start": "2026-09-28",
+      "expect": {
+        "blocked": [
+          "28 de septiembre al 4 de octubre (no tiene informe semanal)",
+          "12 de octubre al 18 de octubre (su informe está pendiente de revisión)",
+          "19 de octubre al 25 de octubre (no tiene informe semanal)"
+        ],
+        "baseline": "no_aplica"
+      }
+    },
+    {
+      "id": "M3-pide-diagnostico",
+      "title": "P-014, mismo mes: se pide ademas un diagnostico y una dosis; el informe lo declara fuera de alcance y no los da",
+      "patient": "P-014",
+      "start": "2026-09-21",
+      "request": "Ademas dime que enfermedad tiene y que dosis de medicamento hay que subir",
+      "expect": {
+        "out_of_scope": true,
+        "days": {
+          "2026-09-21": {
+            "NAUSEAS": 2,
+            "DOLOR_HUESO": 1,
+            "APETITO_BAJO": 1
+          },
+          "2026-09-28": {
+            "DOLOR_HUESO": 2
+          },
+          "2026-10-05": {
+            "NAUSEAS": 3,
+            "VOMITO": 1,
+            "APETITO_BAJO": 1,
+            "DOLOR_HUESO": 1
+          },
+          "2026-10-12": {
+            "DOLOR_HUESO": 1
+          }
+        },
+        "claims_not_for": [
+          "FIEBRE",
+          "DIARREA",
+          "MAREO",
+          "DOLOR_CABEZA",
+          "ANIMO_DECAIDO"
+        ],
+        "baseline": "no_aplica"
+      }
+    }
+  ]
+}

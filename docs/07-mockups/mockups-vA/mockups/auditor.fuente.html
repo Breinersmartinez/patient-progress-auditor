@@ -1,0 +1,779 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Patient Progress Auditor, mockup</title>
+<!-- componentes: boton menu -->
+<style>
+  html, body { margin: 0; }
+  body { font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text-primary); }
+  :focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+  h1, h2, h3, p { margin: 0; }
+  .sec { color: var(--text-secondary); }
+  .solo-lector { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+  .app { display: flex; min-height: 100dvh; }
+  .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .top { display: flex; align-items: center; gap: 16px; padding: 12px 24px; background: var(--surface); box-shadow: var(--shadow); }
+  .top h1 { margin-right: auto; font-size: 20px; line-height: 1.25; font-weight: 600; }
+  .vercomo { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); }
+  .view { width: 100%; max-width: 1040px; margin: 0 auto; padding: 24px; box-sizing: border-box; }
+
+  .inp { box-sizing: border-box; width: 100%; min-height: 44px; padding: 0 12px; border: 0; border-radius: var(--radius-ui);
+    background: var(--surface-sunken); color: var(--text-primary); font: inherit; }
+  textarea.inp { padding: 10px 12px; min-height: 88px; resize: vertical; }
+  select.inp { cursor: pointer; }
+  .vercomo .inp { width: auto; min-height: 36px; }
+  .campo { display: grid; gap: 4px; }
+  .campo label { font-size: 13px; color: var(--text-secondary); }
+  .error { font-size: 13px; color: var(--color-danger); min-height: 0; }
+
+  .btn--sec { background: var(--surface-sunken); color: var(--text-primary); }
+  .btn { text-decoration: none; white-space: nowrap; }
+  @media (hover: hover) and (pointer: fine) {
+    .btn--primary:hover { background: color-mix(in srgb, var(--color-primary) 88%, black); }
+    .btn--sec:hover { background: color-mix(in srgb, var(--surface-sunken) 90%, black); }
+  }
+  .btn:active { box-shadow: var(--shadow-hover); }
+
+  .cab { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+  .cab h2 { font-size: 22px; line-height: 1.25; font-weight: 600; }
+  .cab .acc { display: flex; gap: 8px; flex-wrap: wrap; }
+  .bloque { margin-top: 32px; }
+  .bloque > h3 { font-size: 16px; font-weight: 600; margin-bottom: 12px; }
+  .grid { display: grid; gap: 12px; }
+
+  .card { background: var(--surface); border-radius: var(--radius-ui); box-shadow: var(--shadow); padding: 16px;
+    transition: transform var(--ease-ui), box-shadow var(--ease-ui); }
+  .card--quieta { transition: none; }
+  .card--nav { display: block; color: inherit; text-decoration: none; cursor: pointer; }
+  @media (hover: hover) and (pointer: fine) {
+    .card:not(.card--quieta):hover { transform: translateY(var(--lift-static)); }
+    .card--nav:hover { transform: translateY(var(--lift-interactive)); box-shadow: var(--shadow-hover); }
+  }
+  .card--nav:active { transform: translateY(var(--lift-interactive)); box-shadow: var(--shadow-hover); }
+  .card p { margin: 6px 0 0; }
+  .datos { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin: 12px 0 0; }
+  .datos dt { font-size: 12px; color: var(--text-secondary); }
+  .datos dd { margin: 0; font-weight: 600; }
+  .cifras { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 8px; }
+  .cifras .dato { font-size: 28px; font-weight: 600; line-height: 1.1; }
+  .cifras small { color: var(--text-secondary); }
+
+  .barra { display: flex; align-items: center; gap: 16px; margin-bottom: 12px; }
+  .barra .inp { max-width: 360px; }
+  .barra .total { margin-left: auto; font-size: 13px; color: var(--text-secondary); }
+  .tabla-wrap { background: var(--surface); border-radius: var(--radius-ui); box-shadow: var(--shadow); overflow: hidden; }
+  .tabla { width: 100%; border-collapse: collapse; }
+  .tabla th { text-align: left; font-size: 13px; font-weight: 600; color: var(--text-secondary); padding: 12px 16px; }
+  .tabla td { padding: 12px 16px; border-top: 1px solid var(--divider); vertical-align: top; }
+  .tabla tr[data-href] { cursor: pointer; }
+  @media (hover: hover) and (pointer: fine) { .tabla tbody tr:hover { background: var(--surface-sunken); } }
+  @media (max-width: 700px) {
+    .tabla thead { display: none; }
+    .tabla, .tabla tbody, .tabla tr, .tabla td { display: block; }
+    .tabla tr { padding: 12px 16px; border-top: 1px solid var(--divider); }
+    .tabla td { border: 0; padding: 2px 0; }
+    .tabla td::before { content: attr(data-label) ": "; color: var(--text-secondary); }
+    .top { padding: 12px 16px; flex-wrap: wrap; }
+    .view { padding: 16px; }
+  }
+
+  .est { display: inline-flex; align-items: center; gap: 10px; font-weight: 500; color: var(--text-primary); }
+  .est--d { gap: 8px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  .est--d .dot { width: 8px; height: 8px; }
+  .punto-lista { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--color-primary); margin-left: 8px; }
+
+  .vacio { text-align: center; padding: 48px 16px; display: grid; justify-items: center; gap: 8px; }
+  .vacio .icon { width: 32px; height: 32px; color: var(--text-secondary); }
+  .vacio h3 { font-size: 17px; font-weight: 600; }
+  .vacio p { color: var(--text-secondary); max-width: 420px; }
+  .vacio .btn { margin-top: 8px; }
+
+  .aviso { display: flex; gap: 10px; align-items: flex-start; padding: 12px 16px; border-radius: var(--radius-ui);
+    background: color-mix(in srgb, var(--color-primary) 8%, var(--surface)); margin-bottom: 16px; }
+  .aviso .icon { margin-top: 3px; color: var(--color-primary); }
+
+  .acciones { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 12px 0; margin-bottom: 8px; background: var(--bg); }
+  .acciones .izq { margin-right: auto; display: grid; gap: 2px; }
+  .acciones .izq b { font-size: 17px; }
+  .acciones .nota { width: 100%; font-size: 13px; color: var(--text-secondary); }
+
+  .hoja { box-sizing: border-box; width: min(794px, 100%); margin: 16px auto 0; padding: 48px 56px; min-height: 900px;
+    background: #fff; color: #1F1F1E; border-radius: var(--radius-ui); box-shadow: var(--shadow); }
+  @media (max-width: 700px) { .hoja { padding: 24px 20px; } }
+  .hoja h1 { font-size: 22px; line-height: 1.25; margin-bottom: 4px; }
+  .hoja .sub { color: #5F5E5A; margin-bottom: 20px; }
+  .hoja h2 { font-size: 15px; font-weight: 600; margin: 24px 0 8px; }
+  .hoja .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 24px; font-size: 13px; padding: 12px 0; background: none;
+    border-top: 2px solid #1F1F1E; border-bottom: 1px solid var(--divider); }
+  .hoja .resumen { text-align: justify; hyphens: auto; line-height: 1.7; }
+  .hoja sup { color: var(--color-primary); font-weight: 600; }
+  .hoja table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .hoja th, .hoja td { text-align: left; padding: 8px; border-bottom: 1px solid var(--divider); }
+  .hoja th { background: #F1F1EE; }
+  .hoja .nota { font-size: 12px; color: #5F5E5A; margin-top: 6px; }
+  .hoja ol { padding-left: 0; list-style: none; font-size: 13px; margin: 0; }
+  .hoja ol li { margin-bottom: 4px; }
+  .hoja .pie { margin-top: 32px; padding-top: 12px; border-top: 1px solid var(--divider); font-size: 13px; color: #5F5E5A; display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  [contenteditable="true"] { outline: 2px dashed var(--color-primary); outline-offset: 2px; }
+
+  .chat-pag { display: flex; flex-direction: column; gap: 16px; max-width: 720px; }
+  .chat-datos { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .chat { display: flex; flex-direction: column; gap: 12px; min-height: 160px; }
+  .chat .ayuda { margin: auto; text-align: center; color: var(--text-secondary); }
+  .burbuja { align-self: flex-end; max-width: 85%; padding: 10px 14px; border-radius: var(--radius-ui); background: var(--color-primary); color: var(--on-primary); }
+  .vista-ia h3 { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; margin-bottom: 12px; }
+  .vista-ia .campos { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 12px 0; }
+  .vista-ia .botones { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+  .entrada { position: sticky; bottom: 0; display: flex; gap: 8px; padding: 12px 0; background: var(--bg); }
+  .entrada .inp { flex: 1; }
+
+  .icbtn { position: relative; width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: var(--radius-ui);
+    background: none; color: var(--text-primary); cursor: pointer; }
+  .icbtn .icon { width: 18px; height: 18px; }
+  @media (hover: hover) and (pointer: fine) { .icbtn:hover { background: var(--surface-sunken); } }
+  .punto-notif { position: absolute; top: 9px; right: 9px; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--color-primary); box-shadow: 0 0 0 2px var(--surface); }
+  .campana { position: relative; }
+  .campana-panel { position: absolute; right: 0; top: calc(100% + 8px); width: 330px; max-width: 90vw; padding: 6px; z-index: 30;
+    background: var(--surface); border-radius: var(--radius-ui); box-shadow: var(--shadow-hover); }
+  .campana-panel h3 { font-size: 13px; font-weight: 600; padding: 8px 10px 6px; }
+  .notif { display: flex; gap: 10px; align-items: flex-start; width: 100%; padding: 8px 10px; border: 0; border-radius: var(--radius-ui);
+    background: none; font: inherit; text-align: left; color: var(--text-primary); cursor: pointer; }
+  @media (hover: hover) and (pointer: fine) { .notif:hover { background: var(--surface-sunken); } }
+  .notif .pt { width: 8px; height: 8px; margin-top: 8px; border-radius: 50%; flex: none; }
+  .notif small { display: block; color: var(--text-secondary); }
+
+  #toasts { position: fixed; right: 16px; bottom: 16px; z-index: 60; display: grid; gap: 8px; }
+  .toast { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: var(--radius-ui);
+    background: var(--surface); box-shadow: var(--shadow-hover); }
+  .toast--ok .icon { color: var(--color-success); }
+  .toast--err .icon { color: var(--color-danger); }
+
+  .perm td, .perm th { text-align: center; }
+  .perm td:first-child, .perm th:first-child { text-align: left; }
+
+  .sint { margin: 8px 0 0; padding-left: 18px; }
+  .sint-filas { display: grid; gap: 12px; }
+  .sint-filas:empty::before { content: "No se detectaron síntomas. Si hubo alguno, agréguelo."; color: var(--text-secondary); }
+  .fila-sint { display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 8px; align-items: end; }
+  @media (max-width: 700px) { .fila-sint { grid-template-columns: 1fr 1fr; } .fila-sint .campo:first-child { grid-column: 1 / -1; } }
+
+  @media print {
+    .sb, .top, .acciones, .aviso, #toasts { display: none !important; }
+    .app { display: block; }
+    body { background: #fff; }
+    .view { padding: 0; max-width: none; }
+    .hoja { box-shadow: none; padding: 0; width: 100%; margin: 0; min-height: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <nav id="sb"></nav>
+  <div class="main">
+    <header class="top">
+      <h1 id="titulo"></h1>
+      <label class="vercomo">Ver como <select class="inp" id="rol">
+        <option value="enf">Enfermería</option><option value="med">Médico</option><option value="adm">Administrador</option>
+      </select></label>
+      <div class="campana" id="campana"></div>
+    </header>
+    <main class="view" id="vista"></main>
+  </div>
+</div>
+<div id="toasts" role="status" aria-live="polite"></div>
+
+<script>
+/* ---------- iconos propios de los módulos ---------- */
+Object.assign(ICONOS, {
+  pacientes: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.2a6.5 6.5 0 0 1 3.5 5.8"/>',
+  registro: '<path d="M5 3h10l4 4v14H5z"/><path d="M14 3v5h5"/><path d="M8.5 13h7M8.5 17h5"/>',
+  informes: '<path d="M5 20V4"/><path d="M5 20h15"/><path d="M9 16v-4m4 4V8m4 8v-6"/>',
+  usuarios: '<circle cx="12" cy="8" r="3.5"/><path d="M5 20a7 7 0 0 1 14 0"/><path d="M19 3v4m-2-2h4"/>',
+  permisos: '<path d="M12 3 4.5 6v5.5c0 4.5 3 8 7.5 9.5 4.5-1.5 7.5-5 7.5-9.5V6z"/><path d="m9 12 2 2 4-4"/>',
+  trazas: '<path d="M3 12h4l2.5-6 4 12 2.5-6H21"/>',
+  campana: '<path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 21h4"/>',
+  buscar: '<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/>',
+});
+
+/* ---------- utilidades ---------- */
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
+const DIAS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+const DIAS_L = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const HOY = '2026-10-26';
+const fch = (s) => new Date(s + 'T12:00:00');
+const isoDe = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const sumar = (s, n) => { const d = fch(s); d.setDate(d.getDate() + n); return isoDe(d); };
+const dCorto = (s) => `${DIAS[fch(s).getDay()]} ${fch(s).getDate()}`;
+const dLargo = (s) => `${DIAS_L[fch(s).getDay()]} ${fch(s).getDate()} de ${MESES[fch(s).getMonth()]}`;
+const dFull = (s) => `${fch(s).getDate()} de ${MESES[fch(s).getMonth()]} de ${fch(s).getFullYear()}`;
+const rango = (ini) => { const a = fch(ini), b = fch(sumar(ini, 6)); return `${a.getDate()} al ${b.getDate()} de ${MESES[b.getMonth()]} de ${b.getFullYear()}`; };
+const unir = (a) => (a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' y ' + a[a.length - 1]);
+const nodo = (html) => { const d = document.createElement('div'); d.innerHTML = html; return d; };
+
+const COLOR_ESTADO = { 'En revisión': '#7F77DD', Aprobado: '#1D9E75', Enviado: '#1D9E75', Activo: '#1D9E75', Inactivo: '#888780', Completado: '#1D9E75', 'Falló': '#E24B4A' };
+const estado = (n, denso) => `<span class="est${denso ? ' est--d' : ''}"><i class="dot" style="background:${COLOR_ESTADO[n]}"></i>${esc(n)}</span>`;
+
+function toast(texto, ok = true) {
+  const t = document.createElement('div');
+  t.className = 'toast ' + (ok ? 'toast--ok' : 'toast--err');
+  t.innerHTML = icono(ok ? 'aprobar' : 'rechazar') + `<span>${esc(texto)}</span>`;
+  document.getElementById('toasts').append(t);
+  setTimeout(() => t.remove(), 3800);
+}
+
+/* ---------- DATOS: única fuente de verdad (todos sintéticos) ---------- */
+const DATOS = { pacientes: [], registros: [], informes: [], notificaciones: [], trazas: [], usuarios: [] };
+[['P-014', 67, '301-A', '2026-10-05'], ['P-021', 54, '305-B', '2026-10-09'], ['P-007', 72, '312-A', '2026-09-28'],
+ ['P-033', 61, '318-C', '2026-10-18'], ['P-040', 45, '320-A', '2026-10-20'], ['P-041', 80, '322-B', '2026-10-21'],
+ ['P-042', 58, '325-A', '2026-10-22'], ['P-043', 69, '327-C', '2026-10-23']]
+  .forEach(([id, edad, cama, ingreso]) => DATOS.pacientes.push({ id, edad, cama, ingreso }));
+
+DATOS.catalogo = ['Vómito', 'Diarrea', 'Náuseas', 'Fiebre', 'Mareo', 'Dolor de cabeza', 'Dolor de hueso', 'Apetito bajo', 'Ánimo decaído'];
+let _r = 0;
+// síntomas: [nombre, veces?, intensidad?]. Cada registro lleva solo los que ese día aparecieron.
+const reg = (pac, fecha, texto, sintomas = []) =>
+  DATOS.registros.push({ id: 'R' + ++_r, pac, fecha, texto, sintomas: sintomas.map(([n, veces, intensidad]) => ({ n, veces: veces || 0, intensidad: intensidad || '' })) });
+
+[[0, 'Tranquilo, comió bien.', []], [1, 'Sin novedades.', []], [2, 'Dolor leve de cabeza, cedió con reposo.', [['Dolor de cabeza', 0, 'leve']]],
+ [3, 'Buen ánimo, caminó por el pasillo.', []], [4, 'Comió completo, descansó bien.', []], [5, 'Sin novedades.', []], [6, 'Tranquilo, recibió visita.', []]]
+  .forEach(([o, ...r]) => reg('P-014', sumar('2026-10-12', o), ...r));
+[[0, 'Vomitó en la mañana. Ánimo alto. Comió poco.', [['Vómito', 1], ['Apetito bajo']]], [1, 'Tranquilo, comió bien.', []], [2, 'Sin novedades.', []],
+ [4, 'Vomitó dos veces tras el almuerzo. Decaído.', [['Vómito', 2], ['Ánimo decaído']]], [5, 'Náuseas leves, ánimo regular.', [['Náuseas', 0, 'leve']]],
+ [6, 'Tolera dieta blanda.', []]]
+  .forEach(([o, ...r]) => reg('P-014', sumar('2026-10-19', o), ...r));
+[[0, 'Sin novedades.', []], [1, 'Tranquila, comió bien.', []], [2, 'Descansó bien.', []],
+ [3, 'Fiebre de 38.2 en la tarde, se avisó al turno.', [['Fiebre', 1]]], [4, 'Fiebre de 38.0 en la noche. Decaída.', [['Fiebre', 1], ['Ánimo decaído']]],
+ [5, 'Sin fiebre, ánimo mejor.', []], [6, 'Tranquila.', []]]
+  .forEach(([o, ...r]) => reg('P-021', sumar('2026-10-12', o), ...r));
+[[0, 'Sin novedades.', []], [1, 'Tranquila, comió bien.', []], [2, 'Descansó bien.', []], [4, 'Sin fiebre.', []]]
+  .forEach(([o, ...r]) => reg('P-021', sumar('2026-10-19', o), ...r));
+[[0, 'Comió poco.', [['Apetito bajo']]], [1, 'Rechazó el desayuno. Dolor de huesos en la tarde.', [['Apetito bajo'], ['Dolor de hueso', 0, 'moderado'], ['Ánimo decaído']]],
+ [2, 'Comió la mitad.', [['Apetito bajo']]], [3, 'Dolor de huesos al caminar.', [['Dolor de hueso', 0, 'moderado']]],
+ [4, 'Comió poco. Diarrea una vez.', [['Apetito bajo'], ['Diarrea', 1]]], [5, 'Comió bien.', []], [6, 'Sin novedades.', []]]
+  .forEach(([o, ...r]) => reg('P-007', sumar('2026-10-12', o), ...r));
+[[0, 'Ingreso reciente, tranquilo.', []], [1, 'Sin novedades.', []]]
+  .forEach(([o, ...r]) => reg('P-033', sumar('2026-10-19', o), ...r));
+['P-040', 'P-041', 'P-042', 'P-043'].forEach((p) => [0, 1].forEach((o) => reg(p, sumar('2026-10-24', o), 'Sin novedades.')));
+
+const regsRango = (pac, d, h) => DATOS.registros.filter((r) => r.pac === pac && r.fecha >= d && r.fecha <= h).sort((a, b) => a.fecha.localeCompare(b.fecha));
+const largo = (d, h) => Math.round((fch(h) - fch(d)) / 86400000) + 1;
+const anterior = (d, h) => [sumar(d, -largo(d, h)), sumar(d, -1)]; // período anterior de la misma duración
+function periodoTxt(d, h) {
+  const a = fch(d), b = fch(h);
+  if (d === h) return dFull(d);
+  if (a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear()) return `${a.getDate()} al ${b.getDate()} de ${MESES[b.getMonth()]} de ${b.getFullYear()}`;
+  return `${a.getDate()} de ${MESES[a.getMonth()]} al ${b.getDate()} de ${MESES[b.getMonth()]} de ${b.getFullYear()}`;
+}
+[[0, 'Ingreso, estable.', []], [1, 'Náuseas leves tras el desayuno.', [['Náuseas', 0, 'leve']]], [2, 'Dolor de huesos en las piernas.', [['Dolor de hueso', 0, 'moderado']]],
+ [3, 'Sin novedades.', []], [4, 'Náuseas leves.', [['Náuseas', 0, 'leve']]], [5, 'Sin novedades.', []], [6, 'Tranquilo.', []]]
+  .forEach(([o, ...r]) => reg('P-014', sumar('2026-10-05', o), ...r));
+const ultimoReg = (pac) => DATOS.registros.filter((r) => r.pac === pac).sort((a, b) => b.fecha.localeCompare(a.fecha))[0];
+
+/* Cuenta por síntoma: en cuántos días aparece y cuántas veces. Lo calcula el código, no la IA. */
+function porSintoma(rs) {
+  const m = {};
+  rs.forEach((r) => r.sintomas.forEach((s) => {
+    const x = (m[s.n] ||= { dias: 0, veces: 0, fechas: [], ids: [], ints: new Set() });
+    x.dias++; x.veces += s.veces || 1; x.fechas.push(r.fecha); x.ids.push(r.id);
+    if (s.intensidad) x.ints.add(s.intensidad);
+  }));
+  return m;
+}
+const nDias = (x) => `${x.dias} ${x.dias === 1 ? 'día' : 'días'}`;
+
+/* Simula la redacción del agente, en registro formal de informe médico. Sin comparación habla solo del período; con ella, lo contrasta. */
+const dDia = (s) => `${DIAS_L[fch(s).getDay()]} ${fch(s).getDate()}`;
+const fechasTxt = (f) => f.length > 6 ? `entre el ${dDia(f[0])} y el ${dDia(f[f.length - 1])}` : unir(f.map(dDia));
+const intensidadTxt = (x) => !x.ints.size ? '' : x.ints.size === 1 ? ` de intensidad ${[...x.ints][0]}` : ` de intensidad variable (${unir([...x.ints])})`;
+function redactar(pac, desde, hasta, comp) {
+  const total = largo(desde, hasta), act = regsRango(pac, desde, hasta), a = porSintoma(act), cl = [];
+  const ant = comp ? regsRango(pac, comp.desde, comp.hasta) : [], p = porSintoma(ant), conComp = comp && ant.length > 0;
+  const nuevos = [], sueltos = [];
+  // el hallazgo principal primero (el que más episodios tiene)
+  Object.entries(a).sort((u, v) => v[1].veces - u[1].veces).forEach(([n, x]) => {
+    const nl = n.toLowerCase(), veces = x.veces > x.dias ? `, con un total de ${x.veces} episodios` : '';
+    const frase = `${nl}${intensidadTxt(x)} en ${nDias(x)} (${fechasTxt(x.fechas)})${veces}`;
+    if (conComp && p[n]) cl.push({ texto: `${cl.length ? 'Asimismo, hubo' : 'Hubo'} registro de ${frase}, frente a ${nDias(p[n])} en el período de comparación.`, fuentes: x.ids });
+    else { sueltos.push({ frase, ids: x.ids }); if (conComp) nuevos.push([nl, x.ids]); }
+  });
+  if (sueltos.length) {
+    const [primero, ...resto] = sueltos;
+    if (!cl.length) { cl.push({ texto: `Hubo registro de ${primero.frase}.`, fuentes: primero.ids }); }
+    else resto.unshift(primero);
+    if (resto.length) cl.push({ texto: `${cl.length ? 'Asimismo, hubo' : 'Hubo'} registro ${unir(resto.map((r) => 'de ' + r.frase))}.`, fuentes: resto.flatMap((r) => r.ids) });
+  }
+  if (nuevos.length) cl.push({ texto: `No se habían registrado en el período de comparación: ${unir(nuevos.map((x) => x[0]))}.`, fuentes: ['sinsint:' + comp.desde + '|' + comp.hasta + '|' + ant.length],
+    patron: true, patronTxt: `Se observa la aparición de ${unir(nuevos.map((x) => x[0]))} en el período evaluado, sin antecedente en el período de comparación.` });
+  if (conComp) Object.entries(p).forEach(([n, x]) => { if (!a[n]) cl.push({ texto: `No hubo registro de ${n.toLowerCase()} en el período evaluado, a diferencia del período de comparación (${nDias(x)}).`, fuentes: x.ids }); });
+  if (act.length && !Object.keys(a).length) cl.push({ texto: 'No hubo registro de síntomas en el período evaluado.', fuentes: act.map((r) => r.id) });
+  const faltan = Array.from({ length: total }, (_, o) => sumar(desde, o)).filter((f) => !act.some((r) => r.fecha === f));
+  if (faltan.length && faltan.length <= 6) cl.push({ texto: `Cabe señalar que no existe registro ${faltan.length === 1 ? 'del día' : 'de los días'} ${unir(faltan.map(dDia))}, por lo que no es posible emitir observaciones sobre ${faltan.length === 1 ? 'esa fecha' : 'esas fechas'}.`, fuentes: faltan.map((f) => 'falta:' + f) });
+  else if (faltan.length) cl.push({ texto: `Cabe señalar que no existe registro en ${faltan.length} de los ${total} días del período, por lo que no es posible emitir observaciones sobre ellos.`, fuentes: faltan.slice(0, 6).map((f) => 'falta:' + f) });
+  if (comp && !ant.length) cl.push({ texto: 'No se dispone de registros del período de comparación, por lo que no es posible contrastar ambos períodos.', fuentes: ['comp:' + comp.desde + '|' + comp.hasta] });
+  return cl;
+}
+
+const TEMP = {}; // informes que arma el médico: no se guardan en el historial
+const semana = (ini) => [ini, sumar(ini, 6)];
+function crearInforme(pac, desde, hasta, est = 'En revisión', comp = null) {
+  const inf = { id: 'I-' + (DATOS.informes.length + 1), pac, desde, hasta, comp, estado: est, claims: redactar(pac, desde, hasta, comp), generado: HOY, aprobador: null, enviado: null };
+  if (est !== 'En revisión') inf.aprobador = 'Marcela Rojas';
+  if (est === 'Enviado') inf.enviado = HOY;
+  DATOS.informes.push(inf);
+  return inf;
+}
+crearInforme('P-014', ...semana('2026-10-19'), 'En revisión', { desde: '2026-10-12', hasta: '2026-10-18' });
+crearInforme('P-021', ...semana('2026-10-12'), 'Enviado');
+crearInforme('P-007', ...semana('2026-10-12'), 'Aprobado');
+
+DATOS.notificaciones.push(
+  { id: 'N1', pac: 'P-014', tipo: 'registro', texto: 'Nuevo registro del domingo 25 de octubre', ref: '#/med/pacientes/ficha/P-014', hora: '25 oct, 19:10', leida: false },
+  { id: 'N2', pac: 'P-021', tipo: 'registro', texto: 'Nuevo registro del viernes 23 de octubre', ref: '#/med/pacientes/ficha/P-021', hora: '23 oct, 18:40', leida: false },
+  { id: 'N3', pac: 'P-021', tipo: 'informe', texto: 'Informe semanal recibido', ref: '#/med/informes/ver/I-2', hora: '26 oct, 8:15', leida: true });
+DATOS.trazas.push(
+  { hora: '26 oct, 8:02', pac: 'P-021', accion: 'obtener_registros, calcular_metricas, guardar_borrador', dur: '4.1 s', res: 'Completado' },
+  { hora: '26 oct, 8:20', pac: 'P-007', accion: 'obtener_registros, calcular_metricas, guardar_borrador', dur: '3.6 s', res: 'Completado' },
+  { hora: '26 oct, 8:41', pac: 'P-014', accion: 'obtener_registros, calcular_metricas, guardar_borrador', dur: '4.4 s', res: 'Completado' });
+[['Marcela Rojas', 'marcela.rojas@demo.local', 'Enfermería', 'Activo'], ['Camilo Torres', 'camilo.torres@demo.local', 'Enfermería', 'Activo'],
+ ['Diana Pardo', 'diana.pardo@demo.local', 'Enfermería', 'Activo'], ['Dr. Andrés Salazar', 'andres.salazar@demo.local', 'Médico', 'Activo'],
+ ['Dra. Paula Mejía', 'paula.mejia@demo.local', 'Médico', 'Inactivo'], ['Dr. Julián Ortiz', 'julian.ortiz@demo.local', 'Médico', 'Activo'],
+ ['Laura Vega', 'laura.vega@demo.local', 'Administrador', 'Activo'], ['Sergio Nieto', 'sergio.nieto@demo.local', 'Administrador', 'Inactivo']]
+  .forEach(([nombre, correo, rol, est], i) => DATOS.usuarios.push({ id: 'U' + (i + 1), nombre, correo, rol, estado: est }));
+
+const sinLeer = (pac) => DATOS.notificaciones.filter((n) => !n.leida && (!pac || n.pac === pac)).length;
+const ultimoInforme = (pac, soloEnviado) => DATOS.informes.filter((i) => i.pac === pac && (!soloEnviado || i.estado === 'Enviado')).sort((a, b) => b.desde.localeCompare(a.desde))[0];
+
+/* ---------- ROLES ---------- */
+const ROLES = {
+  enf: { inicio: 'pacientes', modulos: [
+    { texto: 'Pacientes', icono: 'pacientes', href: '#/enf/pacientes' },
+    { texto: 'Registro diario', icono: 'registro', sub: [{ texto: 'Nuevo registro', href: '#/enf/registro/nuevo' }, { texto: 'Historial', href: '#/enf/registro/historial' }] },
+    { texto: 'Informes', icono: 'informes', sub: [{ texto: 'Generar informe', href: '#/enf/informes/generar' }, { texto: 'En revisión', href: '#/enf/informes/revision' }, { texto: 'Aprobados', href: '#/enf/informes/aprobados' }] },
+  ], usuario: { nombre: 'Marcela Rojas', rol: 'Enfermería', correo: 'marcela.rojas@demo.local', area: 'Piso 3', cargo: 'Enfermera jefe', acceso: 'Hoy, 7:42' } },
+  med: { inicio: 'pacientes', modulos: [
+    { texto: 'Mis pacientes', icono: 'pacientes', href: '#/med/pacientes' },
+    { texto: 'Informes', icono: 'informes', sub: [{ texto: 'Recibidos', href: '#/med/informes/lista' }, { texto: 'Armar informe', href: '#/med/informes/armar' }] },
+  ], usuario: { nombre: 'Dr. Andrés Salazar', rol: 'Médico', correo: 'andres.salazar@demo.local', area: 'Medicina interna', cargo: 'Médico tratante', acceso: 'Hoy, 7:55' } },
+  adm: { inicio: 'usuarios', modulos: [
+    { texto: 'Usuarios', icono: 'usuarios', href: '#/adm/usuarios' },
+    { texto: 'Permisos por rol', icono: 'permisos', href: '#/adm/permisos' },
+    { texto: 'Trazas del agente', icono: 'trazas', href: '#/adm/trazas' },
+  ], usuario: { nombre: 'Laura Vega', rol: 'Administrador', correo: 'laura.vega@demo.local', area: 'Sistemas', cargo: 'Administradora', acceso: 'Ayer, 17:30' } },
+};
+Object.values(ROLES).forEach((r) => { r.usuario.alSalir = () => toast('Sesión cerrada (simulado en el mockup)'); });
+
+/* ---------- vistas genéricas ---------- */
+function vacioHTML(titulo, texto, accion) {
+  return `<div class="vacio">${icono('buscar')}<h3>${esc(titulo)}</h3><p>${esc(texto)}</p>${accion ? `<a class="btn btn--primary" href="${accion.href}">${esc(accion.texto)}</a>` : ''}</div>`;
+}
+
+function listado({ cols, filas, placeholder, vacio }) {
+  const w = nodo(`<div class="barra"><input class="inp" type="search" placeholder="${esc(placeholder)}" aria-label="${esc(placeholder)}"><span class="total"></span></div><div class="cont"></div>`);
+  const inp = w.querySelector('input'), cont = w.querySelector('.cont'), tot = w.querySelector('.total');
+  const pintar = () => {
+    const q = inp.value.trim().toLowerCase();
+    const f = filas.filter((r) => !q || r.buscar.toLowerCase().includes(q));
+    tot.textContent = `${f.length} ${f.length === 1 ? 'resultado' : 'resultados'}`;
+    if (!f.length) {
+      cont.innerHTML = `<div class="tabla-wrap">${filas.length ? vacioHTML('Sin resultados', 'Ningún registro coincide con la búsqueda. Pruebe con otro texto.') : vacioHTML(vacio.titulo, vacio.texto, vacio.accion)}</div>`;
+      return;
+    }
+    cont.innerHTML = `<div class="tabla-wrap"><table class="tabla"><thead><tr>${cols.map((c) => `<th scope="col">${c}</th>`).join('')}</tr></thead><tbody>`
+      + f.map((r) => `<tr${r.href ? ` data-href="${r.href}"` : ''}>${r.celdas.map((c, i) => `<td data-label="${esc(cols[i])}">${c}</td>`).join('')}</tr>`).join('') + '</tbody></table></div>';
+  };
+  inp.addEventListener('input', pintar);
+  cont.addEventListener('click', (e) => { const tr = e.target.closest('tr[data-href]'); if (tr) location.hash = tr.dataset.href; });
+  pintar();
+  return w;
+}
+
+const sintTexto = (s) => [s.n, s.intensidad, s.veces ? (s.veces === 1 ? '1 vez' : s.veces + ' veces') : ''].filter(Boolean).join(', ');
+const regCard = (r) => `<article class="card"><b>${dLargo(r.fecha)}</b><p>${esc(r.texto)}</p>`
+  + (r.sintomas.length ? `<ul class="sint">${r.sintomas.map((s) => `<li>${esc(sintTexto(s))}</li>`).join('')}</ul>` : '<p class="sec">Sin síntomas registrados.</p>') + '</article>';
+
+function noEncontrado() {
+  return { titulo: 'No encontrado', nodo: nodo(vacioHTML('No encontramos lo que busca', 'Puede que haya cambiado o que su rol no tenga acceso.', { texto: 'Volver al inicio', href: '#/' + (rolActual || 'enf') })) };
+}
+
+/* ---------- pacientes ---------- */
+function vPacLista(rol) {
+  const filas = DATOS.pacientes.map((p) => {
+    const u = ultimoReg(p.id), inf = ultimoInforme(p.id, rol === 'med');
+    const nuevo = rol === 'med' && sinLeer(p.id) > 0;
+    return { href: `#/${rol}/pacientes/ficha/${p.id}`, buscar: `${p.id} ${p.cama}`,
+      celdas: [`<b>${p.id}</b>${nuevo ? '<i class="punto-lista"></i><span class="solo-lector"> Registros nuevos</span>' : ''}`, p.cama, `${p.edad} años`, u ? dCorto(u.fecha) : 'Sin registros', inf ? estado(inf.estado, true) : '<span class="sec">Sin informes</span>'] };
+  });
+  return { titulo: rol === 'med' ? 'Mis pacientes' : 'Pacientes', nodo: listado({ cols: ['Paciente', 'Cama', 'Edad', 'Último registro', 'Último informe'], filas, placeholder: 'Busque por código de paciente o cama', vacio: { titulo: 'Aún no hay pacientes', texto: 'Cuando se registre un paciente aparecerá aquí.' } }) };
+}
+
+function vPacFicha(rol, id) {
+  const p = DATOS.pacientes.find((x) => x.id === id);
+  if (!p) return noEncontrado();
+  if (rol === 'med') DATOS.notificaciones.forEach((n) => { if (n.pac === id && n.tipo === 'registro') n.leida = true; });
+  const regs = DATOS.registros.filter((r) => r.pac === id).sort((a, b) => b.fecha.localeCompare(a.fecha)).slice(0, 7);
+  const inf = ultimoInforme(id, rol === 'med');
+  const acc = rol === 'enf' ? `<div class="acc"><a class="btn btn--sec" href="#/enf/informes/generar/${id}">${icono('ia')}Generar informe</a><a class="btn btn--primary" href="#/enf/registro/nuevo/${id}">${icono('registro')}Nuevo registro</a></div>` : '';
+  const w = nodo(`<div class="cab"><div><h2>Paciente ${p.id}</h2><p class="sec">Cama ${p.cama}, ${p.edad} años, ingreso el ${dFull(p.ingreso)}</p></div>${acc}</div>`
+    + (inf ? `<section><h3 class="sec" style="font-size:16px;margin-bottom:12px">${rol === 'med' ? 'Último informe recibido' : 'Último informe'}</h3>`
+      + `<a class="card card--nav" href="#/${rol}/informes/ver/${inf.id}"><b>${inf.hasta === sumar(inf.desde, 6) ? 'Semana' : 'Período'} del ${periodoTxt(inf.desde, inf.hasta)}</b><p>${estado(inf.estado)}</p></a></section>` : '')
+    + `<section class="bloque"><h3>Registros recientes</h3>${regs.length ? `<div class="grid">${regs.map(regCard).join('')}</div>` : vacioHTML('Sin registros todavía', 'Cuando enfermería guarde el primer registro aparecerá aquí.', rol === 'enf' ? { texto: 'Crear el primer registro', href: `#/enf/registro/nuevo/${id}` } : null)}</section>`);
+  return { titulo: `Paciente ${p.id}`, nodo: w, marcar: `#/${rol}/pacientes` };
+}
+
+/* ---------- registro diario (enfermería) ---------- */
+const SINTOMAS_DET = [
+  ['Vómito', /vomit/], ['Diarrea', /diarre/], ['Náuseas', /náuseas/], ['Fiebre', /fiebre/], ['Mareo', /mareo|maread/],
+  ['Dolor de cabeza', /dolor de cabeza|cefale|duele la cabeza/], ['Dolor de hueso', /dolor(es)? (de|en los) huesos?|duelen los huesos/],
+  ['Apetito bajo', /comió poco|no quiso comer|sin apetito|rechaz/], ['Ánimo decaído', /decaíd|triste|desanimad/],
+];
+
+/* Simula a la IA: corrige la redacción y detecta síntomas con nombre del catálogo, sin casillas fijas */
+function interpretar(raw) {
+  let t = raw.trim().replace(/\s+/g, ' ');
+  t = t.replace(/\b(?:gomit|bomit|vomit)\w*/gi, 'Vomitó').replace(/\b(?:diarea|dearrea|diarrea)\b/gi, 'diarrea').replace(/\bnauseas\b/gi, 'náuseas')
+    .replace(/\bcabesa\b/gi, 'cabeza').replace(/\banimo\b/gi, '. Ánimo').replace(/\btuvo\b/gi, '. Tuvo').replace(/\bcomi[oó] (?:poko|poco)\b/gi, '. Comió poco')
+    .replace(/\bcomi[oó] (bien|todo|completo)\b/gi, '. Comió $1').replace(/\bdecaid[oa]\b/gi, '. Decaído')
+    .replace(/\s+\./g, '.').replace(/^\.\s*/, '').replace(/\.+/g, '.');
+  t = t.charAt(0).toUpperCase() + t.slice(1);
+  if (!/[.!?]$/.test(t)) t += '.';
+  const sintomas = [];
+  t.split(/(?<=[.!?])\s+/).forEach((f) => {
+    const l = f.toLowerCase();
+    SINTOMAS_DET.forEach(([n, re]) => {
+      if (!re.test(l) || sintomas.some((s) => s.n === n)) return;
+      const veces = /\b(dos|2) veces/.test(l) ? 2 : /\b(tres|3) veces/.test(l) ? 3 : /\buna vez/.test(l) ? 1 : 0;
+      const intensidad = /intens|fuerte|severo/.test(l) ? 'intenso' : /moderad/.test(l) ? 'moderado' : /leve|ligero/.test(l) ? 'leve' : '';
+      sintomas.push({ n, veces, intensidad });
+    });
+  });
+  return { texto: t, sintomas };
+}
+
+function vRegNuevo(rol, id) {
+  const opts = DATOS.pacientes.map((p) => `<option value="${p.id}"${p.id === (id || 'P-014') ? ' selected' : ''}>${p.id} (cama ${p.cama})</option>`).join('');
+  const w = nodo(`<div class="chat-pag"><div class="chat-datos"><div class="campo"><label for="rn-pac">Paciente</label><select class="inp" id="rn-pac">${opts}</select></div>`
+    + `<div class="campo"><label for="rn-fecha">Fecha del registro</label><input class="inp" type="date" id="rn-fecha" value="${HOY}"><span class="error" id="rn-err"></span></div></div>`
+    + `<div class="chat" id="rn-chat"><p class="ayuda">Escriba cómo estuvo el paciente hoy, como en un chat.<br>La IA corrige la redacción y detecta los síntomas; usted revisa y aprueba antes de guardar.</p></div>`
+    + `<form class="entrada" id="rn-form" autocomplete="off"><input class="inp" id="rn-txt" aria-label="Registro del día" value="dolor de cabeza intenso desde la mañana tuvo diarea dos veces comio poko">`
+    + btnProceso({ texto: 'Enviar', gerundio: 'Enviando', icono: 'enviar', clase: 'btn--primary', tipo: 'submit' }) + '</form>'
+    + `<datalist id="catalogo">${DATOS.catalogo.map((n) => `<option value="${esc(n)}">`).join('')}</datalist></div>`);
+  const chat = w.querySelector('#rn-chat'), form = w.querySelector('#rn-form'), txt = w.querySelector('#rn-txt');
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (!txt.value.trim()) return;
+    conProceso(form.querySelector('.btn'), async () => {
+      chat.querySelector('.ayuda')?.remove();
+      chat.append(nodo(`<div class="burbuja">${esc(txt.value)}</div>`).firstChild);
+      const r = interpretar(txt.value); txt.value = '';
+      await sleep(1000);
+      chat.append(vistaPrevia(w, r));
+      chat.lastChild.scrollIntoView({ block: 'nearest' });
+    });
+  });
+  return { titulo: 'Nuevo registro diario', nodo: w };
+}
+
+function filaSintoma(s = { n: '', veces: 0, intensidad: '' }) {
+  const d = nodo(`<div class="fila-sint"><div class="campo"><label>Síntoma</label><input class="inp" data-s="n" list="catalogo" value="${esc(s.n)}" placeholder="Ej.: Diarrea"></div>`
+    + `<div class="campo"><label>Intensidad</label><select class="inp" data-s="intensidad">${['', 'leve', 'moderado', 'intenso'].map((x) => `<option value="${x}"${x === s.intensidad ? ' selected' : ''}>${x || 'Sin indicar'}</option>`).join('')}</select></div>`
+    + `<div class="campo"><label>Veces</label><input class="inp" data-s="veces" type="number" min="0" max="20" value="${s.veces || ''}" placeholder="Opcional"></div>`
+    + `<button class="btn btn--sec" type="button" data-a="quitar" aria-label="Quitar síntoma">${icono('eliminar')}Quitar</button></div>`).firstChild;
+  d.querySelector('[data-a=quitar]').addEventListener('click', () => d.remove());
+  return d;
+}
+
+function vistaPrevia(w, r) {
+  const c = nodo(`<section class="card card--quieta vista-ia"><h3>${icono('ia')}Así quedaría el registro</h3>`
+    + `<div class="campo"><label>Texto corregido</label><textarea class="inp" data-f="texto">${esc(r.texto)}</textarea><span class="error" data-e="texto"></span></div>`
+    + `<div class="campo" style="margin-top:12px"><label>Síntomas detectados</label><div class="sint-filas"></div><span class="error" data-e="sint"></span></div>`
+    + `<div class="botones" style="margin-top:12px"><button class="btn btn--sec" type="button" data-a="agregar">Agregar síntoma</button></div>`
+    + `<div class="botones"><button class="btn btn--sec" type="button" data-a="descartar">Descartar</button>`
+    + btnProceso({ texto: 'Aprobar y guardar', gerundio: 'Guardando', icono: 'guardar', clase: 'btn--primary', attrs: 'data-a="guardar"' }) + '</div></section>').firstChild;
+  const filas = c.querySelector('.sint-filas');
+  r.sintomas.forEach((s) => filas.append(filaSintoma(s)));
+  c.querySelector('[data-a="agregar"]').addEventListener('click', () => { const f = filaSintoma(); filas.append(f); f.querySelector('input').focus(); });
+  c.querySelector('[data-a="descartar"]').addEventListener('click', () => c.remove());
+  c.querySelector('[data-a="guardar"]').addEventListener('click', (e) => {
+    const texto = c.querySelector('[data-f="texto"]').value.trim(), pac = w.querySelector('#rn-pac').value, fecha = w.querySelector('#rn-fecha').value;
+    const errT = c.querySelector('[data-e="texto"]'), errS = c.querySelector('[data-e="sint"]'), errF = w.querySelector('#rn-err');
+    const nuevos = [], sintomas = [];
+    filas.querySelectorAll('.fila-sint').forEach((f) => {
+      const bruto = f.querySelector('[data-s=n]').value.trim();
+      if (!bruto) return;
+      const n = DATOS.catalogo.find((x) => x.toLowerCase() === bruto.toLowerCase()) || bruto.charAt(0).toUpperCase() + bruto.slice(1);
+      if (!DATOS.catalogo.includes(n)) nuevos.push(n);
+      sintomas.push({ n, veces: Math.max(0, +f.querySelector('[data-s=veces]').value || 0), intensidad: f.querySelector('[data-s=intensidad]').value });
+    });
+    errT.textContent = texto ? '' : 'El registro no puede quedar vacío.';
+    errS.textContent = new Set(sintomas.map((s) => s.n)).size < sintomas.length ? 'Hay un síntoma repetido. Déjelo una sola vez.' : '';
+    errF.textContent = !fecha ? 'Elija la fecha del registro.' : DATOS.registros.some((x) => x.pac === pac && x.fecha === fecha) ? 'Ese paciente ya tiene un registro en esa fecha.' : '';
+    if (errT.textContent || errS.textContent || errF.textContent) return;
+    conProceso(e.currentTarget, async () => {
+      await sleep(900);
+      DATOS.registros.push({ id: 'R' + ++_r, pac, fecha, texto, sintomas });
+      nuevos.forEach((n) => DATOS.catalogo.push(n));
+      DATOS.notificaciones.unshift({ id: 'N' + Date.now(), pac, tipo: 'registro', texto: `Nuevo registro del ${dLargo(fecha)}`, ref: `#/med/pacientes/ficha/${pac}`, hora: '26 oct, ahora', leida: false });
+      c.replaceWith(nodo(`<div class="aviso">${icono('aprobar')}<span>Registro guardado. Se notificó al médico.${nuevos.length ? ` Síntoma nuevo en el catálogo: ${esc(unir(nuevos))}.` : ''} <a href="#/enf/pacientes/ficha/${pac}">Ver ficha del paciente</a></span></div>`).firstChild);
+      pintarCampana();
+    });
+  });
+  return c;
+}
+
+function vRegHistorial(rol) {
+  const filas = DATOS.registros.slice().sort((a, b) => b.fecha.localeCompare(a.fecha) || a.pac.localeCompare(b.pac)).map((r) => ({
+    href: `#/enf/pacientes/ficha/${r.pac}`, buscar: `${r.pac} ${r.texto} ${r.fecha} ${r.sintomas.map((s) => s.n).join(' ')}`,
+    celdas: [dCorto(r.fecha), `<b>${r.pac}</b>`, esc(r.texto), r.sintomas.length ? esc(r.sintomas.map((s) => s.n).join(', ')) : '<span class="sec">Ninguno</span>'] }));
+  return { titulo: 'Historial de registros', nodo: listado({ cols: ['Fecha', 'Paciente', 'Registro', 'Síntomas'], filas, placeholder: 'Busque por paciente, síntoma o texto del registro', vacio: { titulo: 'Aún no hay registros', texto: 'Cree el primero para que aparezca aquí.', accion: { texto: 'Nuevo registro', href: '#/enf/registro/nuevo' } } }) };
+}
+
+/* ---------- informes ---------- */
+function hojaHTML(inf) {
+  const sem = largo(inf.desde, inf.hasta) === 7, total = largo(inf.desde, inf.hasta), comp = inf.comp;
+  const act = regsRango(inf.pac, inf.desde, inf.hasta), ant = comp ? regsRango(inf.pac, comp.desde, comp.hasta) : [];
+  const a = porSintoma(act), p = porSintoma(ant);
+  const fuente = (f) => f.startsWith('falta:') ? `${dCorto(f.slice(6))}: sin registro`
+    : f.startsWith('sinsint:') ? (([d, h, n]) => `Período de comparación (${periodoTxt(d, h)}): ${n} registros revisados, sin estas manifestaciones`)(f.slice(8).split('|'))
+    : f.startsWith('comp:') ? `Período de comparación (${periodoTxt(...f.slice(5).split('|'))}): sin registros`
+    : (() => { const r = DATOS.registros.find((x) => x.id === f); return `${dCorto(r.fecha)}: "${esc(r.texto)}"`; })();
+  const celda = (x) => x ? nDias(x) + (x.veces > x.dias ? `, ${x.veces} veces` : '') : 'No registrado';
+  const fila = (n, va, vm) => comp ? `<tr><td>${n}</td><td>${va}</td><td>${vm}</td></tr>` : `<tr><td>${n}</td><td>${vm}</td></tr>`;
+  const nombres = comp ? [...new Set([...Object.keys(a), ...Object.keys(p)])] : Object.keys(a);
+  const sinDatos = comp && !ant.length;
+  const intro = `Respecto del paciente ${inf.pac}, en el período del ${periodoTxt(inf.desde, inf.hasta)} se dispone de registros de ${act.length} de ${total} días${comp ? `; el análisis se contrasta con el período del ${periodoTxt(comp.desde, comp.hasta)}` : ''}.`;
+  const filas = fila('Días con registro', comp ? (sinDatos ? 'Sin datos' : `${ant.length} de ${largo(comp.desde, comp.hasta)}`) : '', `${act.length} de ${total}`)
+    + (nombres.length ? nombres.map((n) => fila(esc(n), sinDatos ? 'Sin datos' : celda(p[n]), celda(a[n]))).join('') : fila('Síntomas', sinDatos ? 'Sin datos' : 'Ninguno', 'Ninguno'));
+  const patron = inf.claims.map((c, i) => ({ c, i })).filter((x) => x.c.patron);
+  const aprob = inf.tmp ? 'no aplica, es una consulta del médico' : inf.aprobador ? esc(inf.aprobador) : 'pendiente de aprobación';
+  const pie = inf.tmp ? 'Generado con IA a partir de registros aprobados por enfermería. No forma parte del historial oficial. No contiene diagnóstico ni recomendación de tratamiento.'
+    : 'Describe la evolución documentada. No contiene diagnóstico ni recomendación de tratamiento.';
+  return `<article class="hoja" id="hoja"><h1>Informe de seguimiento ${sem ? 'semanal' : 'del período'}</h1><p class="sub">Paciente ${inf.pac}, ${sem ? 'semana' : 'período'} del ${periodoTxt(inf.desde, inf.hasta)}</p>`
+    + `<div class="meta"><span><b>Comparado con:</b> ${comp ? periodoTxt(comp.desde, comp.hasta) : 'sin comparación'}</span><span><b>Registros revisados:</b> ${act.length} de ${total} días</span>`
+    + `<span><b>Generado:</b> ${dFull(inf.generado)}</span><span><b>Aprobado por:</b> ${aprob}</span></div>`
+    + `<h2>Resumen de la evolución</h2><p class="resumen">${esc(intro)} ${inf.claims.map((c, i) => `<span class="txt" data-i="${i}">${esc(c.texto)}</span><sup>[${i + 1}]</sup>`).join(' ')}</p>`
+    + `<h2>Cifras ${sem ? 'de la semana' : 'del período'}</h2><table><tr><th>Síntoma</th>${comp ? '<th>Período de comparación</th>' : ''}<th>${sem ? 'Esta semana' : 'Este período'}</th></tr>${filas}`
+    + `</table><p class="nota">Cifras calculadas por el sistema a partir de los registros, no por la IA. ${comp ? 'Solo se listan los síntomas que aparecieron en alguno de los dos períodos.' : 'Solo se listan los síntomas que aparecieron en el período.'}</p>`
+    + (patron.length ? `<h2>Patrón a destacar</h2><p class="resumen">${esc(patron[0].c.patronTxt || patron[0].c.texto)}<sup>[${patron[0].i + 1}]</sup></p>` : '')
+    + `<h2>Fuentes (registros originales)</h2><ol>${inf.claims.map((c, i) => `<li>[${i + 1}] ${c.fuentes.map(fuente).join(' / ')}</li>`).join('')}</ol>`
+    + `<div class="pie"><span>${pie}</span><span>Revisado por: <b>${inf.tmp ? 'el médico que lo solicita' : inf.aprobador ? esc(inf.aprobador) : 'pendiente'}</b></span></div></article>`;
+}
+
+function vInfVer(rol, id) {
+  const inf = TEMP[id] || DATOS.informes.find((i) => i.id === id);
+  if (!inf || (rol === 'med' && !inf.tmp && inf.estado !== 'Enviado') || (rol !== 'med' && inf.tmp)) return noEncontrado();
+  const btn = (texto, gerundio, ic, clase, act) => btnProceso({ texto, gerundio, icono: ic, clase, attrs: `data-a="${act}"` });
+  const nota = inf.tmp ? 'Consulta personal: se arma con registros que enfermería ya aprobó. No se guarda en el historial ni se envía a nadie.'
+    : { 'En revisión': 'Revise el texto y las fuentes. Al aprobar, el informe queda guardado, pero todavía no llega al médico.',
+      Aprobado: 'Informe guardado. Puede descargarlo o enviarlo al médico.', Enviado: `Enviado al médico el ${dFull(inf.enviado || HOY)}.` }[inf.estado];
+  let botones = '';
+  if (rol === 'enf') {
+    if (inf.estado === 'En revisión') botones = '<button class="btn btn--sec" type="button" data-a="editar">Editar texto</button>' + btn('Aprobar informe', 'Aprobando', 'aprobar', 'btn--primary', 'aprobar');
+    else if (inf.estado === 'Aprobado') botones = btn('Descargar PDF', 'Descargando', 'descargar', 'btn--sec', 'descargar') + btn('Enviar al médico', 'Enviando', 'enviar', 'btn--primary', 'enviar');
+    else botones = btn('Descargar PDF', 'Descargando', 'descargar', 'btn--sec', 'descargar');
+  } else botones = btn('Descargar PDF', 'Descargando', 'descargar', 'btn--primary', 'descargar');
+  const w = nodo(`<div class="acciones"><div class="izq"><b>Informe de ${inf.pac}</b><span>${inf.tmp ? '<span class="sec">Consulta del médico</span>' : estado(inf.estado)}</span></div>${botones}${rol === 'enf' || inf.tmp ? `<p class="nota">${nota}</p>` : ''}</div>`
+    + (rol === 'enf' && inf.estado === 'En revisión' ? `<div class="aviso">${icono('ia')}<span>Esta es la vista previa tal como la verá el médico. La redactó la IA a partir de los registros; usted decide si se aprueba.</span></div>` : '')
+    + hojaHTML(inf));
+  const on = (a, fn) => w.querySelector(`[data-a="${a}"]`)?.addEventListener('click', fn);
+  on('editar', (e) => {
+    const b = e.currentTarget, activar = b.textContent === 'Editar texto';
+    w.querySelectorAll('.txt').forEach((s) => { s.contentEditable = activar; });
+    if (!activar) w.querySelectorAll('.txt').forEach((s) => { inf.claims[+s.dataset.i].texto = s.textContent.trim(); });
+    b.textContent = activar ? 'Listo' : 'Editar texto';
+  });
+  on('aprobar', (e) => conProceso(e.currentTarget, async () => {
+    w.querySelectorAll('.txt').forEach((s) => { inf.claims[+s.dataset.i].texto = s.textContent.trim(); });
+    await sleep(900); inf.estado = 'Aprobado'; inf.aprobador = ROLES.enf.usuario.nombre; toast('Informe aprobado y guardado'); ruta();
+  }));
+  on('descargar', (e) => conProceso(e.currentTarget, async () => { await sleep(700); window.print(); }));
+  on('enviar', (e) => conProceso(e.currentTarget, async () => {
+    await sleep(900); inf.estado = 'Enviado'; inf.enviado = HOY;
+    DATOS.notificaciones.unshift({ id: 'N' + Date.now(), pac: inf.pac, tipo: 'informe', texto: 'Informe recibido', ref: `#/med/informes/ver/${inf.id}`, hora: '26 oct, ahora', leida: false });
+    toast('Informe enviado. Se notificó al médico'); ruta();
+  }));
+  return { titulo: inf.tmp ? 'Informe de consulta' : 'Informe de seguimiento', nodo: w,
+    marcar: rol === 'enf' ? (inf.estado === 'En revisión' ? '#/enf/informes/revision' : '#/enf/informes/aprobados') : inf.tmp ? '#/med/informes/armar' : '#/med/informes/lista' };
+}
+
+function vInfGenerar(rol, id) {
+  const pacs = DATOS.pacientes.map((p) => `<option value="${p.id}"${p.id === (id || 'P-014') ? ' selected' : ''}>${p.id} (cama ${p.cama})</option>`).join('');
+  const sems = ['2026-10-19', '2026-10-12', '2026-10-05'].map((s) => `<option value="${s}">Del ${rango(s)}</option>`).join('');
+  const meses = [['2026-10', 'octubre de 2026'], ['2026-09', 'septiembre de 2026']].map(([m, t]) => `<option value="${m}">${t}</option>`).join('');
+  const intro = rol === 'med' ? 'Arme su propio informe de un paciente para el período que elija. Se hace con los registros que enfermería ya aprobó y es solo para su consulta: no se guarda en el historial.'
+    : 'Elija el paciente y el período. El informe habla solo de ese período; si quiere, puede compararlo con otro.';
+  const w = nodo(`<div class="chat-pag"><p class="sec">${intro}</p>`
+    + `<div class="chat-datos"><div class="campo"><label for="ig-pac">Paciente</label><select class="inp" id="ig-pac">${pacs}</select></div>`
+    + `<div class="campo"><label for="ig-tipo">Período del informe</label><select class="inp" id="ig-tipo"><option value="semana">Una semana</option><option value="mes">Un mes</option><option value="rango">Rango de fechas</option></select></div></div>`
+    + `<div class="campo" id="ig-semana"><label for="ig-sem">Semana</label><select class="inp" id="ig-sem">${sems}</select></div>`
+    + `<div class="campo" id="ig-mes" hidden><label for="ig-m">Mes</label><select class="inp" id="ig-m">${meses}</select></div>`
+    + `<div class="chat-datos" id="ig-rango" hidden><div class="campo"><label for="ig-d">Desde</label><input class="inp" type="date" id="ig-d" value="2026-10-12" max="${HOY}"></div>`
+    + `<div class="campo"><label for="ig-h">Hasta</label><input class="inp" type="date" id="ig-h" value="2026-10-25" max="${HOY}"></div></div>`
+    + `<div class="campo"><label for="ig-cmp">Comparar con</label><select class="inp" id="ig-cmp"><option value="no">No comparar, solo este período</option>`
+    + `<option value="ant">El período anterior (misma duración)</option><option value="otro">Otro período que yo elija</option></select></div>`
+    + `<div class="chat-datos" id="ig-cmp-rango" hidden><div class="campo"><label for="ig-cd">Comparar desde</label><input class="inp" type="date" id="ig-cd" value="2026-10-05" max="${HOY}"></div>`
+    + `<div class="campo"><label for="ig-ch">Comparar hasta</label><input class="inp" type="date" id="ig-ch" value="2026-10-11" max="${HOY}"></div></div>`
+    + `<span class="error" id="ig-err"></span>`
+    + `<div>${btnProceso({ texto: 'Generar con IA', gerundio: 'Generando', icono: 'ia', clase: 'btn--primary', attrs: 'id="ig-btn"' })}</div></div>`);
+  const q = (s) => w.querySelector(s);
+  q('#ig-tipo').addEventListener('change', () => {
+    const t = q('#ig-tipo').value;
+    q('#ig-semana').hidden = t !== 'semana'; q('#ig-mes').hidden = t !== 'mes'; q('#ig-rango').hidden = t !== 'rango';
+  });
+  q('#ig-cmp').addEventListener('change', () => { q('#ig-cmp-rango').hidden = q('#ig-cmp').value !== 'otro'; });
+  const periodo = () => {
+    const t = q('#ig-tipo').value;
+    if (t === 'semana') { const d = q('#ig-sem').value; return { desde: d, hasta: sumar(d, 6) }; }
+    if (t === 'mes') { const [y, m] = q('#ig-m').value.split('-').map(Number); const fin = isoDe(new Date(y, m, 0)); return { desde: `${y}-${String(m).padStart(2, '0')}-01`, hasta: fin > HOY ? HOY : fin }; }
+    const d = q('#ig-d').value, h = q('#ig-h').value;
+    if (!d || !h) return { error: 'Elija las dos fechas.' };
+    if (d > h) return { error: 'La fecha inicial no puede ser posterior a la final.' };
+    if (h > HOY) return { error: 'La fecha final no puede ser futura.' };
+    if (largo(d, h) > 366) return { error: 'El rango no puede pasar de un año.' };
+    return { desde: d, hasta: h };
+  };
+  const comparacion = (per) => {
+    const t = q('#ig-cmp').value;
+    if (t === 'no') return { comp: null };
+    if (t === 'ant') { const [d, h] = anterior(per.desde, per.hasta); return { comp: { desde: d, hasta: h } }; }
+    const d = q('#ig-cd').value, h = q('#ig-ch').value;
+    if (!d || !h) return { error: 'Elija las dos fechas del período de comparación.' };
+    if (d > h) return { error: 'En la comparación, la fecha inicial no puede ser posterior a la final.' };
+    if (h > HOY) return { error: 'El período de comparación no puede ser futuro.' };
+    if (d <= per.hasta && h >= per.desde) return { error: 'El período de comparación no puede cruzarse con el período del informe.' };
+    return { comp: { desde: d, hasta: h } };
+  };
+  q('#ig-btn').addEventListener('click', (e) => {
+    const per = periodo(), err = q('#ig-err'), pac = q('#ig-pac').value;
+    const cmp = per.error ? {} : comparacion(per);
+    err.textContent = per.error || cmp.error || '';
+    if (err.textContent) return;
+    if (!regsRango(pac, per.desde, per.hasta).length) { err.textContent = 'Ese paciente no tiene registros en ese período, no hay con qué generar el informe.'; return; }
+    const ya = rol === 'enf' && DATOS.informes.find((i) => i.pac === pac && i.desde === per.desde && i.hasta === per.hasta && JSON.stringify(i.comp) === JSON.stringify(cmp.comp));
+    if (ya) { toast('Ya existe un informe igual'); location.hash = `#/enf/informes/ver/${ya.id}`; return; }
+    conProceso(e.currentTarget, async () => {
+      await sleep(1600);
+      DATOS.trazas.unshift({ hora: '26 oct, ahora', pac, accion: 'obtener_registros, calcular_metricas' + (rol === 'enf' ? ', guardar_borrador' : ''), dur: '1.6 s', res: 'Completado' });
+      if (rol === 'enf') { location.hash = `#/enf/informes/ver/${crearInforme(pac, per.desde, per.hasta, 'En revisión', cmp.comp).id}`; return; }
+      const t = { id: 'M-' + (Object.keys(TEMP).length + 1), pac, desde: per.desde, hasta: per.hasta, comp: cmp.comp, tmp: true, generado: HOY, aprobador: null, claims: redactar(pac, per.desde, per.hasta, cmp.comp) };
+      TEMP[t.id] = t; location.hash = `#/med/informes/ver/${t.id}`;
+    });
+  });
+  return { titulo: rol === 'med' ? 'Armar informe' : 'Generar informe', nodo: w };
+}
+
+function vInfLista(rol, vista) {
+  const sel = rol === 'med' ? (i) => i.estado === 'Enviado' : vista === 'revision' ? (i) => i.estado === 'En revisión' : (i) => i.estado !== 'En revisión';
+  const filas = DATOS.informes.filter(sel).sort((a, b) => b.desde.localeCompare(a.desde)).map((i) => ({
+    href: `#/${rol}/informes/ver/${i.id}`, buscar: `${i.pac} ${periodoTxt(i.desde, i.hasta)} ${i.estado}`,
+    celdas: [`<b>${i.pac}</b>`, periodoTxt(i.desde, i.hasta), dFull(i.enviado || i.generado), estado(i.estado, true)] }));
+  const vacio = rol === 'med' ? { titulo: 'Aún no ha recibido informes', texto: 'Cuando enfermería envíe un informe aparecerá aquí. También puede armar uno propio.', accion: { texto: 'Armar un informe', href: '#/med/informes/armar' } }
+    : { titulo: vista === 'revision' ? 'No hay informes por revisar' : 'Aún no hay informes aprobados', texto: 'Genere un informe y aparecerá aquí.', accion: { texto: 'Generar informe', href: '#/enf/informes/generar' } };
+  return { titulo: rol === 'med' ? 'Informes recibidos' : vista === 'revision' ? 'Informes en revisión' : 'Informes aprobados',
+    nodo: listado({ cols: ['Paciente', 'Período', rol === 'med' ? 'Recibido' : 'Generado', 'Estado'], filas, placeholder: 'Busque por paciente o período', vacio }) };
+}
+
+/* ---------- administrador ---------- */
+function vUsuLista() {
+  const w = nodo(`<div class="cab"><p class="sec">Personas con acceso al sistema.</p><a class="btn btn--primary" href="#/adm/usuarios/nuevo">${icono('usuarios')}Nuevo usuario</a></div>`);
+  w.append(listado({ cols: ['Nombre', 'Correo', 'Rol', 'Estado'], filas: DATOS.usuarios.map((u) => ({ href: `#/adm/usuarios/editar/${u.id}`, buscar: `${u.nombre} ${u.correo} ${u.rol}`,
+    celdas: [`<b>${esc(u.nombre)}</b>`, esc(u.correo), u.rol, estado(u.estado, true)] })), placeholder: 'Busque por nombre, correo o rol', vacio: { titulo: 'Aún no hay usuarios', texto: 'Cree el primero.', accion: { texto: 'Nuevo usuario', href: '#/adm/usuarios/nuevo' } } }));
+  return { titulo: 'Usuarios', nodo: w };
+}
+
+function vUsuForm(rol, id) {
+  const u = DATOS.usuarios.find((x) => x.id === id) || { nombre: '', correo: '', rol: 'Enfermería', estado: 'Activo' };
+  const sel = (n, vs, v) => `<select class="inp" id="uf-${n}">${vs.map((x) => `<option${x === v ? ' selected' : ''}>${x}</option>`).join('')}</select>`;
+  const w = nodo(`<form class="chat-pag" novalidate><div class="campo"><label for="uf-nombre">Nombre completo</label><input class="inp" id="uf-nombre" value="${esc(u.nombre)}"><span class="error" data-e="nombre"></span></div>`
+    + `<div class="campo"><label for="uf-correo">Correo</label><input class="inp" id="uf-correo" type="email" value="${esc(u.correo)}" placeholder="nombre@institucion.org"><span class="error" data-e="correo"></span></div>`
+    + `<div class="chat-datos"><div class="campo"><label for="uf-rol">Rol</label>${sel('rol', ['Enfermería', 'Médico', 'Administrador'], u.rol)}</div>`
+    + `<div class="campo"><label for="uf-estado">Estado</label>${sel('estado', ['Activo', 'Inactivo'], u.estado)}</div></div>`
+    + `<div>${btnProceso({ texto: id ? 'Guardar cambios' : 'Crear usuario', gerundio: id ? 'Guardando' : 'Creando', icono: 'guardar', clase: 'btn--primary', tipo: 'submit' })}</div></form>`);
+  w.firstChild.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const v = (n) => w.querySelector('#uf-' + n).value.trim();
+    const eN = !v('nombre') ? 'Escriba el nombre.' : '', eC = !/^\S+@\S+\.\S+$/.test(v('correo')) ? 'Escriba un correo válido.' : '';
+    w.querySelector('[data-e="nombre"]').textContent = eN; w.querySelector('[data-e="correo"]').textContent = eC;
+    if (eN || eC) return;
+    conProceso(w.querySelector('.btn'), async () => {
+      await sleep(900);
+      const nuevo = { nombre: v('nombre'), correo: v('correo'), rol: v('rol'), estado: v('estado') };
+      if (id) Object.assign(DATOS.usuarios.find((x) => x.id === id), nuevo); else DATOS.usuarios.push({ id: 'U' + (DATOS.usuarios.length + 1), ...nuevo });
+      toast(id ? 'Cambios guardados' : 'Usuario creado'); location.hash = '#/adm/usuarios';
+    });
+  });
+  return { titulo: id ? 'Editar usuario' : 'Nuevo usuario', nodo: w, marcar: '#/adm/usuarios' };
+}
+
+function vPermisos() {
+  const filas = [['Pacientes', 'V C A', 'V', '—'], ['Registros diarios', 'V C A', 'V C', '—'], ['Informes', 'V A', 'V (solo enviados)', '—'],
+    ['Aprobar informe', 'Sí', 'No', 'No'], ['Usuarios', '—', '—', 'V C A E'], ['Roles y permisos', '—', '—', 'V A'], ['Trazas', '—', '—', 'V']];
+  return { titulo: 'Permisos por rol', nodo: nodo(`<div class="aviso">${icono('permisos')}<span>Solo lectura en esta entrega. Aprobar un informe solo puede tenerlo Enfermería, y no se puede cambiar desde aquí. V ver, C crear, A actualizar, E eliminar.</span></div>`
+    + `<div class="tabla-wrap"><table class="tabla perm"><thead><tr><th>Módulo</th><th>Enfermería</th><th>Médico</th><th>Administrador</th></tr></thead><tbody>${filas.map((f) => `<tr>${f.map((c, i) => `<td data-label="${['Módulo', 'Enfermería', 'Médico', 'Administrador'][i]}">${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`) };
+}
+
+function vTrazas() {
+  const filas = DATOS.trazas.map((t) => ({ buscar: `${t.pac} ${t.accion}`, celdas: [t.hora, `<b>${t.pac}</b>`, esc(t.accion), t.dur, estado(t.res, true)] }));
+  return { titulo: 'Trazas del agente', nodo: listado({ cols: ['Hora', 'Paciente', 'Herramientas usadas', 'Duración', 'Resultado'], filas, placeholder: 'Busque por paciente o herramienta', vacio: { titulo: 'Aún no hay trazas', texto: 'Aparecen cuando se genera el primer informe.' } }) };
+}
+
+/* ---------- campana (médico) ---------- */
+function pintarCampana() {
+  const c = document.getElementById('campana');
+  if (rolActual !== 'med') { c.innerHTML = ''; return; }
+  const abierta = c.querySelector('.campana-panel') && !c.querySelector('.campana-panel').hidden;
+  const ns = DATOS.notificaciones;
+  c.innerHTML = `<button class="icbtn" type="button" aria-label="Notificaciones${sinLeer() ? ', hay sin leer' : ''}" aria-expanded="${abierta}">${icono('campana')}${sinLeer() ? '<i class="punto-notif"></i>' : ''}</button>`
+    + `<div class="campana-panel" ${abierta ? '' : 'hidden'}><h3>Notificaciones</h3>${ns.length ? ns.map((n) => `<button class="notif" type="button" data-id="${n.id}"><i class="pt" style="background:${n.leida ? 'transparent' : 'var(--color-primary)'}"></i><span>${esc(n.texto)}, paciente ${n.pac}<small>${n.hora}</small></span></button>`).join('') : '<p class="sec" style="padding:8px 10px">Sin notificaciones.</p>'}</div>`;
+  const panel = c.querySelector('.campana-panel'), b = c.querySelector('.icbtn');
+  b.addEventListener('click', (e) => { e.stopPropagation(); panel.hidden = !panel.hidden; b.setAttribute('aria-expanded', !panel.hidden); });
+  panel.addEventListener('click', (e) => { const n = e.target.closest('.notif'); if (!n) return; const x = ns.find((y) => y.id === n.dataset.id); x.leida = true; location.hash = x.ref; panel.hidden = true; pintarCampana(); });
+}
+document.addEventListener('click', (e) => { const p = document.querySelector('.campana-panel'); if (p && !p.hidden && !e.target.closest('.campana')) { p.hidden = true; pintarCampana(); } });
+
+/* ---------- router ---------- */
+const VISTAS = {
+  'enf/pacientes/lista': (id) => vPacLista('enf'), 'enf/pacientes/ficha': (id) => vPacFicha('enf', id),
+  'enf/registro/nuevo': (id) => vRegNuevo('enf', id), 'enf/registro/historial': () => vRegHistorial('enf'),
+  'enf/informes/generar': (id) => vInfGenerar('enf', id), 'enf/informes/revision': () => vInfLista('enf', 'revision'),
+  'enf/informes/aprobados': () => vInfLista('enf', 'aprobados'), 'enf/informes/ver': (id) => vInfVer('enf', id),
+  'med/pacientes/lista': () => vPacLista('med'), 'med/pacientes/ficha': (id) => vPacFicha('med', id),
+  'med/informes/lista': () => vInfLista('med'), 'med/informes/armar': (id) => vInfGenerar('med', id), 'med/informes/ver': (id) => vInfVer('med', id),
+  'adm/usuarios/lista': () => vUsuLista(), 'adm/usuarios/nuevo': () => vUsuForm('adm'), 'adm/usuarios/editar': (id) => vUsuForm('adm', id),
+  'adm/permisos/ver': () => vPermisos(), 'adm/trazas/lista': () => vTrazas(),
+};
+const VISTA_DEF = { 'enf/pacientes': 'lista', 'enf/registro': 'nuevo', 'enf/informes': 'generar', 'med/pacientes': 'lista', 'med/informes': 'lista',
+  'adm/usuarios': 'lista', 'adm/permisos': 'ver', 'adm/trazas': 'lista' };
+
+const $nav = document.getElementById('sb'), $vista = document.getElementById('vista'), $titulo = document.getElementById('titulo'), $rol = document.getElementById('rol');
+let rolActual = null, menu = null;
+if (innerWidth < 760) $nav.dataset.collapsed = 'true';
+
+function ruta() {
+  const h = location.hash || '#/enf/pacientes';
+  const [, rol, mod, vista, id] = h.split('/');
+  if (!ROLES[rol]) { location.hash = '#/enf/pacientes'; return; }
+  const m = mod || ROLES[rol].inicio, v = vista || VISTA_DEF[`${rol}/${m}`];
+  if (rol !== rolActual) { rolActual = rol; menu = menuLateral($nav, { ...ROLES[rol], actual: h }); $rol.value = rol; }
+  const fn = VISTAS[`${rol}/${m}/${v}`];
+  const r = fn ? fn(id) : noEncontrado();
+  $titulo.textContent = r.titulo;
+  $vista.replaceChildren(r.nodo);
+  menu.marcar(r.marcar || h);
+  pintarCampana();
+  window.scrollTo(0, 0);
+}
+$rol.addEventListener('change', () => { location.hash = '#/' + $rol.value; });
+window.addEventListener('hashchange', ruta);
+ruta();
+</script>
+</body>
+</html>

@@ -1,0 +1,799 @@
+{
+ "P-007": {
+  "2026-10-05": {
+   "comparable": false,
+   "datesWithoutEntry": [
+    "2026-10-08",
+    "2026-10-10"
+   ],
+   "daysChange": {},
+   "daysWithEntry": 5,
+   "daysWithoutEntry": 2,
+   "disappeared": [],
+   "entries": 5,
+   "new": [],
+   "persistent": [],
+   "previousEntries": 0,
+   "reappeared": [],
+   "symptoms": {
+    "ANIMO_DECAIDO": {
+     "dates": [
+      "2026-10-06"
+     ],
+     "days": 1,
+     "events": 1,
+     "maxIntensity": null,
+     "occurrences": null
+    },
+    "APETITO_BAJO": {
+     "dates": [
+      "2026-10-05",
+      "2026-10-06",
+      "2026-10-07"
+     ],
+     "days": 3,
+     "events": 3,
+     "maxIntensity": null,
+     "occurrences": null
+    },
+    "DOLOR_HUESO": {
+     "dates": [
+      "2026-10-06",
+      "2026-10-09"
+     ],
+     "days": 2,
+     "events": 2,
+     "maxIntensity": "MODERADO",
+     "occurrences": null
+    }
+   },
+   "totalEvents": 6,
+   "unstructuredEntries": 0
+  },
+  "2026-10-12": {
+   "comparable": true,
+   "datesWithoutEntry": [
+    "2026-10-12",
+    "2026-10-14",
+    "2026-10-16",
+    "2026-10-18"
+   ],
+   "daysChange": {
+    "ANIMO_DECAIDO": [
+     1,
+     0
+    ],
+    "APETITO_BAJO": [
+     3,
+     1
+    ],
+    "DIARREA": [
+     0,
+     1
+    ],
+    "DOLOR_HUESO": [
+     2,
+     0
+    ]
+   },
+   "daysWithEntry": 3,
+   "daysWithoutEntry": 4,
+   "disappeared": [
+    "DOLOR_HUESO",
+    "ANIMO_DECAIDO"
+   ],
+   "entries": 3,
+   "new": [
+    "DIARREA"
+   ],
+   "persistent": [
+    "APETITO_BAJO"
+   ],
+   "previousEntries": 5,
+   "reappeared": [],
+   "symptoms": {
+    "APETITO_BAJO": {
+     "dates": [
+      "2026-10-13"
+     ],
+     "days": 1,
+     "events": 1,
+     "maxIntensity": null,
+     "occurrences": null
+    },
+    "DIARREA": {
+     "dates": [
+      "2026-10-13"
+     ],
+     "days": 1,
+     "events": 1,
+     "maxIntensity": null,
+     "occurrences": 1
+    }
+   },
+   "totalEvents": 2,
+   "unstructuredEntries": 0
+  },
+  "2026-10-19": {
+   "comparable": true,
+   "datesWithoutEntry": [
+    "2026-10-23"
+   ],
+   "daysChange": {
+    "APETITO_BAJO": [
+     1,
+     1
+    ],
+    "DIARREA": [
+     1,
+     0
+    ],
+    "DOLOR_HUESO": [
+     0,
+     1
+    ]
+   },
+   "daysWithEntry": 6,
+   "daysWithoutEntry": 1,
+   "disappeared": [
+    "DIARREA"
+   ],
+   "entries": 6,
+   "new": [],
+   "persistent": [
+    "APETITO_BAJO"
+   ],
+   "previousEntries": 3,
+   "reappeared": [
+    "DOLOR_HUESO"
+   ],
+   "symptoms": {
+    "APETITO_BAJO": {
+     "dates": [
+      "2026-10-20"
+     ],
+     "days": 1,
+     "events": 1,
+     "maxIntensity": null,
+     "occurrences": null
+    },
+    "DOLOR_HUESO": {
+     "dates": [
+      "2026-10-21"
+     ],
+     "days": 1,
+     "events": 1,
+     "maxIntensity": "LEVE",
+     "occurrences": null
+    }
+   },
+   "totalEvents": 2,
+   "unstructuredEntries": 0
+  }
+ },
+ "P-014": {
+  "2026-09-21": {
+   "comparable": false,
+   "datesWithoutEntry": [],
+   "daysChange": {},
+   "daysWithEntry": 7,
+   "daysWithoutEntry": 0,
+   "disappeared": [],
+   "entries": 7,
+   "new": [],
+   "persistent": [],
+   "previousEntries": 0,
+   "reappeared": [],
+   "symptoms": {
+    "APETITO_BAJO": {
+     "dates": [
+      "2026-09-25"
+     ],
+     "days": 1,
+     "events": 1,
+     "maxIntensity": null,
+     "occurrences": null
+    },
+    "DOLOR_HUESO": {
+     "dates": [
+      "2026-09-23"
+     ],
+     "days": 1,
+     "events": 1,
+     "maxIntensity": "MODERADO",
+     "occurrences": null
+    },
+    "NAUSEAS": {
+     "dates": [
+      "2026-09-22",
+      "2026-09-25"
+     ],
+     "days": 2,
+     "events": 2,
+     "maxIntensity": "LEVE",
+     "occurrences": null
+    }
+   },
+   "totalEvents": 4,
+   "unstructuredEntries": 0
+  },
+  "2026-09-28": {
+   "comparable": true,
+   "datesWithoutEntry": [],
+   "daysChange": {
+    "APETITO_BAJO": [
+     1,
+     0
+    ],
+    "DOLOR_HUESO": [
+     1,
+     2
+    ],
+    "NAUSEAS": [
+     2,
+     0
+    ]
+   },
+   "daysWithEntry": 7,
+   "daysWithoutEntry": 0,
+   "disappeared": [
+    "NAUSEAS",
+    "APETITO_BAJO"
+   ],
+   "entries": 7,
+   "new": [],
+   "persistent": [
+    "DOLOR_HUESO"
+   ],
+   "previousEntries": 7,
+   "reappeared": [],
+   "symptoms": {
+    "DOLOR_HUESO": {
+     "dates": [
+      "2026-09-29",
+      "2026-10-01"
+     ],
+     "days": 2,
+     "events": 2,
+     "maxIntensity": "MODERADO",
+     "occurrences": null
+    }
+   },
+   "totalEvents": 2,
+   "unstructuredEntries": 0
+  },
+  "2026-10-05": {
+   "comparable": true,
+   "datesWithoutEntry": [],
+   "daysChange": {
+    "APETITO_BAJO": [
+     0,
+     1
+    ],
+    "DOLOR_HUESO": [
+     2,
+     1
+    ],
+    "NAUSEAS": [
+     0,
+     3
+    ],
+    "VOMITO": [
+     0,
+     1
+    ]
+   },
+   "daysWithEntry": 7,
+   "daysWithoutEntry": 0,
+   "disappeared": [],
+   "entries": 7,
+   "new": [
+    "VOMITO"
+   ],
+   "persistent": [
+    "DOLOR_HUESO"
+   ],
+   "previousEntries": 7,
+   "reappeared": [
+    "NAUSEAS",
+    "APETITO_BAJO"
+   ],
+   "symptoms": {
+    "APETITO_BAJO": {
+     "dates": [
+      "2026-10-08"
+     ],
+     "days": 1,
+     "events": 1,
+     "maxIntensity": null,
+     "occurrences": null
+    },
+    "DOLOR_HUESO": {
+     "dates": [
+      "2026-10-08"
+     ],
+     "days": 1,
+     "events": 1,
+     "maxIntensity": "MODERADO",
+     "occurrences": null
+    },
+    "NAUSEAS": {
+     "dates": [
+      "2026-10-05",
+      "2026-10-07",
+      "2026-10-10"
+     ],
+     "days": 3,
+     "events": 3,
+     "maxIntensity": "MODERADO",
+     "occurrences": null
+    },
+    "VOMITO": {
+     "dates": [
+      "2026-10-07"
+     ],
+     "days": 1,
+     "events": 1,
+     "maxIntensity": null,
+     "occurrences": 1
+    }
+   },
+   "totalEvents": 6,
+   "unstructuredEntries": 0
+  },
+  "2026-10-12": {
+   "comparable": true,
+   "datesWithoutEntry": [],
+   "daysChange": {
+    "APETITO_BAJO": [
+     1,
+     0
+    ],
+    "DOLOR_HUESO": [
+     1,
+     1
+    ],
+    "NAUSEAS": [
+     3,
+     0
+    ],
+    "VOMITO": [
+     1,
+     0
+    ]
+   },
+   "daysWithEntry": 7,
+   "daysWithoutEntry": 0,
+   "disappeared": [
+    "VOMITO",
+    "NAUSEAS",
+    "APETITO_BAJO"
+   ],
+   "entries": 7,
+   "new": [],
+   "persistent": [
+    "DOLOR_HUESO"
+   ],
+   "previousEntries": 7,
+   "reappeared": [],
+   "symptoms": {
+    "DOLOR_HUESO": {
+     "dates": [
+      "2026-10-14"
+     ],
+     "days": 1,
+     "events": 1,
+     "maxIntensity": "LEVE",
+     "occurrences": null
+    }
+   },
+   "totalEvents": 1,
+   "unstructuredEntries": 0
+  },
+  "2026-10-19": {
+   "comparable": true,
+   "datesWithoutEntry": [],
+   "daysChange": {
+    "APETITO_BAJO": [
+     0,
+     2
+    ],
+    "DOLOR_HUESO": [
+     1,
+     1
+    ],
+    "NAUSEAS": [
+     0,
+     4
+    ],
+    "VOMITO": [
+     0,
+     1
+    ]
+   },
+   "daysWithEntry": 7,
+   "daysWithoutEntry": 0,
+   "disappeared": [],
+   "entries": 7,
+   "new": [],
+   "persistent": [
+    "DOLOR_HUESO"
+   ],
+   "previousEntries": 7,
+   "reappeared": [
+    "VOMITO",
+    "NAUSEAS",
+    "APETITO_BAJO"
+   ],
+   "symptoms": {
+    "APETITO_BAJO": {
+     "dates": [
+      "2026-10-21",
+      "2026-10-23"
+     ],
+     "days": 2,
+     "events": 2,
+     "maxIntensity": null,
+     "occurrences": null
+    },
+    "DOLOR_HUESO": {
+     "dates": [
+      "2026-10-23"
+     ],
+     "days": 1,
+     "events": 1,
+     "maxIntensity": "LEVE",
+     "occurrences": null
+    },
+    "NAUSEAS": {
+     "dates": [
+      "2026-10-20",
+      "2026-10-21",
+      "2026-10-22",
+      "2026-10-24"
+     ],
+     "days": 4,
+     "events": 4,
+     "maxIntensity": "MODERADO",
+     "occurrences": null
+    },
+    "VOMITO": {
+     "dates": [
+      "2026-10-22"
+     ],
+     "days": 1,
+     "events": 1,
+     "maxIntensity": null,
+     "occurrences": 2
+    }
+   },
+   "totalEvents": 8,
+   "unstructuredEntries": 0
+  }
+ },
+ "P-021": {
+  "2026-09-28": {
+   "comparable": false,
+   "datesWithoutEntry": [],
+   "daysChange": {},
+   "daysWithEntry": 7,
+   "daysWithoutEntry": 0,
+   "disappeared": [],
+   "entries": 7,
+   "new": [],
+   "persistent": [],
+   "previousEntries": 0,
+   "reappeared": [],
+   "symptoms": {
+    "MAREO": {
+     "dates": [
+      "2026-10-01"
+     ],
+     "days": 1,
+     "events": 1,
+     "maxIntensity": "LEVE",
+     "occurrences": null
+    }
+   },
+   "totalEvents": 1,
+   "unstructuredEntries": 0
+  },
+  "2026-10-05": {
+   "comparable": true,
+   "datesWithoutEntry": [],
+   "daysChange": {
+    "MAREO": [
+     1,
+     1
+    ]
+   },
+   "daysWithEntry": 7,
+   "daysWithoutEntry": 0,
+   "disappeared": [],
+   "entries": 7,
+   "new": [],
+   "persistent": [
+    "MAREO"
+   ],
+   "previousEntries": 7,
+   "reappeared": [],
+   "symptoms": {
+    "MAREO": {
+     "dates": [
+      "2026-10-09"
+     ],
+     "days": 1,
+     "events": 1,
+     "maxIntensity": "LEVE",
+     "occurrences": null
+    }
+   },
+   "totalEvents": 1,
+   "unstructuredEntries": 0
+  },
+  "2026-10-12": {
+   "comparable": true,
+   "datesWithoutEntry": [],
+   "daysChange": {
+    "ANIMO_DECAIDO": [
+     0,
+     1
+    ],
+    "FIEBRE": [
+     0,
+     2
+    ],
+    "MAREO": [
+     1,
+     0
+    ]
+   },
+   "daysWithEntry": 7,
+   "daysWithoutEntry": 0,
+   "disappeared": [
+    "MAREO"
+   ],
+   "entries": 7,
+   "new": [
+    "FIEBRE",
+    "ANIMO_DECAIDO"
+   ],
+   "persistent": [],
+   "previousEntries": 7,
+   "reappeared": [],
+   "symptoms": {
+    "ANIMO_DECAIDO": {
+     "dates": [
+      "2026-10-16"
+     ],
+     "days": 1,
+     "events": 1,
+     "maxIntensity": null,
+     "occurrences": null
+    },
+    "FIEBRE": {
+     "dates": [
+      "2026-10-15",
+      "2026-10-16"
+     ],
+     "days": 2,
+     "events": 2,
+     "maxIntensity": null,
+     "occurrences": null
+    }
+   },
+   "totalEvents": 3,
+   "unstructuredEntries": 0
+  },
+  "2026-10-19": {
+   "comparable": true,
+   "datesWithoutEntry": [],
+   "daysChange": {
+    "ANIMO_DECAIDO": [
+     1,
+     0
+    ],
+    "FIEBRE": [
+     2,
+     0
+    ],
+    "MAREO": [
+     0,
+     1
+    ]
+   },
+   "daysWithEntry": 7,
+   "daysWithoutEntry": 0,
+   "disappeared": [
+    "FIEBRE",
+    "ANIMO_DECAIDO"
+   ],
+   "entries": 7,
+   "new": [],
+   "persistent": [],
+   "previousEntries": 7,
+   "reappeared": [
+    "MAREO"
+   ],
+   "symptoms": {
+    "MAREO": {
+     "dates": [
+      "2026-10-24"
+     ],
+     "days": 1,
+     "events": 1,
+     "maxIntensity": "LEVE",
+     "occurrences": null
+    }
+   },
+   "totalEvents": 1,
+   "unstructuredEntries": 0
+  }
+ },
+ "P-033": {
+  "2026-09-28": {
+   "comparable": false,
+   "datesWithoutEntry": [],
+   "daysChange": {},
+   "daysWithEntry": 7,
+   "daysWithoutEntry": 0,
+   "disappeared": [],
+   "entries": 7,
+   "new": [],
+   "persistent": [],
+   "previousEntries": 0,
+   "reappeared": [],
+   "symptoms": {},
+   "totalEvents": 0,
+   "unstructuredEntries": 0
+  },
+  "2026-10-05": {
+   "comparable": true,
+   "datesWithoutEntry": [],
+   "daysChange": {},
+   "daysWithEntry": 7,
+   "daysWithoutEntry": 0,
+   "disappeared": [],
+   "entries": 7,
+   "new": [],
+   "persistent": [],
+   "previousEntries": 7,
+   "reappeared": [],
+   "symptoms": {},
+   "totalEvents": 0,
+   "unstructuredEntries": 0
+  },
+  "2026-10-12": {
+   "comparable": true,
+   "datesWithoutEntry": [],
+   "daysChange": {
+    "APETITO_BAJO": [
+     0,
+     1
+    ]
+   },
+   "daysWithEntry": 7,
+   "daysWithoutEntry": 0,
+   "disappeared": [],
+   "entries": 7,
+   "new": [
+    "APETITO_BAJO"
+   ],
+   "persistent": [],
+   "previousEntries": 7,
+   "reappeared": [],
+   "symptoms": {
+    "APETITO_BAJO": {
+     "dates": [
+      "2026-10-16"
+     ],
+     "days": 1,
+     "events": 1,
+     "maxIntensity": null,
+     "occurrences": null
+    }
+   },
+   "totalEvents": 1,
+   "unstructuredEntries": 0
+  },
+  "2026-10-19": {
+   "comparable": true,
+   "datesWithoutEntry": [],
+   "daysChange": {
+    "APETITO_BAJO": [
+     1,
+     0
+    ]
+   },
+   "daysWithEntry": 7,
+   "daysWithoutEntry": 0,
+   "disappeared": [
+    "APETITO_BAJO"
+   ],
+   "entries": 7,
+   "new": [],
+   "persistent": [],
+   "previousEntries": 7,
+   "reappeared": [],
+   "symptoms": {},
+   "totalEvents": 0,
+   "unstructuredEntries": 0
+  }
+ },
+ "P-040": {
+  "2026-10-12": {
+   "comparable": false,
+   "datesWithoutEntry": [],
+   "daysChange": {},
+   "daysWithEntry": 7,
+   "daysWithoutEntry": 0,
+   "disappeared": [],
+   "entries": 7,
+   "new": [],
+   "persistent": [],
+   "previousEntries": 0,
+   "reappeared": [],
+   "symptoms": {
+    "NAUSEAS": {
+     "dates": [
+      "2026-10-15"
+     ],
+     "days": 1,
+     "events": 1,
+     "maxIntensity": "LEVE",
+     "occurrences": null
+    }
+   },
+   "totalEvents": 1,
+   "unstructuredEntries": 0
+  },
+  "2026-10-19": {
+   "comparable": true,
+   "datesWithoutEntry": [],
+   "daysChange": {
+    "NAUSEAS": [
+     1,
+     1
+    ],
+    "VOMITO": [
+     0,
+     1
+    ]
+   },
+   "daysWithEntry": 7,
+   "daysWithoutEntry": 0,
+   "disappeared": [],
+   "entries": 7,
+   "new": [
+    "VOMITO"
+   ],
+   "persistent": [
+    "NAUSEAS"
+   ],
+   "previousEntries": 7,
+   "reappeared": [],
+   "symptoms": {
+    "NAUSEAS": {
+     "dates": [
+      "2026-10-24"
+     ],
+     "days": 1,
+     "events": 1,
+     "maxIntensity": "LEVE",
+     "occurrences": null
+    },
+    "VOMITO": {
+     "dates": [
+      "2026-10-21"
+     ],
+     "days": 1,
+     "events": 1,
+     "maxIntensity": "LEVE",
+     "occurrences": null
+    }
+   },
+   "totalEvents": 2,
+   "unstructuredEntries": 0
+  }
+ }
+}
