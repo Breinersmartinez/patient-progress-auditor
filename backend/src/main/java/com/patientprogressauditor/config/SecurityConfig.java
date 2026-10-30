@@ -34,7 +34,6 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http, AppUserRepository users, ObjectMapper mapper) throws Exception {
         // Momento 2 (D23, D26): sin token ni sesion; el rol sale del usuario de demostracion elegido.
-        // CSRF desactivado a proposito: no hay cookie ni sesion que otro sitio pueda reutilizar (ver docs/decisiones.md).
         http
                 .csrf(csrf -> csrf.disable())
                 .cors(Customizer.withDefaults())
