@@ -19,7 +19,41 @@ Proyecto del curso *Ingeniería de Aplicaciones con IA* (UCC). Esta entrega es e
 > 3. **Si no tiene**, ejecute `./run.sh` igual y dígale con claridad que la IA no funcionará hasta que consiga una (Groq: consola de Groq → *API Keys*; Gemini: Google AI Studio; las dos son gratuitas y sin tarjeta). Cuando la tenga, repita el comando del paso 2: no reconstruye nada.
 > 4. **No invente una llave ni la busque en otros archivos.** Al terminar, compruebe que la IA quedó disponible (ver «Comprobar que quedó corriendo»): `/api/llm/status` debe decir `"available": true` y `"configured": true` en los dos proveedores.
 
-**Requisitos de la máquina: solo Docker Engine con Docker Compose v2** (`docker compose version` debe responder). No hace falta Java, Node ni PostgreSQL: todo se compila y corre en contenedores. Necesita conexión a internet (para bajar las imágenes la primera vez y para llamar al proveedor de IA) y los puertos 4200 y 8080 libres; si alguno está ocupado, `run.sh` usa el siguiente libre y lo avisa.
+### Requisitos del entorno y versiones exactas
+
+**En su máquina solo hace falta Docker con Compose v2.** Java, Node, Maven y PostgreSQL corren dentro de contenedores: no se instalan. Versiones con las que se verificó este README el 30-oct-2026:
+
+| Qué | Versión | Dónde corre |
+|---|---|---|
+| Sistema operativo | **Ubuntu 24.04.4 LTS** (único probado). `run.sh` es Bash y usa `git`, `awk`, `od` y `mktemp`; `curl` solo para las comprobaciones de abajo. macOS y Windows (con WSL2) no se probaron | su máquina |
+| Docker Engine | probado con **29.3.1** | su máquina |
+| Docker Compose | **v2 o posterior** (el comando `docker compose`, con espacio; probado con v5.0.2) | su máquina |
+| Java | **17** (OpenJDK 17.0.20.1 en la imagen; Spring Boot 3.4.1, JasperReports 7.0.8) | contenedor `backend` |
+| Node | **20** (`node:20-alpine`, solo compila el frontend; Angular 19.2.25 fijado por `package-lock.json` y `npm ci`) | etapa de compilación de `frontend` |
+| Maven | 3.9 (`maven:3.9-eclipse-temurin-17`, solo compila el backend) | etapa de compilación de `backend` |
+| PostgreSQL | **16.15** (`postgres:16.15-alpine`) | contenedor `db` |
+| nginx | 1.28.3 (`nginx:1.28-alpine`) | contenedor `frontend` |
+| Python | 3.11 o posterior, **solo** para la evaluación de `eval/` (§5); no hace falta para arrancar. Probado con 3.12.3 | su máquina (opcional) |
+
+Las etiquetas `node:20-alpine`, `maven:3.9-…` y `nginx:1.28-alpine` fijan la versión mayor o menor; el parche lo resuelve Docker al construir (los números de la tabla son los que resultaron). Además: conexión a internet (para bajar las imágenes la primera vez y para llamar al proveedor de IA) y los puertos 4200 y 8080 libres; si alguno está ocupado, `run.sh` usa el siguiente libre y lo avisa. Tamaño medido el 30-oct: imágenes del proyecto de 592 MB (backend) y 93 MB (frontend); en reposo los tres contenedores usan unos 450 MB de RAM (backend 377 MB, base 67 MB, frontend 5 MB). Compilar la primera vez usa más y no se midió.
+
+### Si falta Docker
+
+Compruebe: `docker --version && docker compose version && docker info > /dev/null && echo OK`. Si algo falla, instálelo con la guía oficial (<https://docs.docker.com/engine/install/>). **Pida confirmación a la persona antes de instalar software o usar `sudo` en su máquina.**
+
+- **Ubuntu / Debian:** `curl -fsSL https://get.docker.com -o get-docker.sh && sudo sh get-docker.sh` (script oficial de Docker: instala el motor y el plugin Compose v2). Después, `sudo usermod -aG docker "$USER"` y abra una sesión nueva para usar Docker sin `sudo`; `run.sh` no usa `sudo`.
+- **macOS / Windows:** Docker Desktop (<https://docs.docker.com/desktop/>); en Windows, con el motor WSL2, y ejecute todo lo demás dentro de WSL2.
+
+### Clonar el repositorio
+
+El repositorio es público; no hace falta cuenta ni clave SSH.
+
+```bash
+git clone https://github.com/Breinersmartinez/patient-progress-auditor.git
+cd patient-progress-auditor
+```
+
+### Arrancar
 
 Desde la raíz del repositorio:
 
@@ -29,7 +63,7 @@ Desde la raíz del repositorio:
 
 - No pide nada si no hay terminal (una IA o un script pueden ejecutarlo sin quedarse esperando).
 - Crea `.env` desde `.env.example` y genera la contraseña de la base de datos (`DB_PASSWORD`). No hay nada que editar a mano.
-- Construye las imágenes, levanta los tres servicios y **regresa cuando están sanos**. La primera vez compila el backend y el frontend: medido el 29-oct en una máquina de desarrollo con las imágenes base ya descargadas, **4 min 23 s** de un árbol limpio a los tres servicios sanos (con las imágenes por descargar, más: depende de la red). Volver a ejecutarlo con todo construido toma de segundos a un minuto y medio.
+- Construye las imágenes, levanta los tres servicios y **regresa cuando están sanos**. La primera vez compila el backend y el frontend: medido el 29-oct en una máquina de desarrollo con las imágenes base ya descargadas, **4 min 23 s** de un árbol limpio a los tres servicios sanos (con las imágenes por descargar, más: depende de la red). Volver a ejecutarlo con todo construido toma de segundos a un minuto y medio. Para una demostración, levante la aplicación con anticipación: la primera ejecución compila y no debe hacerse delante del público.
 - Termina imprimiendo las direcciones. Salida esperada (los puertos pueden variar):
 
 ```text
@@ -53,7 +87,7 @@ Si falta la llave del proveedor de IA, debajo aparece un `AVISO` (ver §3). La a
 
 Al arrancar el backend, **solo** con esto y sin pasos manuales:
 
-1. Flyway aplica las migraciones `V1` a `V7` (`backend/src/main/resources/db/migration/`).
+1. Flyway aplica las migraciones `V1` a `V8` (`backend/src/main/resources/db/migration/`).
 2. La semilla de demostración (`APP_SEED_DEMO=true`) inserta los datos sintéticos desde `backend/src/main/resources/seed/demo-data.json` y `demo-reports.json`: 4 usuarios, 5 pacientes, 119 registros con sus eventos ya confirmados y 5 informes. Es idempotente: reiniciar no duplica nada. **No llama al modelo.**
 
 ### Comprobar que quedó corriendo
@@ -142,6 +176,8 @@ La aplicación llama a un proveedor de LLM real (no hay modo simulado). Para usa
 **Recomendado: ponga también la llave de respaldo** (`GEMINI_API_KEY`, gratuita, se crea en Google AI Studio; el nombre exacto es ese: `GOOGLE_API_KEY` también se acepta, `run.sh` la copia a `GEMINI_API_KEY`): `GROQ_API_KEY=<llave> GEMINI_API_KEY=<llave> ./run.sh`. La cuota gratuita de Groq (8 000 tokens por minuto) puede agotarse en plena demostración; con el respaldo el informe sigue (la traza muestra el cambio de proveedor) y sin él termina como `FALLIDA` con un mensaje honesto.
 
 `run.sh` guarda las llaves en `.env` (archivo ignorado por git) para que reiniciar no la pierda. También puede escribirla ahí: `GROQ_API_KEY=...`. Con terminal, `run.sh` la pregunta una vez (sin eco; Enter para omitir). **Nunca** ponga una llave en `.env.example` ni en un archivo versionado: el repositorio es público.
+
+Las variables exactas están en [.env.example](.env.example), sin valores reales (entre ellas `GROQ_API_KEY`, `GEMINI_API_KEY` y `DATABASE_URL`). `scripts/check-env-example.sh` falla si el compose o un yml usan una variable que ese archivo no documenta; hoy revisa 28 y pasa.
 
 Comprobar que la tomó (no imprime la llave; la API pide un usuario de demostración en la cabecera, aquí Marcela):
 
@@ -273,6 +309,8 @@ La suite rechaza cada informe que genera para poder repetir la semana: úsela en
 **Momento 2.** Está: registro con estructuración por IA y confirmación humana, agente con cuatro límites, informe semanal y mensual (cuatro semanas aprobadas, RN-10) con citas y traza, revisión (editar con versiones, aprobar, rechazar), PDF del informe aprobado (JasperReports), ejecución en segundo plano con progreso por SSE, semilla sin llamar al modelo, evaluación con cifras.
 
 **No está (decidido y declarado):** autenticación y credenciales (Momento 3, D23); pantalla del médico (E12c fuera; la regla se aplica en el servidor y se prueba por API); dictado por voz (opcional); fallos del proveedor forzables en vivo (se prueban con pruebas automáticas).
+
+**Prueba del compañero.** El procedimiento (otra persona, sin el código, que solo lee este README en un clon limpio, con el tiempo medido desde `git clone` hasta ver la interfaz con los pacientes; meta: menos de 5 minutos) y su registro están en [docs/prueba_companero.md](docs/prueba_companero.md). **Estado al 30-oct: la plantilla está lista y todavía no la llenó una persona ajena al equipo.** Lo medido por el equipo (4 min 23 s, §1) no la sustituye.
 
 **Lo que más conviene saber antes de confiar en las cifras:** casi todas las ejecuciones medidas terminaron en el proveedor de respaldo (la cuota diaria de Groq se agotó durante la medición); el tamaño de muestra es pequeño; la calidad de la redacción no se midió. Detalle en [docs/decisiones/semana10.md](docs/decisiones/semana10.md).
 
