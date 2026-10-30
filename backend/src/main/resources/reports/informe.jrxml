@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Plantilla del PDF de un informe APROBADO (RF-37, D13, E17), en el formato JRXML de JasperReports 7. El formato vive aqui;
+     el contenido lo arma ReportPdfBlocks como una lista de bloques (kind: H encabezado, P parrafo, N nota, M dato, S fuente,
+     TH3/T3 y TH5/T5 filas de tabla de 3 y 5 columnas). Asi el semanal y el mensual comparten plantilla. -->
+<jasperReport name="informe" language="java" pageWidth="595" pageHeight="842" columnWidth="515"
+              leftMargin="40" rightMargin="40" topMargin="40" bottomMargin="48">
+    <style name="base" default="true" fontName="DejaVu Sans" fontSize="9.5"/>
+
+    <parameter name="titulo" class="java.lang.String"/>
+    <parameter name="subtitulo" class="java.lang.String"/>
+    <parameter name="aprobadoPor" class="java.lang.String"/>
+    <parameter name="aprobadoEn" class="java.lang.String"/>
+    <parameter name="informeId" class="java.lang.String"/>
+    <parameter name="notaIa" class="java.lang.String"/>
+
+    <field name="kind" class="java.lang.String"/>
+    <field name="a" class="java.lang.String"/>
+    <field name="b" class="java.lang.String"/>
+    <field name="c" class="java.lang.String"/>
+    <field name="d" class="java.lang.String"/>
+    <field name="e" class="java.lang.String"/>
+
+    <title height="92">
+        <element kind="textField" x="0" y="0" width="515" height="26" textAdjust="StretchHeight" fontSize="17" bold="true">
+            <expression><![CDATA[$P{titulo}]]></expression>
+        </element>
+        <element kind="textField" x="0" y="28" width="515" height="16" textAdjust="StretchHeight" fontSize="10.5" forecolor="#5F5E5A">
+            <expression><![CDATA[$P{subtitulo}]]></expression>
+        </element>
+        <element kind="line" x="0" y="50" width="515" height="1"/>
+        <element kind="textField" x="0" y="56" width="515" height="14" textAdjust="StretchHeight" fontSize="9">
+            <expression><![CDATA["Aprobado por: " + $P{aprobadoPor} + " · Fecha de aprobación: " + $P{aprobadoEn}]]></expression>
+        </element>
+        <element kind="textField" x="0" y="71" width="515" height="14" textAdjust="StretchHeight" fontSize="8" forecolor="#5F5E5A">
+            <expression><![CDATA["Informe " + $P{informeId}]]></expression>
+        </element>
+    </title>
+
+    <detail>
+        <band height="16" splitType="Stretch">
+            <!-- encabezado de seccion -->
+            <element kind="textField" x="0" y="0" width="515" height="16" textAdjust="StretchHeight" removeLineWhenBlank="true" fontSize="11.5" bold="true">
+                <box topPadding="9" bottomPadding="1"/>
+                <expression><![CDATA[$F{a}]]></expression>
+                <printWhenExpression><![CDATA["H".equals($F{kind})]]></printWhenExpression>
+            </element>
+            <!-- parrafo -->
+            <element kind="textField" x="0" y="0" width="515" height="16" textAdjust="StretchHeight" removeLineWhenBlank="true" fontSize="10">
+                <box topPadding="2" bottomPadding="3"/>
+                <expression><![CDATA[$F{a}]]></expression>
+                <printWhenExpression><![CDATA["P".equals($F{kind})]]></printWhenExpression>
+            </element>
+            <!-- dato de encabezado y nota -->
+            <element kind="textField" x="0" y="0" width="515" height="16" textAdjust="StretchHeight" removeLineWhenBlank="true" fontSize="8.5" forecolor="#5F5E5A">
+                <box topPadding="1" bottomPadding="2"/>
+                <expression><![CDATA[$F{a}]]></expression>
+                <printWhenExpression><![CDATA["M".equals($F{kind}) || "N".equals($F{kind})]]></printWhenExpression>
+            </element>
+            <!-- fuente citada -->
+            <element kind="textField" x="0" y="0" width="515" height="16" textAdjust="StretchHeight" removeLineWhenBlank="true" fontSize="8.5">
+                <box topPadding="1" bottomPadding="3"/>
+                <expression><![CDATA[$F{a}]]></expression>
+                <printWhenExpression><![CDATA["S".equals($F{kind})]]></printWhenExpression>
+            </element>
+            <!-- tabla de 3 columnas -->
+            <element kind="textField" x="0" y="0" width="215" height="16" textAdjust="StretchHeight" removeLineWhenBlank="true" bold="true" mode="Opaque" backcolor="#F1F1EE">
+                <box padding="3"><bottomPen lineWidth="0.5" lineColor="#B4B2A9"/></box>
+                <expression><![CDATA[$F{a}]]></expression>
+                <printWhenExpression><![CDATA["TH3".equals($F{kind})]]></printWhenExpression>
+            </element>
+            <element kind="textField" x="215" y="0" width="150" height="16" textAdjust="StretchHeight" removeLineWhenBlank="true" bold="true" mode="Opaque" backcolor="#F1F1EE">
+                <box padding="3"><bottomPen lineWidth="0.5" lineColor="#B4B2A9"/></box>
+                <expression><![CDATA[$F{b}]]></expression>
+                <printWhenExpression><![CDATA["TH3".equals($F{kind})]]></printWhenExpression>
+            </element>
+            <element kind="textField" x="365" y="0" width="150" height="16" textAdjust="StretchHeight" removeLineWhenBlank="true" bold="true" mode="Opaque" backcolor="#F1F1EE">
+                <box padding="3"><bottomPen lineWidth="0.5" lineColor="#B4B2A9"/></box>
+                <expression><![CDATA[$F{c}]]></expression>
+                <printWhenExpression><![CDATA["TH3".equals($F{kind})]]></printWhenExpression>
+            </element>
+            <element kind="textField" x="0" y="0" width="215" height="16" textAdjust="StretchHeight" removeLineWhenBlank="true">
+                <box padding="3"><bottomPen lineWidth="0.5" lineColor="#D3D1C7"/></box>
+                <expression><![CDATA[$F{a}]]></expression>
+                <printWhenExpression><![CDATA["T3".equals($F{kind})]]></printWhenExpression>
+            </element>
+            <element kind="textField" x="215" y="0" width="150" height="16" textAdjust="StretchHeight" removeLineWhenBlank="true">
+                <box padding="3"><bottomPen lineWidth="0.5" lineColor="#D3D1C7"/></box>
+                <expression><![CDATA[$F{b}]]></expression>
+                <printWhenExpression><![CDATA["T3".equals($F{kind})]]></printWhenExpression>
+            </element>
+            <element kind="textField" x="365" y="0" width="150" height="16" textAdjust="StretchHeight" removeLineWhenBlank="true">
+                <box padding="3"><bottomPen lineWidth="0.5" lineColor="#D3D1C7"/></box>
+                <expression><![CDATA[$F{c}]]></expression>
+                <printWhenExpression><![CDATA["T3".equals($F{kind})]]></printWhenExpression>
+            </element>
+            <!-- tabla de 5 columnas (mensual): sintoma y las cuatro semanas -->
+            <element kind="textField" x="0" y="0" width="115" height="16" textAdjust="StretchHeight" removeLineWhenBlank="true" fontSize="8.5" bold="true" mode="Opaque" backcolor="#F1F1EE">
+                <box padding="3"><bottomPen lineWidth="0.5" lineColor="#B4B2A9"/></box>
+                <expression><![CDATA[$F{a}]]></expression>
+                <printWhenExpression><![CDATA["TH5".equals($F{kind})]]></printWhenExpression>
+            </element>
+            <element kind="textField" x="115" y="0" width="100" height="16" textAdjust="StretchHeight" removeLineWhenBlank="true" fontSize="8.5" bold="true" mode="Opaque" backcolor="#F1F1EE">
+                <box padding="3"><bottomPen lineWidth="0.5" lineColor="#B4B2A9"/></box>
+                <expression><![CDATA[$F{b}]]></expression>
+                <printWhenExpression><![CDATA["TH5".equals($F{kind})]]></printWhenExpression>
+            </element>
+            <element kind="textField" x="215" y="0" width="100" height="16" textAdjust="StretchHeight" removeLineWhenBlank="true" fontSize="8.5" bold="true" mode="Opaque" backcolor="#F1F1EE">
+                <box padding="3"><bottomPen lineWidth="0.5" lineColor="#B4B2A9"/></box>
+                <expression><![CDATA[$F{c}]]></expression>
+                <printWhenExpression><![CDATA["TH5".equals($F{kind})]]></printWhenExpression>
+            </element>
+            <element kind="textField" x="315" y="0" width="100" height="16" textAdjust="StretchHeight" removeLineWhenBlank="true" fontSize="8.5" bold="true" mode="Opaque" backcolor="#F1F1EE">
+                <box padding="3"><bottomPen lineWidth="0.5" lineColor="#B4B2A9"/></box>
+                <expression><![CDATA[$F{d}]]></expression>
+                <printWhenExpression><![CDATA["TH5".equals($F{kind})]]></printWhenExpression>
+            </element>
+            <element kind="textField" x="415" y="0" width="100" height="16" textAdjust="StretchHeight" removeLineWhenBlank="true" fontSize="8.5" bold="true" mode="Opaque" backcolor="#F1F1EE">
+                <box padding="3"><bottomPen lineWidth="0.5" lineColor="#B4B2A9"/></box>
+                <expression><![CDATA[$F{e}]]></expression>
+                <printWhenExpression><![CDATA["TH5".equals($F{kind})]]></printWhenExpression>
+            </element>
+            <element kind="textField" x="0" y="0" width="115" height="16" textAdjust="StretchHeight" removeLineWhenBlank="true" fontSize="8.5">
+                <box padding="3"><bottomPen lineWidth="0.5" lineColor="#D3D1C7"/></box>
+                <expression><![CDATA[$F{a}]]></expression>
+                <printWhenExpression><![CDATA["T5".equals($F{kind})]]></printWhenExpression>
+            </element>
+            <element kind="textField" x="115" y="0" width="100" height="16" textAdjust="StretchHeight" removeLineWhenBlank="true" fontSize="8.5">
+                <box padding="3"><bottomPen lineWidth="0.5" lineColor="#D3D1C7"/></box>
+                <expression><![CDATA[$F{b}]]></expression>
+                <printWhenExpression><![CDATA["T5".equals($F{kind})]]></printWhenExpression>
+            </element>
+            <element kind="textField" x="215" y="0" width="100" height="16" textAdjust="StretchHeight" removeLineWhenBlank="true" fontSize="8.5">
+                <box padding="3"><bottomPen lineWidth="0.5" lineColor="#D3D1C7"/></box>
+                <expression><![CDATA[$F{c}]]></expression>
+                <printWhenExpression><![CDATA["T5".equals($F{kind})]]></printWhenExpression>
+            </element>
+            <element kind="textField" x="315" y="0" width="100" height="16" textAdjust="StretchHeight" removeLineWhenBlank="true" fontSize="8.5">
+                <box padding="3"><bottomPen lineWidth="0.5" lineColor="#D3D1C7"/></box>
+                <expression><![CDATA[$F{d}]]></expression>
+                <printWhenExpression><![CDATA["T5".equals($F{kind})]]></printWhenExpression>
+            </element>
+            <element kind="textField" x="415" y="0" width="100" height="16" textAdjust="StretchHeight" removeLineWhenBlank="true" fontSize="8.5">
+                <box padding="3"><bottomPen lineWidth="0.5" lineColor="#D3D1C7"/></box>
+                <expression><![CDATA[$F{e}]]></expression>
+                <printWhenExpression><![CDATA["T5".equals($F{kind})]]></printWhenExpression>
+            </element>
+        </band>
+    </detail>
+
+    <pageFooter height="34">
+        <element kind="line" x="0" y="2" width="515" height="1" forecolor="#B4B2A9"/>
+        <element kind="textField" x="0" y="6" width="420" height="26" textAdjust="StretchHeight" fontSize="7.5" forecolor="#5F5E5A">
+            <expression><![CDATA[$P{notaIa} + "  Informe " + $P{informeId} + " · aprobado por " + $P{aprobadoPor} + " el " + $P{aprobadoEn} + "."]]></expression>
+        </element>
+        <element kind="textField" x="420" y="6" width="83" height="12" fontSize="7.5" forecolor="#5F5E5A" hTextAlign="Right">
+            <expression><![CDATA["Página " + $V{PAGE_NUMBER} + " de "]]></expression>
+        </element>
+        <element kind="textField" x="505" y="6" width="10" height="12" fontSize="7.5" forecolor="#5F5E5A" evaluationTime="Report">
+            <box leftPadding="1"/>
+            <expression><![CDATA[$V{PAGE_NUMBER}]]></expression>
+        </element>
+    </pageFooter>
+</jasperReport>

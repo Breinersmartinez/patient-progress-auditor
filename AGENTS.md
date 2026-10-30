@@ -9,28 +9,30 @@
 ## Dónde va el LLM y dónde no
 Si se quita el modelo, los registros siguen existiendo pero el informe no. La frontera es esta:
 - **Código determinista:** guardar y consultar registros, ordenar por fecha, calcular métricas (conteos, frecuencias, días con síntoma), permisos, validaciones y estados del informe. Los números los calcula el código, nunca el LLM.
-- **LLM:** interpretar texto libre ("vomitó el lunes, ánimo alto") y redactar la comparación entre semanas.
-- **Humano:** enfermería contrasta las afirmaciones con los registros originales y aprueba.
+- **LLM:** interpretar texto libre ("vomitó el lunes, ánimo alto"), proponer al registrar una entrada los eventos que el texto dice (síntoma, intensidad y veces, D27) y redactar la comparación entre semanas.
+- **Humano:** quien registra confirma los eventos que propone la IA antes de guardar; enfermería contrasta las afirmaciones del informe con los registros originales y aprueba.
 - No poner el LLM en lo que el código resuelve exacto. La utilidad del LLM y del agente se mide contra una solución convencional (sin modelo).
 
 ## Estado actual
-Scaffold ya limpio de AgroCortex (al 2026-10-25), sin lógica de dominio de pacientes:
-- `backend/`: Spring Boot 3.4.1, Java 17, Maven, PostgreSQL, Flyway, Spring Security + JWT. Paquete `com.patientprogressauditor`. Migraciones `V1` (esquema RBAC) y `V2` (permisos genéricos y solo el rol `ADMIN`: faltan los roles del dominio y no hay usuarios sembrados). Solo existe la clase `*Application` y su test; sin controllers ni entidades. `backend/Dockerfile` compila y copia el jar pero no tiene `CMD`, así que hoy no arranca solo con `docker compose`.
-- `frontend/`: Angular 19, Node 20, sin rutas ni servicios.
-- **Stack (D9, decidido):** se mantienen Spring Boot y Angular desde el Momento 2; el agente vive en el backend Spring. De lo existente, solo el RBAC y el JWT esperan al Momento 3, con la autenticación (D23). Parte pendiente: subir Java 17 a 21, que cita la página de entrega.
-- `.github/workflows/`: CI, Security y Qodana.
-- `docs/`: `SPEC.md`, `REQUISITOS.md` y el resumen ejecutivo; `PLAN.md` es un esqueleto y `decisiones/` está vacío. `docs/03` a `docs/06` son documentación del scaffold (CI, seguridad y commits).
-- **No existen todavía:** agente, herramientas, capa de proveedor, casos en `eval/` (solo `.gitkeep`), contenido en `docker-compose.yml` y `run.sh` (existen vacíos, sin versionar), `docs/decisiones.md` y un README ejecutable (el actual describe el scaffold). Los cuatro skills del curso (`especifica-encargo`, `planea-trabajo`, `ejecuta-plan`, `valida-resultado`) están en `skills/`, con copias en `.claude/skills/` y `.opencode/skills/`.
+Al 2026-10-29 está construido el **módulo de enfermería del Momento 2** (etapas E1 a E12b y E14 del plan; E15 es la documentación y la entrega). Lo que existe:
+- `backend/`: Spring Boot 3.4.1, Java 17, Maven, PostgreSQL 16, Flyway (`V1` a `V8`). Paquete `com.patientprogressauditor`: `session` (usuario de demostración elegido, D26), `patient`, `entry` (registro con estructuración por IA y confirmación, D27), `metrics` (cifras calculadas por el código), `llm` (capa de proveedor: Groq principal, Gemini de respaldo, reintentos y conmutación), `agent` (bucle con cuatro límites, seis herramientas (una solo del mensual), validadores de cifras y citas), `run` (ejecución en segundo plano con SSE, D24), `report` (versiones, ediciones, aprobar y rechazar con transiciones validadas; el informe mensual de cuatro semanas aprobadas, RN-10, E13; el PDF del informe aprobado con JasperReports, RF-37, D13, E17), `structuring` (la llamada corta al registrar), `system` (estado de salud), `seed` (4 usuarios, 5 pacientes, 119 entradas y 5 informes sin llamar al modelo). 350 pruebas.
+- `frontend/`: Angular 19, Node 20, rutas con hash. Pantallas de enfermería: pacientes, registro con vista previa de eventos, historial, generar informe semanal o mensual con progreso, revisión, informe con citas y traza, edición, aprobación, rechazo y «Descargar PDF» del informe aprobado. 121 pruebas. **No hay pantalla del médico** (E12c fuera): la regla de que solo ve lo aprobado está en el servidor y se prueba por API.
+- `eval/`: 8 casos dorados de informes semanales, 3 del mensual y 24 de estructuración (8 con síntomas fuera del catálogo), la solución convencional (sin modelo), `run_eval.py`, 31 pruebas de la propia evaluación y resultados fechados. Las cuatro cifras están en `docs/decisiones/semana10.md`.
+- `docker-compose.yml`, `run.sh`, `.env.example`, los dos Dockerfile y `nginx.conf`: arranque en un comando (E1). `README.md` es el contrato ejecutable por una IA.
+- `docs/`: `SPEC.md`, `REQUISITOS.md`, los dos diccionarios, `PLAN.md` (con el cierre de cada etapa), `decisiones.md`, `decisiones/semana06.md`, `semana08.md` y `semana10.md`, `prueba_companero.md` (plantilla por llenar). `seguridad.md`, `gobernanza.md` y `respuesta_auditoria.md` son del Momento 3. `docs/03` a `docs/06` son documentación del scaffold (CI, seguridad y commits).
+- `.github/workflows/`: CI, Security (CodeQL, Dependency Review, Gitleaks) y Qodana.
+- **Stack (D9, decidido):** Spring Boot y Angular; el agente vive en el backend. Java se queda en 17 (razón en `docs/decisiones.md`, E15).
+- **Aún no existe:** autenticación y JWT (`jjwt` está declarada y sin uso hasta el Momento 3, D23), pantalla del médico, fallos del proveedor forzables en vivo (se prueban con pruebas automáticas), `seguridad.md` y `gobernanza.md`.
 
 ## Cómo se corre y se prueba
-Hoy (heredado del scaffold):
-- Backend: `cd backend && mvn spring-boot:run`. Perfil `dev`; Postgres en `localhost:5432`, base y usuario `patient_auditor` (según `application-dev.yml`) y contraseña en `DB_PASSWORD`, sin valor por defecto. Exige también `JWT_SECRET` (sin valor por defecto). Swagger en `/swagger-ui.html`. No hay `mvnw`: usa el `mvn` del sistema.
-- Tests backend: `cd backend && mvn -B verify`.
-- Frontend: `cd frontend && npm start` (URL del API por `API_URL`).
-- Tests frontend: `cd frontend && npx ng test --watch=false --browsers=ChromeHeadless --code-coverage`.
+- **Todo en Docker (el comando de la entrega):** `./run.sh` (crea `.env`, genera `DB_PASSWORD`, toma la llave del entorno o la pide solo si hay terminal, y ejecuta `docker compose up --build -d --wait`). Sin terminal y sin llave arranca igual y avisa. Interfaz en `http://localhost:4200`, API en `http://localhost:8080`; si un puerto está ocupado, `run.sh` usa el siguiente libre. Con llave: `GROQ_API_KEY=<llave> ./run.sh`. Detalle, usuarios y recorrido en el `README.md`.
+- Backend (necesita un PostgreSQL desechable; las pruebas lo modifican): `cd backend && SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:<puerto>/patient_auditor SPRING_DATASOURCE_USERNAME=patient_auditor SPRING_DATASOURCE_PASSWORD=<clave> mvn -B verify`. Para correrlo sin Docker: `mvn spring-boot:run` (perfil `dev`, `DB_PASSWORD` sin valor por defecto). Swagger en `/swagger-ui.html`. No hay `mvnw`: usa el `mvn` del sistema.
+- Frontend: `cd frontend && npm start` (el proxy de `ng serve` manda `/api` a `localhost:8080`). Pruebas: `npx ng test --watch=false --browsers=ChromeHeadless --code-coverage`.
+- Evaluación: `python3 eval/run_eval.py` (contra la app levantada, gasta cuota de la llave; úsela en una base desechable) y `python3 eval/run_eval.py --baseline-only` (sin app ni llave). Pruebas de la evaluación: `python3 -m unittest discover -s eval`.
+- Variables: `scripts/check-env-example.sh` falla si un yml o el compose usan una variable que `.env.example` no documenta.
 - `npm run lint` está roto (falta `@angular-eslint`): no lo uses como verificación.
 
-Objetivo de entrega (por crear): `./run.sh` o `docker compose up --build` levanta todo con un comando, con solo Docker Compose v2 en la máquina. El profesor entrega el README a una IA y ejecuta únicamente sus pasos; un compañero con un clon limpio debe tenerlo corriendo en menos de 5 minutos. Ver "Entrega y prueba del profesor". Cuando existan, actualiza esta sección: es la única que lleva los comandos exactos.
+Objetivo de entrega: `./run.sh` levanta todo con un comando, con solo Docker Compose v2 en la máquina. El profesor entrega el README a una IA y ejecuta únicamente sus pasos; un compañero con un clon limpio debe tenerlo corriendo en menos de 5 minutos. Ver "Entrega y prueba del profesor". Esta sección es la que lleva los comandos exactos: si cambian, se actualiza aquí y en el README.
 
 ## Entrega y prueba del profesor (clase del 24-oct-2026)
 Lo dicho en clase manda sobre la página del curso en lo logístico (plazo y formato); la rúbrica escrita sigue mandando en el puntaje.
@@ -55,6 +57,7 @@ Lo dicho en clase manda sobre la página del curso en lo logístico (plazo y for
 
 ## Reglas del producto (no negociables)
 - **Supervisión humana exigida por el sistema.** Un informe solo llega al médico en estado `APROBADO`, y solo un usuario con rol de enfermería puede aprobarlo (en el Momento 2, el usuario de demostración de enfermería elegido, D26). La transición se valida en código; no basta con que alguien "mire la pantalla". Si se decide que el médico vea borradores, se muestran marcados "BORRADOR — sin aprobación de enfermería".
+- **La IA propone, la persona confirma.** Al registrar una entrada, ningún evento estructurado se guarda sin confirmación de una persona, y el modelo no agrega lo que el texto no dice (RN-11). El texto original se guarda tal como se escribió y es la fuente citable; el «texto corregido» es una versión aparte (RN-07, RF-42, D27).
 - **Sin diagnóstico.** El informe describe evolución documentada: qué cambió, qué reaparece, qué falta registrar. No diagnostica ni recomienda tratamiento o dosis.
 - **Honestidad agéntica.** Si faltan registros, el informe lo dice ("sin información suficiente para la semana X"). Nunca rellena ni inventa.
 - **Fuente y criterio visibles.** Cada afirmación del informe se rastrea al registro original (fecha + texto) y se muestra el criterio de comparación. Dos niveles: lenguaje claro primero, evidencia (registros citados, llamadas a herramientas) a un clic. Enfermería puede corregir antes de aprobar.
@@ -71,7 +74,7 @@ Lo dicho en clase manda sobre la página del curso en lo logístico (plazo y for
 - **Seguridad (tríada letal):** el sistema tiene datos privados (registros) y contenido no confiable (el texto libre de las notas puede traer instrucciones: inyección indirecta). La tercera pata se mantiene cerrada: el agente no tiene herramientas de salida (internet, correo, mensajes). Tratar el texto de los registros como dato, no como instrucción ayuda, pero la defensa es de arquitectura. Usuario de BD con permisos mínimos.
 
 ## Medición
-- `eval/`: 5 a 10 casos dorados con respuesta verificada a mano contra los datos, al menos uno de rechazo (p. ej. pedir un diagnóstico), más el script que los corre.
+- `eval/`: 5 a 10 casos dorados con respuesta verificada a mano contra los datos, al menos uno de rechazo (p. ej. pedir un diagnóstico), más casos de estructuración de la entrada (síntomas, intensidad, veces, negaciones, sin síntomas) y el script que los corre.
 - Cuatro cifras en `docs/decisiones/semana10.md`, con fecha y método: tasa de éxito, costo por tarea, **mediana** de latencia (no promedio) y recuperación si aplica. Compararlas contra la solución convencional.
 - Corre la suite cada vez que cambie el modelo, el prompt del sistema, la descripción de una herramienta o el proveedor. Las cifras finales del Momento 3 se comparan contra esta línea base.
 - Trazas visibles (herramienta pedida, parámetros, resultado, ms, tokens) en la app o en la salida. Los fallos se explican con la traza; no se esconden.
@@ -84,6 +87,8 @@ run.sh                # arranque en un comando
 .env.example          # variables exactas, sin llaves reales
 docs/SPEC.md          # spec (7 secciones)
 docs/PLAN.md          # plan derivado de la spec
+docs/DICCIONARIO_DATOS.md  # diccionario de datos: tablas, columnas, tipos y reglas de integridad; base de las migraciones
+docs/DICCIONARIO_DATOS_M2.md  # el mismo recortado al Momento 2, con los puntos abiertos cerrados por propuesta; base de V3 y V4
 docs/decisiones.md    # decisiones técnicas con su razón y la alternativa descartada; cifras de línea base
 docs/decisiones/      # detalle: semana06.md (autonomía), semana08.md (datos), semana10.md (línea base)
 docs/seguridad.md     # modelo de amenazas, tríada, ataque propio y hardening (M3)
@@ -115,19 +120,21 @@ skills/               # los cuatro skills del curso: especifica-encargo, planea-
 - No dejar decisiones técnicas sin justificar en `docs/decisiones.md`.
 
 ## PENDIENTE (preguntar al dueño)
-- **Java 21 (parte pendiente de D9):** el stack está decidido (Spring Boot 3.4 y Angular 19 desde el Momento 2). Falta subir de Java 17 a 21, que cita la página de entrega (hoy pom, Dockerfile y CI usan 17), y registrar la justificación de D9 en `docs/decisiones.md`: el profesor la va a preguntar.
-- **Proveedor y modelo del LLM (D15)** y su capa de abstracción: aún no hay ninguno. Verificar los modelos vigentes (la página de entrega cita modelos que pueden estar desactualizados) y registrar la justificación en `docs/decisiones.md`.
-- **Estrategia de datos (D8):** decidida: consulta directa a la BD; RAG solo si se mide que hace falta. Falta escribir `docs/decisiones/semana08.md`; el profesor preguntará por qué RAG o por qué no.
+- **Justificación de D9 (stack con Java 17):** escrita en `docs/decisiones.md` (E15, con la tabla de librerías). Falta que el equipo la lea: el profesor la va a preguntar.
+- **Proveedor y modelo del LLM (D15):** decidido el 28-oct. Groq es el principal (`openai/gpt-oss-120b`) y Gemini el de respaldo (`gemini-3.5-flash-lite`); la capa y su justificación están en `docs/decisiones.md` (E8). Falta confirmar los límites gratuitos de Gemini, que Google no publica.
+- **Estrategia de datos (D8):** decidida y escrita en `docs/decisiones/semana08.md` (consulta directa a la BD, sin RAG, con el tamaño del corpus medido y el criterio para volver a evaluarlo). No se midió una versión con RAG.
 - **Visibilidad al médico (D6):** el supuesto es que solo ve informes aprobados (el deck lo dice; la descripción inicial decía que también podría revisarlos directamente). Confirmar; si ve borradores, se marcan (ver reglas del producto).
-- **Patrón de integración (D24):** decidido: asíncrono, con eventos de progreso por SSE (SPEC §7). Falta escribir su entrada en `docs/decisiones.md`: el profesor preguntará «¿síncrono o asíncrono, y por qué?».
-- **Arranque en frío (D22 y D23):** crear `docker-compose.yml`, `run.sh`, el `CMD` del Dockerfile, la semilla de datos y de usuarios de demostración (enfermería y médico, sin credenciales; las credenciales y el administrador llegan en el Momento 3) y el README ejecutable. Es el primer trabajo de construcción. Como el Momento 2 no tiene autenticación, el backend no puede exigir `JWT_SECRET` ni proteger las rutas con JWT en el arranque: hoy `application.yml` exige `JWT_SECRET` sin valor por defecto.
-- **Conjunto sintético (D11):** decidida, pero sin cifras. Falta fijar cuántos pacientes y semanas; debe incluir al menos un paciente con cuatro semanas consecutivas con informe semanal aprobado, para poder mostrar el mensual (RN-10).
-- **Informe mensual en el Momento 2 (D4):** decidido por el equipo. Un mes son cuatro semanas completas consecutivas y el mensual exige el informe semanal aprobado de cada una (RN-10, RF-36); cuatro semanas y no mes calendario es propuesta por confirmar.
-- **Autenticación en el Momento 3 (D23):** decidido por el equipo. En el Momento 2 la app abre sin inicio de sesión y se elige con qué usuario de demostración sembrado se trabaja (D26, por confirmar): así solo Enfermería aprueba, el médico solo ve lo aprobado y cada acción, incluida la del médico que registra, tiene un autor (D12). No es un control de seguridad.
+- **Patrón de integración (D24):** decidido: asíncrono, con eventos de progreso por SSE (SPEC §7). Su entrada está en `docs/decisiones.md` (E11): el profesor preguntará «¿síncrono o asíncrono, y por qué?».
+- **Arranque en frío (D22 y D23):** hecho (E1, E3, E15): `docker-compose.yml`, `run.sh`, Dockerfiles, semilla sin llamar al LLM, usuarios de demostración y README ejecutable. Falta la prueba en frío con una persona ajena (`docs/prueba_companero.md`).
+- **Conjunto sintético (D11):** hecho: 5 pacientes, 18 semanas-paciente (5, 4, 3, 4 y 2), 119 entradas con eventos confirmados, fechas fijas que terminan el domingo 25-oct-2026 y 5 informes sembrados (4 aprobados de P-014 y 1 pendiente de P-021). Los casos dorados de `eval/` salen de ahí. Los informes sembrados los escribe una plantilla, no el agente (E14).
+- **Estructuración de la entrada (D27):** decidida el 28-oct. Intensidad: leve, moderado, intenso y «sin indicar»; nueve síntomas sugeridos (D18) y cualquier otro se acepta, con la frase de la nota que lo respalda (E18); botón «Aprobar y guardar» (como el mockup); «Descartar» cierra la vista previa sin guardar; el «texto corregido» queda fuera. Su entrada en `docs/decisiones.md` explica por qué esta llamada corta va en la misma petición y la del agente es asíncrona (D24).
+- **Informe mensual en el Momento 2 (D4):** decidido por el equipo. Un mes son cuatro semanas completas consecutivas y el mensual exige el informe semanal aprobado de cada una (RN-10, RF-36); cuatro semanas y no mes calendario es propuesta por confirmar. **Implementado en E13** (decisiones en `docs/decisiones.md`, medición en `docs/decisiones/semana10.md`); la propuesta de «cuatro semanas y no mes calendario» sigue por confirmar.
+- **Autenticación en el Momento 3 (D23):** decidido por el equipo. En el Momento 2 la app abre sin inicio de sesión y se elige con qué usuario de demostración sembrado se trabaja (D26, decidida el 28-oct): así solo Enfermería aprueba, el médico solo ve lo aprobado y cada acción, incluida la del médico que registra, tiene un autor (D12). No es un control de seguridad.
+- **Llave del API para el profesor (parte pendiente de D22):** decidido el 29-oct: el evaluador usa su propia llave gratuita de Groq o el equipo le envía por un medio privado (correo o mensaje) una llave temporal creada solo para la calificación y revocable; el README lo dice. Falta que el equipo cree esa llave y la envíe; nunca va en el repo ni en el historial. Sin llave la app arranca con la semilla y avisa.
 - **Entrega:** repositorio público; el enlace va al aula virtual antes del jueves 29 a medianoche y falta crear el tag `m2-entrega` (D21).
 - **Archivo de decisiones:** resuelto. Es `docs/decisiones.md` (el profesor aceptó «otro documento» o el README), con el detalle en `docs/decisiones/`.
 - **Evidencia de la aprobación de la necesidad de IA (D17):** guardar fecha y medio (clase o correo) en `docs/decisiones/`.
-- **Idioma de los identificadores del dominio** (Paciente/Patient, Registro/Entry, Informe/Report) y nombre canónico de cada entidad.
+- **Diccionario de datos:** `docs/DICCIONARIO_DATOS.md` v0.1 resuelve el idioma de los identificadores (inglés en `snake_case`, con etiqueta en español) y propone las 16 tablas, sus columnas y los permisos del dominio. Quedan 13 puntos por confirmar (§8). `docs/DICCIONARIO_DATOS_M2.md` v0.1 es el recorte al Momento 2 y los cierra con una propuesta marcada: el evento toma la fecha de su entrada, los síntomas son una lista cerrada de nueve (la del mockup), la traza se lee desde el informe, `INCOMPLETO` es un estado final y `app_users.password_hash` admite `NULL` (hoy es `NOT NULL` en `V1`). Es el que se usa para escribir `V3` y `V4`. Falta que el equipo lo confirme, sobre todo el catálogo de síntomas (D18, con una persona de enfermería) y la matriz de trazas de la SPEC §4; si cambia algo que esté en los dos diccionarios, se actualizan los dos.
 
 ---
 Reglas del curso verificadas contra ingenieria-aplicaciones-ia.netlify.app el 21-oct-2026 (rúbricas de los Momentos 1 a 3; slides de las semanas 2, 3, 4, 7, 8, 9, 10, 12 y 13). Si el sitio cambia, este archivo envejece. Entrega, plazo y prueba del profesor: transcripción de la clase del sábado 24-oct-2026.

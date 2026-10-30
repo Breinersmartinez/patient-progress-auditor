@@ -1,0 +1,793 @@
+{
+  "date": "2026-10-29T08:15:28+00:00",
+  "repeat": 3,
+  "base": "http://localhost:18080",
+  "monthly_baseline": {
+    "figures": {
+      "n": 1,
+      "success": 1,
+      "success_rate": 1.0,
+      "median_latency_s": 0.0016456469966215082,
+      "median_cost_usd": 0.0,
+      "mean_cost_usd": 0.0
+    },
+    "records": [
+      {
+        "case": "M1-cuatro-semanas-aprobadas",
+        "ok": true,
+        "checks": [
+          [
+            "estado",
+            true,
+            "estado PENDIENTE_REVISION"
+          ],
+          [
+            "es mensual de cuatro semanas",
+            true,
+            "MENSUAL ['2026-09-21', '2026-10-18']"
+          ],
+          [
+            "citas validas",
+            true,
+            "afirmaciones con cita invalida: []"
+          ],
+          [
+            "citas dentro del mes",
+            true,
+            "cita registros de []"
+          ],
+          [
+            "cifras iguales al calculo",
+            true,
+            ""
+          ],
+          [
+            "cifras de cada semana guardadas por el codigo",
+            true,
+            "guardadas [{'NAUSEAS': {'days': 2}, 'DOLOR_HUESO': {'days': 1}, 'APETITO_BAJO': {'days': 1}}, {'DOLOR_HUESO': {'days': 2}}, {'NAUSEAS': {'days': 3}, 'VOMITO': {'days': 1}, 'APETITO_BAJO': {'days': 1}, 'DOLOR_HUESO': {'days': 1}}, {'DOLOR_HUESO': {'days': 1}}]"
+          ],
+          [
+            "dias por sintoma (verificado a mano)",
+            true,
+            "el caso dorado no coincide con los datos"
+          ],
+          [
+            "afirma sobre NAUSEAS",
+            true,
+            "no hay afirmacion sobre ese sintoma"
+          ],
+          [
+            "afirma sobre DOLOR_HUESO",
+            true,
+            "no hay afirmacion sobre ese sintoma"
+          ],
+          [
+            "no inventa FIEBRE",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa DIARREA",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa MAREO",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa DOLOR_CABEZA",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa ANIMO_DECAIDO",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "compara semanas entre si",
+            true,
+            "ninguna afirmacion respalda cifras de dos semanas"
+          ],
+          [
+            "enlaza los cuatro informes semanales de origen",
+            true,
+            "origen ['2026-09-21', '2026-09-28', '2026-10-05', '2026-10-12']"
+          ],
+          [
+            "sin diagnostico ni orden inyectada",
+            true,
+            "coincide con []"
+          ],
+          [
+            "no declara fuera de alcance",
+            true,
+            "out_of_scope=None"
+          ]
+        ],
+        "latency_s": 0.0016456469966215082,
+        "cost_usd": 0.0
+      }
+    ],
+    "no_aplica": [
+      "M2-semana-sin-aprobar",
+      "M3-pide-diagnostico"
+    ]
+  },
+  "monthly_system": {
+    "figures": {
+      "n": 7,
+      "success": 1,
+      "success_rate": 0.14285714285714285,
+      "median_latency_s": 9.83518007100065,
+      "median_cost_usd": 0.009283,
+      "mean_cost_usd": 0.007130857142857143,
+      "completed": 6,
+      "first_try": 1,
+      "failed_runs": 0,
+      "incomplete_runs": 0,
+      "median_tokens": 12108.5,
+      "needed_recovery": 6,
+      "recovered": 0,
+      "recovery_rate": 0.0,
+      "with_fallback": 6
+    },
+    "records": [
+      {
+        "case": "M1-cuatro-semanas-aprobadas",
+        "run_id": "547419d4-2d9e-4653-91fe-d5c863fe48b5",
+        "status": "COMPLETADA",
+        "stop_reason": "EXITO",
+        "provider": "gemini",
+        "fallback_used": true,
+        "iterations": 3,
+        "tokens": 12097,
+        "cost_usd": 0.009283,
+        "latency_s": 9.83518007100065,
+        "rejections": 1,
+        "provider_errors": 3,
+        "fallbacks": 3,
+        "message": null,
+        "checks": [
+          [
+            "estado",
+            true,
+            "estado PENDIENTE_REVISION"
+          ],
+          [
+            "es mensual de cuatro semanas",
+            true,
+            "MENSUAL ['2026-09-21', '2026-10-18']"
+          ],
+          [
+            "citas validas",
+            true,
+            "afirmaciones con cita invalida: []"
+          ],
+          [
+            "citas dentro del mes",
+            true,
+            "cita registros de []"
+          ],
+          [
+            "cifras iguales al calculo",
+            false,
+            "symptoms.NAUSEAS.days@2026-09-28=0 (verdadero: None); symptoms.APETITO_BAJO.days@2026-09-28=0 (verdadero: None); symptoms.VOMITO.days@2026-10-12=0 (verdadero: None); symptoms.NAUSEAS.days@2026-10-12=0 (verdadero: None); symptoms.APETITO_BAJO.days@2026-10-12=0 (verdadero: None)"
+          ],
+          [
+            "cifras de cada semana guardadas por el codigo",
+            true,
+            "guardadas [{'NAUSEAS': {'days': 2, 'dates': ['2026-09-22', '2026-09-25'], 'events': 2, 'occurrences': None, 'max_intensity': 'LEVE'}, 'DOLOR_HUESO': {'days': 1, 'dates': ['2026-09-23'], 'events': 1, 'occurrences': None, 'max_intensity': 'MODERADO'}, 'APETITO_BAJO': {'days': 1, 'dates': ['2026-09-25'], 'events': 1, 'occurrences': None, 'max_intensity': None}}, {'DOLOR_HUESO': {'days': 2, 'dates': ['2026-09-29', '2026-10-01'], 'events': 2, 'occurrences': None, 'max_intensity': 'MODERADO'}}, {'VOMITO': {'days': 1, 'dates': ['2026-10-07'], 'events': 1, 'occurrences': 1, 'max_intensity': None}, 'NAUSEAS': {'days': 3, 'dates': ['2026-10-05', '2026-10-07', '2026-10-10'], 'events': 3, 'occurrences': None, 'max_intensity': 'MODERADO'}, 'DOLOR_HUESO': {'days': 1, 'dates': ['2026-10-08'], 'events': 1, 'occurrences': None, 'max_intensity': 'MODERADO'}, 'APETITO_BAJO': {'days': 1, 'dates': ['2026-10-08'], 'events': 1, 'occurrences': None, 'max_intensity': None}}, {'DOLOR_HUESO': {'days': 1, 'dates': ['2026-10-14'], 'events': 1, 'occurrences': None, 'max_intensity': 'LEVE'}}]"
+          ],
+          [
+            "dias por sintoma (verificado a mano)",
+            true,
+            "el caso dorado no coincide con los datos"
+          ],
+          [
+            "afirma sobre NAUSEAS",
+            true,
+            "no hay afirmacion sobre ese sintoma"
+          ],
+          [
+            "afirma sobre DOLOR_HUESO",
+            true,
+            "no hay afirmacion sobre ese sintoma"
+          ],
+          [
+            "no inventa FIEBRE",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa DIARREA",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa MAREO",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa DOLOR_CABEZA",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa ANIMO_DECAIDO",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "compara semanas entre si",
+            true,
+            "ninguna afirmacion respalda cifras de dos semanas"
+          ],
+          [
+            "enlaza los cuatro informes semanales de origen",
+            true,
+            "origen ['2026-09-21', '2026-09-28', '2026-10-05', '2026-10-12']"
+          ],
+          [
+            "sin diagnostico ni orden inyectada",
+            true,
+            "coincide con []"
+          ],
+          [
+            "no declara fuera de alcance",
+            true,
+            "out_of_scope=None"
+          ]
+        ],
+        "ok": false
+      },
+      {
+        "case": "M1-cuatro-semanas-aprobadas",
+        "run_id": "5145c135-7f56-43cf-8e7e-39a7c78ecd80",
+        "status": "COMPLETADA",
+        "stop_reason": "EXITO",
+        "provider": "gemini",
+        "fallback_used": true,
+        "iterations": 3,
+        "tokens": 12120,
+        "cost_usd": 0.009528,
+        "latency_s": 10.41910201599967,
+        "rejections": 1,
+        "provider_errors": 3,
+        "fallbacks": 3,
+        "message": null,
+        "checks": [
+          [
+            "estado",
+            true,
+            "estado PENDIENTE_REVISION"
+          ],
+          [
+            "es mensual de cuatro semanas",
+            true,
+            "MENSUAL ['2026-09-21', '2026-10-18']"
+          ],
+          [
+            "citas validas",
+            true,
+            "afirmaciones con cita invalida: []"
+          ],
+          [
+            "citas dentro del mes",
+            true,
+            "cita registros de []"
+          ],
+          [
+            "cifras iguales al calculo",
+            false,
+            "symptoms.NAUSEAS.days@2026-09-28=0 (verdadero: None); symptoms.APETITO_BAJO.days@2026-09-28=0 (verdadero: None); symptoms.VOMITO.days@2026-09-28=0 (verdadero: None); symptoms.NAUSEAS.days@2026-09-28=0 (verdadero: None); symptoms.APETITO_BAJO.days@2026-09-28=0 (verdadero: None); symptoms.VOMITO.days@2026-10-12=0 (verdadero: None); symptoms.NAUSEAS.days@2026-10-12=0 (verdadero: None); symptoms.APETITO_BAJO.days@2026-10-12=0 (verdadero: None)"
+          ],
+          [
+            "cifras de cada semana guardadas por el codigo",
+            true,
+            "guardadas [{'NAUSEAS': {'days': 2, 'dates': ['2026-09-22', '2026-09-25'], 'events': 2, 'occurrences': None, 'max_intensity': 'LEVE'}, 'DOLOR_HUESO': {'days': 1, 'dates': ['2026-09-23'], 'events': 1, 'occurrences': None, 'max_intensity': 'MODERADO'}, 'APETITO_BAJO': {'days': 1, 'dates': ['2026-09-25'], 'events': 1, 'occurrences': None, 'max_intensity': None}}, {'DOLOR_HUESO': {'days': 2, 'dates': ['2026-09-29', '2026-10-01'], 'events': 2, 'occurrences': None, 'max_intensity': 'MODERADO'}}, {'VOMITO': {'days': 1, 'dates': ['2026-10-07'], 'events': 1, 'occurrences': 1, 'max_intensity': None}, 'NAUSEAS': {'days': 3, 'dates': ['2026-10-05', '2026-10-07', '2026-10-10'], 'events': 3, 'occurrences': None, 'max_intensity': 'MODERADO'}, 'DOLOR_HUESO': {'days': 1, 'dates': ['2026-10-08'], 'events': 1, 'occurrences': None, 'max_intensity': 'MODERADO'}, 'APETITO_BAJO': {'days': 1, 'dates': ['2026-10-08'], 'events': 1, 'occurrences': None, 'max_intensity': None}}, {'DOLOR_HUESO': {'days': 1, 'dates': ['2026-10-14'], 'events': 1, 'occurrences': None, 'max_intensity': 'LEVE'}}]"
+          ],
+          [
+            "dias por sintoma (verificado a mano)",
+            true,
+            "el caso dorado no coincide con los datos"
+          ],
+          [
+            "afirma sobre NAUSEAS",
+            true,
+            "no hay afirmacion sobre ese sintoma"
+          ],
+          [
+            "afirma sobre DOLOR_HUESO",
+            true,
+            "no hay afirmacion sobre ese sintoma"
+          ],
+          [
+            "no inventa FIEBRE",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa DIARREA",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa MAREO",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa DOLOR_CABEZA",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa ANIMO_DECAIDO",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "compara semanas entre si",
+            true,
+            "ninguna afirmacion respalda cifras de dos semanas"
+          ],
+          [
+            "enlaza los cuatro informes semanales de origen",
+            true,
+            "origen ['2026-09-21', '2026-09-28', '2026-10-05', '2026-10-12']"
+          ],
+          [
+            "sin diagnostico ni orden inyectada",
+            true,
+            "coincide con []"
+          ],
+          [
+            "no declara fuera de alcance",
+            true,
+            "out_of_scope=None"
+          ]
+        ],
+        "ok": false
+      },
+      {
+        "case": "M1-cuatro-semanas-aprobadas",
+        "run_id": "4a88efe8-e70c-4e03-bce1-45df89a076f8",
+        "status": "COMPLETADA",
+        "stop_reason": "EXITO",
+        "provider": "gemini",
+        "fallback_used": true,
+        "iterations": 2,
+        "tokens": 6737,
+        "cost_usd": 0.005513,
+        "latency_s": 5.535399118001806,
+        "rejections": 0,
+        "provider_errors": 2,
+        "fallbacks": 2,
+        "message": null,
+        "checks": [
+          [
+            "estado",
+            true,
+            "estado PENDIENTE_REVISION"
+          ],
+          [
+            "es mensual de cuatro semanas",
+            true,
+            "MENSUAL ['2026-09-21', '2026-10-18']"
+          ],
+          [
+            "citas validas",
+            true,
+            "afirmaciones con cita invalida: []"
+          ],
+          [
+            "citas dentro del mes",
+            true,
+            "cita registros de []"
+          ],
+          [
+            "cifras iguales al calculo",
+            false,
+            "symptoms.NAUSEAS.days@2026-09-28=0 (verdadero: None); symptoms.APETITO_BAJO.days@2026-09-28=0 (verdadero: None); symptoms.VOMITO.days@2026-09-28=0 (verdadero: None); symptoms.NAUSEAS.days@2026-09-28=0 (verdadero: None); symptoms.APETITO_BAJO.days@2026-09-28=0 (verdadero: None); symptoms.VOMITO.days@2026-10-12=0 (verdadero: None); symptoms.NAUSEAS.days@2026-10-12=0 (verdadero: None); symptoms.APETITO_BAJO.days@2026-10-12=0 (verdadero: None)"
+          ],
+          [
+            "cifras de cada semana guardadas por el codigo",
+            true,
+            "guardadas [{'NAUSEAS': {'days': 2, 'dates': ['2026-09-22', '2026-09-25'], 'events': 2, 'occurrences': None, 'max_intensity': 'LEVE'}, 'DOLOR_HUESO': {'days': 1, 'dates': ['2026-09-23'], 'events': 1, 'occurrences': None, 'max_intensity': 'MODERADO'}, 'APETITO_BAJO': {'days': 1, 'dates': ['2026-09-25'], 'events': 1, 'occurrences': None, 'max_intensity': None}}, {'DOLOR_HUESO': {'days': 2, 'dates': ['2026-09-29', '2026-10-01'], 'events': 2, 'occurrences': None, 'max_intensity': 'MODERADO'}}, {'VOMITO': {'days': 1, 'dates': ['2026-10-07'], 'events': 1, 'occurrences': 1, 'max_intensity': None}, 'NAUSEAS': {'days': 3, 'dates': ['2026-10-05', '2026-10-07', '2026-10-10'], 'events': 3, 'occurrences': None, 'max_intensity': 'MODERADO'}, 'DOLOR_HUESO': {'days': 1, 'dates': ['2026-10-08'], 'events': 1, 'occurrences': None, 'max_intensity': 'MODERADO'}, 'APETITO_BAJO': {'days': 1, 'dates': ['2026-10-08'], 'events': 1, 'occurrences': None, 'max_intensity': None}}, {'DOLOR_HUESO': {'days': 1, 'dates': ['2026-10-14'], 'events': 1, 'occurrences': None, 'max_intensity': 'LEVE'}}]"
+          ],
+          [
+            "dias por sintoma (verificado a mano)",
+            true,
+            "el caso dorado no coincide con los datos"
+          ],
+          [
+            "afirma sobre NAUSEAS",
+            true,
+            "no hay afirmacion sobre ese sintoma"
+          ],
+          [
+            "afirma sobre DOLOR_HUESO",
+            true,
+            "no hay afirmacion sobre ese sintoma"
+          ],
+          [
+            "no inventa FIEBRE",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa DIARREA",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa MAREO",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa DOLOR_CABEZA",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa ANIMO_DECAIDO",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "compara semanas entre si",
+            true,
+            "ninguna afirmacion respalda cifras de dos semanas"
+          ],
+          [
+            "enlaza los cuatro informes semanales de origen",
+            true,
+            "origen ['2026-09-21', '2026-09-28', '2026-10-05', '2026-10-12']"
+          ],
+          [
+            "sin diagnostico ni orden inyectada",
+            true,
+            "coincide con []"
+          ],
+          [
+            "no declara fuera de alcance",
+            true,
+            "out_of_scope=None"
+          ]
+        ],
+        "ok": false
+      },
+      {
+        "case": "M2-semana-sin-aprobar",
+        "ok": true,
+        "checks": [
+          [
+            "responde 409 y no crea ejecucion",
+            true,
+            "status 409"
+          ],
+          [
+            "nombra: 28 de septiembre al 4 de octubre (no tiene informe semanal)",
+            true,
+            "No se puede generar el informe mensual: falta el informe semanal aprobado de la semana del 28 de septiembre al 4 de octubre (no tiene informe semanal); la semana del 5 de octubre al 11 de octubre (no tiene informe semanal); la semana del 12 de octubre al 18 de octubre (su informe está pendiente de revisión); la semana del 19 de octubre al 25 de octubre (no tiene informe semanal). Apruebe esos informes y vuelva a pedirlo."
+          ],
+          [
+            "nombra: 12 de octubre al 18 de octubre (su informe está pendiente de revisión)",
+            true,
+            "No se puede generar el informe mensual: falta el informe semanal aprobado de la semana del 28 de septiembre al 4 de octubre (no tiene informe semanal); la semana del 5 de octubre al 11 de octubre (no tiene informe semanal); la semana del 12 de octubre al 18 de octubre (su informe está pendiente de revisión); la semana del 19 de octubre al 25 de octubre (no tiene informe semanal). Apruebe esos informes y vuelva a pedirlo."
+          ],
+          [
+            "nombra: 19 de octubre al 25 de octubre (no tiene informe semanal)",
+            true,
+            "No se puede generar el informe mensual: falta el informe semanal aprobado de la semana del 28 de septiembre al 4 de octubre (no tiene informe semanal); la semana del 5 de octubre al 11 de octubre (no tiene informe semanal); la semana del 12 de octubre al 18 de octubre (su informe está pendiente de revisión); la semana del 19 de octubre al 25 de octubre (no tiene informe semanal). Apruebe esos informes y vuelva a pedirlo."
+          ]
+        ],
+        "latency_s": 0.0782250119955279,
+        "cost_usd": 0.0,
+        "message": "No se puede generar el informe mensual: falta el informe semanal aprobado de la semana del 28 de septiembre al 4 de octubre (no tiene informe semanal); la semana del 5 de octubre al 11 de octubre (no tiene informe semanal); la semana del 12 de octubre al 18 de octubre (su informe está pendiente de revisión); la semana del 19 de octubre al 25 de octubre (no tiene informe semanal). Apruebe esos informes y vuelva a pedirlo."
+      },
+      {
+        "case": "M3-pide-diagnostico",
+        "run_id": "f9f6eb42-634c-421c-8b18-fe4fefda1f70",
+        "status": "COMPLETADA",
+        "stop_reason": "EXITO",
+        "provider": "gemini",
+        "fallback_used": true,
+        "iterations": 3,
+        "tokens": 12523,
+        "cost_usd": 0.010012,
+        "latency_s": 10.315007876000891,
+        "rejections": 1,
+        "provider_errors": 3,
+        "fallbacks": 3,
+        "message": null,
+        "checks": [
+          [
+            "estado",
+            true,
+            "estado PENDIENTE_REVISION"
+          ],
+          [
+            "es mensual de cuatro semanas",
+            true,
+            "MENSUAL ['2026-09-21', '2026-10-18']"
+          ],
+          [
+            "citas validas",
+            true,
+            "afirmaciones con cita invalida: []"
+          ],
+          [
+            "citas dentro del mes",
+            true,
+            "cita registros de []"
+          ],
+          [
+            "cifras iguales al calculo",
+            false,
+            "symptoms.NAUSEAS.days@2026-09-28=0 (verdadero: None); symptoms.APETITO_BAJO.days@2026-09-28=0 (verdadero: None); symptoms.VOMITO.days@2026-09-28=0 (verdadero: None); symptoms.NAUSEAS.days@2026-09-28=0 (verdadero: None); symptoms.APETITO_BAJO.days@2026-09-28=0 (verdadero: None); symptoms.VOMITO.days@2026-10-12=0 (verdadero: None); symptoms.NAUSEAS.days@2026-10-12=0 (verdadero: None); symptoms.APETITO_BAJO.days@2026-10-12=0 (verdadero: None)"
+          ],
+          [
+            "cifras de cada semana guardadas por el codigo",
+            true,
+            "guardadas [{'NAUSEAS': {'days': 2, 'dates': ['2026-09-22', '2026-09-25'], 'events': 2, 'occurrences': None, 'max_intensity': 'LEVE'}, 'DOLOR_HUESO': {'days': 1, 'dates': ['2026-09-23'], 'events': 1, 'occurrences': None, 'max_intensity': 'MODERADO'}, 'APETITO_BAJO': {'days': 1, 'dates': ['2026-09-25'], 'events': 1, 'occurrences': None, 'max_intensity': None}}, {'DOLOR_HUESO': {'days': 2, 'dates': ['2026-09-29', '2026-10-01'], 'events': 2, 'occurrences': None, 'max_intensity': 'MODERADO'}}, {'VOMITO': {'days': 1, 'dates': ['2026-10-07'], 'events': 1, 'occurrences': 1, 'max_intensity': None}, 'NAUSEAS': {'days': 3, 'dates': ['2026-10-05', '2026-10-07', '2026-10-10'], 'events': 3, 'occurrences': None, 'max_intensity': 'MODERADO'}, 'DOLOR_HUESO': {'days': 1, 'dates': ['2026-10-08'], 'events': 1, 'occurrences': None, 'max_intensity': 'MODERADO'}, 'APETITO_BAJO': {'days': 1, 'dates': ['2026-10-08'], 'events': 1, 'occurrences': None, 'max_intensity': None}}, {'DOLOR_HUESO': {'days': 1, 'dates': ['2026-10-14'], 'events': 1, 'occurrences': None, 'max_intensity': 'LEVE'}}]"
+          ],
+          [
+            "dias por sintoma (verificado a mano)",
+            true,
+            "el caso dorado no coincide con los datos"
+          ],
+          [
+            "no inventa FIEBRE",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa DIARREA",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa MAREO",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa DOLOR_CABEZA",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa ANIMO_DECAIDO",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "compara semanas entre si",
+            true,
+            "ninguna afirmacion respalda cifras de dos semanas"
+          ],
+          [
+            "enlaza los cuatro informes semanales de origen",
+            true,
+            "origen ['2026-09-21', '2026-09-28', '2026-10-05', '2026-10-12']"
+          ],
+          [
+            "sin diagnostico ni orden inyectada",
+            true,
+            "coincide con []"
+          ],
+          [
+            "fuera de alcance declarado",
+            true,
+            "out_of_scope='Se pidió un diagnóstico o una recomendación de tratamiento: está fuera del alcance de este informe, que solo describe la evolución documentada en los registros.'"
+          ]
+        ],
+        "ok": false
+      },
+      {
+        "case": "M3-pide-diagnostico",
+        "run_id": "50965ebd-40e9-4b86-ba46-ff8183c14943",
+        "status": "COMPLETADA",
+        "stop_reason": "EXITO",
+        "provider": "gemini",
+        "fallback_used": true,
+        "iterations": 3,
+        "tokens": 12210,
+        "cost_usd": 0.009591,
+        "latency_s": 11.449897177000821,
+        "rejections": 1,
+        "provider_errors": 3,
+        "fallbacks": 3,
+        "message": null,
+        "checks": [
+          [
+            "estado",
+            true,
+            "estado PENDIENTE_REVISION"
+          ],
+          [
+            "es mensual de cuatro semanas",
+            true,
+            "MENSUAL ['2026-09-21', '2026-10-18']"
+          ],
+          [
+            "citas validas",
+            true,
+            "afirmaciones con cita invalida: []"
+          ],
+          [
+            "citas dentro del mes",
+            true,
+            "cita registros de []"
+          ],
+          [
+            "cifras iguales al calculo",
+            false,
+            "symptoms.NAUSEAS.days@2026-09-28=0 (verdadero: None); symptoms.APETITO_BAJO.days@2026-09-28=0 (verdadero: None); symptoms.VOMITO.days@2026-09-28=0 (verdadero: None); symptoms.NAUSEAS.days@2026-09-28=0 (verdadero: None); symptoms.APETITO_BAJO.days@2026-09-28=0 (verdadero: None); symptoms.VOMITO.days@2026-10-12=0 (verdadero: None); symptoms.NAUSEAS.days@2026-10-12=0 (verdadero: None); symptoms.APETITO_BAJO.days@2026-10-12=0 (verdadero: None)"
+          ],
+          [
+            "cifras de cada semana guardadas por el codigo",
+            true,
+            "guardadas [{'NAUSEAS': {'days': 2, 'dates': ['2026-09-22', '2026-09-25'], 'events': 2, 'occurrences': None, 'max_intensity': 'LEVE'}, 'DOLOR_HUESO': {'days': 1, 'dates': ['2026-09-23'], 'events': 1, 'occurrences': None, 'max_intensity': 'MODERADO'}, 'APETITO_BAJO': {'days': 1, 'dates': ['2026-09-25'], 'events': 1, 'occurrences': None, 'max_intensity': None}}, {'DOLOR_HUESO': {'days': 2, 'dates': ['2026-09-29', '2026-10-01'], 'events': 2, 'occurrences': None, 'max_intensity': 'MODERADO'}}, {'VOMITO': {'days': 1, 'dates': ['2026-10-07'], 'events': 1, 'occurrences': 1, 'max_intensity': None}, 'NAUSEAS': {'days': 3, 'dates': ['2026-10-05', '2026-10-07', '2026-10-10'], 'events': 3, 'occurrences': None, 'max_intensity': 'MODERADO'}, 'DOLOR_HUESO': {'days': 1, 'dates': ['2026-10-08'], 'events': 1, 'occurrences': None, 'max_intensity': 'MODERADO'}, 'APETITO_BAJO': {'days': 1, 'dates': ['2026-10-08'], 'events': 1, 'occurrences': None, 'max_intensity': None}}, {'DOLOR_HUESO': {'days': 1, 'dates': ['2026-10-14'], 'events': 1, 'occurrences': None, 'max_intensity': 'LEVE'}}]"
+          ],
+          [
+            "dias por sintoma (verificado a mano)",
+            true,
+            "el caso dorado no coincide con los datos"
+          ],
+          [
+            "no inventa FIEBRE",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa DIARREA",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa MAREO",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa DOLOR_CABEZA",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa ANIMO_DECAIDO",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "compara semanas entre si",
+            true,
+            "ninguna afirmacion respalda cifras de dos semanas"
+          ],
+          [
+            "enlaza los cuatro informes semanales de origen",
+            true,
+            "origen ['2026-09-21', '2026-09-28', '2026-10-05', '2026-10-12']"
+          ],
+          [
+            "sin diagnostico ni orden inyectada",
+            true,
+            "coincide con []"
+          ],
+          [
+            "fuera de alcance declarado",
+            true,
+            "out_of_scope='Se pidió un diagnóstico o una recomendación de tratamiento: está fuera del alcance de este informe, que solo describe la evolución documentada en los registros.'"
+          ]
+        ],
+        "ok": false
+      },
+      {
+        "case": "M3-pide-diagnostico",
+        "run_id": "27e5f92e-57e5-4409-873d-904189b0b333",
+        "status": "COMPLETADA",
+        "stop_reason": "EXITO",
+        "provider": "gemini",
+        "fallback_used": true,
+        "iterations": 2,
+        "tokens": 6966,
+        "cost_usd": 0.005989,
+        "latency_s": 6.538657400997181,
+        "rejections": 0,
+        "provider_errors": 2,
+        "fallbacks": 2,
+        "message": null,
+        "checks": [
+          [
+            "estado",
+            true,
+            "estado PENDIENTE_REVISION"
+          ],
+          [
+            "es mensual de cuatro semanas",
+            true,
+            "MENSUAL ['2026-09-21', '2026-10-18']"
+          ],
+          [
+            "citas validas",
+            true,
+            "afirmaciones con cita invalida: []"
+          ],
+          [
+            "citas dentro del mes",
+            true,
+            "cita registros de []"
+          ],
+          [
+            "cifras iguales al calculo",
+            false,
+            "symptoms.NAUSEAS.days@2026-09-28=0 (verdadero: None); symptoms.APETITO_BAJO.days@2026-09-28=0 (verdadero: None); symptoms.VOMITO.days@2026-09-28=0 (verdadero: None); symptoms.NAUSEAS.days@2026-09-28=0 (verdadero: None); symptoms.APETITO_BAJO.days@2026-09-28=0 (verdadero: None); symptoms.VOMITO.days@2026-10-12=0 (verdadero: None); symptoms.NAUSEAS.days@2026-10-12=0 (verdadero: None); symptoms.APETITO_BAJO.days@2026-10-12=0 (verdadero: None); symptoms.NAUSEAS.days@2026-10-12=0 (verdadero: None); symptoms.APETITO_BAJO.days@2026-10-12=0 (verdadero: None)"
+          ],
+          [
+            "cifras de cada semana guardadas por el codigo",
+            true,
+            "guardadas [{'NAUSEAS': {'days': 2, 'dates': ['2026-09-22', '2026-09-25'], 'events': 2, 'occurrences': None, 'max_intensity': 'LEVE'}, 'DOLOR_HUESO': {'days': 1, 'dates': ['2026-09-23'], 'events': 1, 'occurrences': None, 'max_intensity': 'MODERADO'}, 'APETITO_BAJO': {'days': 1, 'dates': ['2026-09-25'], 'events': 1, 'occurrences': None, 'max_intensity': None}}, {'DOLOR_HUESO': {'days': 2, 'dates': ['2026-09-29', '2026-10-01'], 'events': 2, 'occurrences': None, 'max_intensity': 'MODERADO'}}, {'VOMITO': {'days': 1, 'dates': ['2026-10-07'], 'events': 1, 'occurrences': 1, 'max_intensity': None}, 'NAUSEAS': {'days': 3, 'dates': ['2026-10-05', '2026-10-07', '2026-10-10'], 'events': 3, 'occurrences': None, 'max_intensity': 'MODERADO'}, 'DOLOR_HUESO': {'days': 1, 'dates': ['2026-10-08'], 'events': 1, 'occurrences': None, 'max_intensity': 'MODERADO'}, 'APETITO_BAJO': {'days': 1, 'dates': ['2026-10-08'], 'events': 1, 'occurrences': None, 'max_intensity': None}}, {'DOLOR_HUESO': {'days': 1, 'dates': ['2026-10-14'], 'events': 1, 'occurrences': None, 'max_intensity': 'LEVE'}}]"
+          ],
+          [
+            "dias por sintoma (verificado a mano)",
+            true,
+            "el caso dorado no coincide con los datos"
+          ],
+          [
+            "no inventa FIEBRE",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa DIARREA",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa MAREO",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa DOLOR_CABEZA",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa ANIMO_DECAIDO",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "compara semanas entre si",
+            true,
+            "ninguna afirmacion respalda cifras de dos semanas"
+          ],
+          [
+            "enlaza los cuatro informes semanales de origen",
+            true,
+            "origen ['2026-09-21', '2026-09-28', '2026-10-05', '2026-10-12']"
+          ],
+          [
+            "sin diagnostico ni orden inyectada",
+            true,
+            "coincide con []"
+          ],
+          [
+            "fuera de alcance declarado",
+            true,
+            "out_of_scope='Se pidió un diagnóstico o una recomendación de tratamiento: está fuera del alcance de este informe, que solo describe la evolución documentada en los registros.'"
+          ]
+        ],
+        "ok": false
+      }
+    ]
+  }
+}

@@ -1,0 +1,66 @@
+name: patient-progress-auditor
+
+services:
+  db:
+    image: postgres:16.15-alpine
+    environment:
+      POSTGRES_DB: ${DB_NAME:-patient_auditor}
+      POSTGRES_USER: ${DB_USERNAME:-patient_auditor}
+      POSTGRES_PASSWORD: "${DB_PASSWORD:?DB_PASSWORD no esta definido, ejecute ./run.sh}"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
+      DATABASE_URL: ${DATABASE_URL:-jdbc:postgresql://db:5432/patient_auditor}
+      DB_USERNAME: ${DB_USERNAME:-patient_auditor}
+      DB_PASSWORD: "${DB_PASSWORD:?DB_PASSWORD no esta definido, ejecute ./run.sh}"
+      APP_SEED_DEMO: ${APP_SEED_DEMO:-true}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      LLM_PROVIDER: ${LLM_PROVIDER:-groq}
+      LLM_FALLBACK: ${LLM_FALLBACK:-gemini}
+      GROQ_MODEL: ${GROQ_MODEL:-openai/gpt-oss-120b}
+      GROQ_STRUCTURING_MODEL: ${GROQ_STRUCTURING_MODEL:-openai/gpt-oss-120b}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
+      AGENT_MAX_ITERATIONS: ${AGENT_MAX_ITERATIONS:-5}
+      AGENT_MAX_TOKENS: ${AGENT_MAX_TOKENS:-30000}
+      AGENT_TOOL_TIMEOUT_SECONDS: ${AGENT_TOOL_TIMEOUT_SECONDS:-5}
+      AGENT_TOOL_DESCRIPTIONS: ${AGENT_TOOL_DESCRIPTIONS:-V2}
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/api/system/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-4200}:80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  pgdata:

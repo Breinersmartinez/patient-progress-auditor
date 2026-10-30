@@ -43,3 +43,7 @@ Thumbs.db
 
 # Archivos subidos
 uploads/
+
+# Python (eval/ y scripts/)
+__pycache__/
+*.pyc

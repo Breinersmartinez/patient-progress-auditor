@@ -1,10 +1,10 @@
 # Resumen ejecutivo — Patient Progress Auditor (fases 1 y 2)
 
-Oct 27, 2026 · @brei
+Oct 28, 2026 · @brei
 
 ## Resumen en una página
 
-La planificación está cerrada (SPEC v0.6) y el análisis de requisitos está en su tercer borrador (REQUISITOS v0.3): 39 requisitos funcionales, 14 no funcionales, 10 reglas de negocio y 10 casos de uso. El enlace al repositorio se entrega el jueves 29 de octubre de 2026 a medianoche y la demo del Momento 2 es el sábado 31. El 27 de octubre el equipo movió el alcance: el informe mensual entra al Momento 2 y la autenticación pasa al Momento 3. Lo que más condiciona ahora es el arranque en frío, que todavía no existe: `docker-compose.yml` y `run.sh` están vacíos y el README describe el scaffold.
+La planificación está cerrada (SPEC v0.7) y el análisis de requisitos está en su cuarto borrador (REQUISITOS v0.4): 42 requisitos funcionales, 14 no funcionales, 11 reglas de negocio y 10 casos de uso. El enlace al repositorio se entrega el jueves 29 de octubre de 2026 a medianoche y la demo del Momento 2 es el sábado 31. El 27 de octubre el equipo movió el alcance: el informe mensual entra al Momento 2 y la autenticación pasa al Momento 3; el 28 se incorporó la estructuración del registro por IA (D27, propuesta). Lo que más condiciona ahora es el arranque en frío, que todavía no existe: `docker-compose.yml` y `run.sh` están en el repo pero vacíos, y el README describe el scaffold.
 
 **Qué es.** Patient Progress Auditor: enfermería registra cada día, en texto libre, cómo está un paciente. Un agente de IA lee los registros de la semana, los compara con las anteriores y redacta un borrador de informe semanal o mensual. Enfermería lo revisa y lo aprueba antes de que llegue al médico. El sistema no diagnostica ni receta.
 
@@ -12,25 +12,26 @@ La planificación está cerrada (SPEC v0.6) y el análisis de requisitos está e
 
 **Forma del sistema.** Una aplicación con un agente integrado, con herramientas, cuatro límites y criterio de parada. No es un workflow ni un sistema multiagente. La generación corre en segundo plano y la pantalla recibe eventos de progreso reales por SSE (D24).
 
-**Qué cambió el 27 de octubre.** Tres decisiones del equipo, con sus consecuencias en los documentos:
+**Qué cambió el 27 y el 28 de octubre.** Tres decisiones del equipo el 27 y una incorporación el 28, con sus consecuencias en los documentos:
 
 - **Informe mensual en el Momento 2 (D4).** Un mes son cuatro semanas completas consecutivas y el mensual solo se genera si cada una tiene informe semanal aprobado (RN-10). Se propuso cuatro semanas y no mes calendario porque las semanas de lunes a domingo cruzan los límites de mes; falta confirmarlo.
 - **Autenticación en el Momento 3 (D23).** En el Momento 2 los usuarios de demostración (enfermería y médico, sin credenciales) se siembran al arrancar y se elige con cuál trabajar (D26, propuesta). Así sigue siendo cierto que solo enfermería aprueba y que el médico solo ve lo aprobado, y cada acción, incluida la del médico que registra (D12), tiene un autor. Es separación de funciones para la demostración, no un control de seguridad.
 - **Stack sin límite de momento (D9).** Spring Boot y Angular aplican desde el Momento 2; solo el RBAC y el JWT esperan al Momento 3.
+- **Estructuración del registro por IA (D27, propuesta).** Al registrar una entrada, la IA propone los síntomas que el texto dice, con intensidad y veces, y la persona los confirma, edita, quita, agrega o descarta antes de guardar (la pantalla de registro del equipo). El texto original se guarda tal como se escribió y es la fuente citable; si la IA falla, se guarda solo el texto. Responde a dónde se derivan los eventos y suma tres requisitos al núcleo del Momento 2 (RF-06 ampliado, RF-40 y RF-41); el texto corregido (RF-42) entra si hay tiempo.
 
 | En una mirada | Estado |
 | --- | --- |
-| Fase 1, Planificación | Cerrada: SPEC v0.6 con 16 objetivos verificables y 26 decisiones |
-| Fase 2, Análisis de requisitos | Borrador v0.3: 39 RF, 14 RNF, 10 reglas de negocio, 10 casos de uso |
+| Fase 1, Planificación | Cerrada: SPEC v0.7 con 16 objetivos verificables y 27 decisiones |
+| Fase 2, Análisis de requisitos | Borrador v0.4: 42 RF, 14 RNF, 11 reglas de negocio, 10 casos de uso |
 | Fase 3, Diseño | Siguiente; el stack ya no la bloquea (D9) |
 | Entrega | Enlace al repositorio público en el aula virtual hasta el jueves 29 de octubre a medianoche; versión congelada en el tag `m2-entrega` |
 | Momento 2 | Sábado 31 de octubre de 2026: demo de 6 min y 3 min de preguntas |
-| Núcleo para el Momento 2 | 29 de los 39 RF; otros 5 se recortan primero si falta tiempo |
+| Núcleo para el Momento 2 | 31 de los 42 RF; otros 6 se recortan primero si falta tiempo |
 | Momento 3 | 3 RF (inicio de sesión, administración de usuarios, tablero de permisos), más seguridad y gobernanza; 2 RF opcionales (PDF y voz) |
 
 ## Qué se trabajó
 
-Se cubrieron trece pasos, del nombre del proyecto a los cambios del 27 de octubre; los entregables para el repo son `AGENTS.md`, `CLAUDE.md`, `SPEC.md`, `REQUISITOS.md` y este resumen.
+Se cubrieron diecisiete pasos, del nombre del proyecto al diccionario de datos del Momento 2; los entregables para el repo son `AGENTS.md`, `CLAUDE.md`, `SPEC.md`, `REQUISITOS.md`, `DICCIONARIO_DATOS.md`, `DICCIONARIO_DATOS_M2.md` y este resumen.
 
 | # | Paso | Qué se hizo | Entregable |
 | --- | --- | --- | --- |
@@ -47,10 +48,14 @@ Se cubrieron trece pasos, del nombre del proyecto a los cambios del 27 de octubr
 | 11 | Reparto del trabajo | Recomendación de dos frentes: plataforma y datos, y agente e informe | Chat |
 | 12 | Patrón de integración | D24 escrita: ejecución asíncrona con eventos de progreso por SSE, estado en la BD y reanudación | SPEC §7, D24 |
 | 13 | Decisiones del 27 de octubre | Informe mensual al Momento 2 con su definición de mes, autenticación al Momento 3 con usuarios de demostración desde el Momento 2, D9 y D8 decididas; se actualizan los cuatro documentos y se crea `CLAUDE.md` | SPEC v0.6, REQUISITOS v0.3, `AGENTS.md`, `CLAUDE.md` |
+| 14 | Estructuración del registro | A partir de la pantalla de registro del equipo, la IA propone síntomas con intensidad y veces y la persona los confirma antes de guardar; el original se guarda intacto y el texto corregido es una versión aparte (D27) | SPEC v0.7, REQUISITOS v0.4 |
+| 15 | Diccionario de datos | 16 tablas (5 del RBAC existente y 11 del dominio) con columnas, tipos, catálogos, permisos del dominio, reglas de integridad, migraciones necesarias y 13 puntos por resolver; identificadores en inglés con etiqueta en español | `DICCIONARIO_DATOS.md` v0.1 |
+| 16 | Cierre de pendientes del 28 de octubre | `JWT_SECRET` y JWT al Momento 3, Java se queda en 17 y el conjunto sintético queda en 5 pacientes y 18 semanas-paciente con el reparto por paciente (D11) | SPEC D9, D11, D22, D23; REQUISITOS; `AGENTS.md` |
+| 17 | Diccionario de datos del Momento 2 | Recorte del diccionario a lo que se construye el 31 de octubre, sin lo del Momento 3 y con los 13 puntos abiertos cerrados por una propuesta marcada: fecha del evento igual a la de la entrada, nueve síntomas cerrados, traza leída desde el informe, `INCOMPLETO` final y contraseña nula; trae el contenido de la semilla por tabla | `DICCIONARIO_DATOS_M2.md` v0.1 |
 
 ## Decisiones
 
-De las 26 decisiones registradas en la SPEC, 18 están tomadas, 4 son supuestos de trabajo por confirmar, 2 son propuestas, 1 sigue por confirmar y 1 quedó descartada.
+De las 27 decisiones registradas en la SPEC, 18 están tomadas, 4 son supuestos de trabajo por confirmar, 3 son propuestas, 1 sigue por confirmar y 1 quedó descartada.
 
 | ID | Decisión | Estado |
 | --- | --- | --- |
@@ -61,9 +66,9 @@ De las 26 decisiones registradas en la SPEC, 18 están tomadas, 4 son supuestos 
 | D5 | Registros: captura mínima propia más datos sintéticos sembrados | Decidida |
 | D7 | Aplicación con un agente integrado, no un workflow | Decidida |
 | D8 | Consulta directa a la BD; RAG solo si se mide que hace falta | Decidida |
-| D9 | Spring Boot y Angular desde el Momento 2; solo el RBAC y el JWT esperan al Momento 3; pendiente subir a Java 21 | Decidida |
+| D9 | Spring Boot y Angular desde el Momento 2; solo el RBAC y el JWT esperan al Momento 3; Java se queda en 17 | Decidida |
 | D10 | Semana de lunes a domingo; el agente decide cuántas semanas atrás revisar, con tope | Decidida |
-| D11 | Tamaño del conjunto sintético: decidido, aún sin cifras | Decidida |
+| D11 | Conjunto sintético: 5 pacientes y 18 semanas-paciente, con fechas fijas y un paciente de cinco semanas para el mensual | Decidida |
 | D12 | El médico también registra y se audita qué médico hizo cada registro | Decidida |
 | D13 | PDF con Thymeleaf y HTML a PDF; opcional | Decidida |
 | D14 | Voz con Whisper detrás de un puerto, sin guardar el audio; opcional | Decidida |
@@ -77,53 +82,56 @@ De las 26 decisiones registradas en la SPEC, 18 están tomadas, 4 son supuestos 
 | D20 | Sin campo de consulta libre en el Momento 2 | Supuesto de trabajo |
 | D25 | Evaluaciones y observabilidad en versión mínima | Supuesto de trabajo |
 | D15 | Proveedor: Google AI Studio como principal y Groq como respaldo | Propuesta |
-| D26 | Sesión de demostración sin autenticación en el Momento 2: se elige el usuario sembrado | Propuesta |
+| D26 | Sesión de demostración sin autenticación en el Momento 2: se elige el usuario sembrado | Decidida (28-oct) |
+| D27 | Estructuración de la entrada al registrarla: la IA propone síntomas con intensidad y veces y la persona los confirma antes de guardar | Propuesta |
 | D18 | Catálogo de métricas semanales, a validar con enfermería | Por confirmar |
 | D16 | Modo simulado del proveedor (replay): descartado | Descartada |
 
 ## Conclusiones
 
-Siete conclusiones sostienen lo que viene; las dos primeras definen qué se construye antes del jueves.
+Ocho conclusiones sostienen lo que viene; las dos primeras definen qué se construye antes del jueves.
 
-- **El Momento 2 es el agente y los informes.** Núcleo de 29 requisitos, con el informe semanal y el mensual. El mensual (RF-36) es la ejecución más pesada del agente y la que más exige al patrón asíncrono (D4, D24).
+- **El Momento 2 es el agente y los informes.** Núcleo de 31 requisitos, con el registro estructurado, el informe semanal y el mensual. El mensual (RF-36) es la ejecución más pesada del agente y la que más exige al patrón asíncrono (D4, D24).
 - **El control humano sigue viviendo en el código aunque no haya autenticación.** Con usuarios de demostración elegibles, el servidor aplica el rol: solo enfermería aprueba, el médico solo ve informes aprobados y cada acción tiene un autor (D26, RF-35). Es separación de funciones, no seguridad; RNF-01 se cumple por completo en el Momento 3.
-- **Un mes son cuatro semanas aprobadas.** El mensual no se genera con una semana sin aprobar y dice cuál falta (RN-10). El conjunto sintético debe incluir al menos un paciente con cuatro semanas aprobadas para poder mostrarlo.
+- **La IA propone y la persona confirma también al registrar.** Los eventos que el código cuenta los confirmó una persona (RN-11), el texto original queda intacto como fuente citable y, si la estructuración falla, la entrada se guarda igual y el informe lo declara (RF-41). Es la respuesta a dónde se derivan los eventos (D27, propuesta).
+- **Un mes son cuatro semanas aprobadas.** El mensual no se genera con una semana sin aprobar y dice cuál falta (RN-10). El conjunto sintético (5 pacientes, D11) incluye un paciente con cinco semanas, cuatro de ellas aprobadas, para poder mostrarlo.
 - **El agente se defiende por las decisiones que toma.** La pregunta de la semana 6 es si el paso siguiente depende de lo encontrado. Hay cinco decisiones candidatas y se miden contra una plantilla sin LLM (OBJ-12).
 - **El código no puede contar sobre texto libre.** El LLM convierte cada entrada en eventos estructurados y el código los cuenta (RF-06 y RF-07). Así las cifras siguen siendo exactas (OBJ-04) y es el mejor argumento de necesidad de IA.
-- **El stack ya no es una incógnita.** Spring Boot y Angular se quedan (D9); el bucle del agente se escribe a mano en Java (unas 80 líneas en el taller) y vive en el backend. Falta subir de Java 17 a 21 y justificarlo en `docs/decisiones.md`.
-- **El alcance es pesado para tres días de construcción.** La versión del jueves queda congelada en el tag `m2-entrega`; el viernes no se integra nada nuevo. Si no alcanza, lo primero que se recorta son los 5 requisitos M2-S.
+- **El stack ya no es una incógnita.** Spring Boot y Angular se quedan (D9); el bucle del agente se escribe a mano en Java (unas 80 líneas en el taller) y vive en el backend. Java se queda en 17 por estabilidad y la razón, frente a la página de entrega que cita 21, se escribe en `docs/decisiones.md`.
+- **El alcance es pesado para dos días de construcción.** La versión del jueves queda congelada en el tag `m2-entrega`; el viernes no se integra nada nuevo. Si no alcanza, lo primero que se recorta son los 6 requisitos M2-S.
 
 ## Riesgos y pendientes
 
-Diez pendientes pueden afectar el Momento 2; los dos primeros son los que impiden que el profesor pueda probar la aplicación.
+Once pendientes pueden afectar el Momento 2; los tres primeros son los que impiden que el profesor pueda probar la aplicación.
 
 | Pendiente | Por qué importa | Siguiente paso |
 | --- | --- | --- |
 | Arranque en frío sin construir (D22, D23) | `docker-compose.yml` y `run.sh` están vacíos, el `Dockerfile` del backend no tiene `CMD` y el README describe el scaffold; si una IA no puede levantar la app con el README, el profesor no la revisa | Construirlo primero: compose, `run.sh`, `CMD`, semilla de datos y de usuarios de demostración, README ejecutable |
-| Backend con `JWT_SECRET` obligatorio | Sin autenticación en el Momento 2, el backend no puede exigir `JWT_SECRET` ni proteger rutas con JWT al arrancar; hoy `application.yml` lo exige sin valor por defecto | Relajar la seguridad del scaffold en el Momento 2 y dejar RBAC y JWT para el Momento 3 |
+| Backend con `JWT_SECRET` obligatorio | Decidido que el JWT y su secreto son del Momento 3 (D23); mientras no se cambie el código, hoy `application.yml` lo exige sin valor por defecto y el backend no arranca sin él | Quitar la exigencia de `application.yml` y de `.env.example`, dejar la cadena de seguridad sin token y que `run.sh` genere solo `DB_PASSWORD` |
+| Llave del API para el profesor (D22) | Si el profesor o su IA no tienen llave, la app arranca pero el agente y la estructuración no funcionan, y él pidió la IA integrada y funcionando | README con el proveedor y cómo conseguir una llave gratuita, más una llave temporal enviada por mensaje privado y revocada al terminar la calificación |
 | Sesión de demostración sin confirmar (D26) y mes de cuatro semanas (D4) | Sostienen RF-26, RF-28, RF-35, RF-36 y RN-10 | Los dos integrantes los confirman y cambian el estado en la tabla de decisiones |
 | Proveedor y modelo del LLM sin decidir (D15) | Los modelos citados en las fuentes no están verificados y difieren de la lámina de entrega | Verificar los vigentes y registrar la justificación en `docs/decisiones.md` |
-| Java 17 frente a Java 21 (D9) | La página de entrega cita Java 21; hoy pom, Dockerfile y CI usan 17 | Subir la versión o dejar escrito por qué no |
-| Conjunto sintético sin cifras (D11) | Está decidido, pero no cuántos pacientes ni semanas; condiciona las evaluaciones y la demo del mensual | Fijarlo con al menos un paciente con cuatro semanas aprobadas |
+| Conjunto sintético por escribir (D11) | Las cifras están decididas (5 pacientes, 18 semanas-paciente, unas 120 entradas con eventos y 5 informes), pero los datos no existen; condicionan las evaluaciones y la demo del mensual | Escribirlos con revisión a mano, empezando por el paciente de cinco semanas; es trabajo de más de medio día y conviene partirlo en tareas |
 | Supuestos sin confirmar | D6, D19, D20 y D25 sostienen requisitos | Los dos integrantes los revisan |
 | Catálogo de métricas sin validar (D18) | Lo inventó el equipo, no un usuario | 15 minutos con una persona de enfermería, o dejar constancia de que no se pudo |
-| Defensa de las decisiones ante el profesor | `docs/decisiones.md` y `docs/decisiones/` no existen todavía; el profesor pregunta por proveedor, RAG, síncrono o asíncrono y por qué cada herramienta | Escribir al menos D8, D9, D15 y D24 antes de la demo |
+| Defensa de las decisiones ante el profesor | `docs/decisiones.md` y `docs/decisiones/` no existen todavía; el profesor pregunta por proveedor, RAG, síncrono o asíncrono y por qué cada herramienta | Escribir al menos D8, D9 (incluida la razón de Java 17), D15 y D24 antes de la demo |
+| Propuestas del diccionario de M2 sin confirmar | `DICCIONARIO_DATOS_M2.md` cierra con una propuesta los 13 puntos abiertos y es la base de `V3`; si el equipo cambia alguno (el catálogo de síntomas de D18, las trazas o la contraseña nula), cambian columnas y permisos | Confirmarlo hoy, antes de escribir `V3`, y actualizar los dos diccionarios si algo cambia |
+| Estructuración del registro sin confirmar (D27) | Suma RF-06 ampliado, RF-40 y RF-41 al núcleo a dos días del congelamiento y deja por definir los valores de intensidad, el significado de «Descartar» y el nombre del botón | Confirmarla hoy, y si no alcanza, decidir qué se simplifica antes de recortar otra cosa |
 
-Los mockups no se actualizaron con las decisiones del 27 de octubre y pueden mostrar la autenticación en el hito anterior; por decisión del equipo se mantienen tal cual, y en alcance mandan la SPEC y los requisitos.
+Los mockups no se actualizaron con las decisiones del 27 de octubre y pueden mostrar la autenticación en el hito anterior; por decisión del equipo se mantienen tal cual, y en alcance mandan la SPEC y los requisitos. La pantalla de registro con los síntomas detectados es de esos mockups y es la base de D27.
 
 ## Ruta hasta el Momento 2
 
-Quedan cuatro días hasta la demo y tres de construcción: el jueves se congela la versión, así que todo lo del núcleo debe estar integrado antes.
+Quedan tres días hasta la demo y dos de construcción: el jueves se congela la versión, así que todo lo del núcleo debe estar integrado antes.
 
 | Día | Qué se hace | Requisitos |
 | --- | --- | --- |
-| Martes 27 | Confirmar D26 y el mes de cuatro semanas; construir el arranque en frío y los datos | RF-01, RF-02, RF-04, RF-05, RF-39, RNF-13 |
-| Miércoles 28 | Eventos y métricas, agente con herramientas y límites, proveedor y trazas | RF-06 a RF-22 |
+| Miércoles 28 (hoy) | Arranque en frío y datos; registro con estructuración por IA; eventos y métricas; proveedor y bucle del agente con límites y trazas | RF-01, RF-02, RF-04 a RF-22, RF-39 a RF-41, RNF-13 |
 | Jueves 29 | Revisión y aprobación, vista del médico, informe mensual, prueba en frío con una IA que solo lea el README, tag `m2-entrega` y enlace en el aula virtual antes de medianoche | RF-23 a RF-26, RF-28, RF-32, RF-36 |
 | Viernes 30 | Ensayo de la demo y de las respuestas sobre decisiones; no se integra nada nuevo | Fallos forzados, trazas, `docs/decisiones.md` |
 | Sábado 31 | Demo de 6 min y 3 min de preguntas | — |
 
-Es una propuesta mía, no un acuerdo, y es muy ajustada. Agrupa lo que el análisis marca como núcleo (29 requisitos); si el tiempo no alcanza, se recortan primero los 5 requisitos M2-S (RF-03, RF-27, RF-29, RF-30 y RF-35).
+Es una propuesta mía, no un acuerdo, y es muy ajustada. Agrupa lo que el análisis marca como núcleo (31 requisitos); si el tiempo no alcanza, se recortan primero los 6 requisitos M2-S (RF-03, RF-27, RF-29, RF-30, RF-35 y RF-42).
 
 ## Anexo A. Nombre, repo y descripción
 
@@ -151,7 +159,7 @@ Es el texto final de las tres primeras secciones de la SPEC. Las etiquetas indic
 
 ### §1. Resumen
 
-**Qué se construye.** Un auditor de seguimiento de pacientes. Enfermería registra cada día, en texto libre, cómo está un paciente. Un agente de IA consulta los registros de cada semana, los compara con semanas anteriores y redacta un borrador de informe semanal o mensual. Enfermería lo revisa y aprueba antes de que llegue al médico.
+**Qué se construye.** Un auditor de seguimiento de pacientes. Enfermería registra cada día, en texto libre, cómo está un paciente; al registrar, la IA propone los síntomas que el texto dice y la persona los confirma antes de guardar. Un agente de IA consulta los registros de cada semana, los compara con semanas anteriores y redacta un borrador de informe semanal o mensual. Enfermería lo revisa y aprueba antes de que llegue al médico.
 
 **Qué problema resuelve.** Los registros diarios quedan dispersos. Al cerrar la semana, alguien debe releerlos todos, compararlos con la anterior y redactar el informe a mano. Eso consume tiempo y hace fácil que se pierdan patrones, como un síntoma que reaparece. Se buscan informes semanales y mensuales consistentes que muestren la evolución en el tiempo.
 
@@ -195,7 +203,7 @@ Cada objetivo se verifica con un sí o un no.
 | OBJ-01 | Generar un borrador de informe semanal que compare la semana con la(s) anterior(es), a partir de registros diarios en texto libre | Para cada caso dorado de la suite, el sistema produce un borrador que valida contra el esquema de salida y cubre ambas semanas | [Equipo] |
 | OBJ-02 | Señalar patrones que reaparecen (p. ej. un síntoma que vuelve tras semanas sin él) | En los casos dorados con un patrón recurrente sembrado, el borrador lo menciona. La tasa de detección se registra como línea base | [Equipo] |
 | OBJ-03 | Generar el informe mensual a partir de los registros del mes (hito del Momento 2, D4) | Dado un mes de cuatro semanas completas con informe semanal aprobado, el informe muestra la evolución semana a semana, y si falta una semana aprobada no se genera | [Equipo] |
-| OBJ-04 | Que toda cifra del informe la calcule el código, no el LLM | En todos los casos dorados, las cifras del informe coinciden con las de la función de métricas y con el cálculo manual | [Equipo] |
+| OBJ-04 | Que toda cifra del informe la calcule el código, no el LLM | En todos los casos dorados, las cifras del informe coinciden con las de la función de métricas y con el cálculo manual, y los eventos que se cuentan los confirmó una persona (D27) | [Equipo] |
 | **Control humano y seguridad clínica** | | | |
 | OBJ-05 | La revisión humana la exige el sistema, no es costumbre del operador | Prueba automatizada: un informe pendiente no es visible para el rol médico, y solo el rol enfermería puede aprobarlo (en el Momento 2, con el usuario de demostración elegido, D26) | [Equipo] · [Curso] |
 | OBJ-06 | Fuente y criterio visibles, y corregibles por enfermería | Cada afirmación enlaza a al menos un registro original (fecha + texto); el criterio de comparación se muestra; enfermería puede editar antes de aprobar | [Curso] |
@@ -206,7 +214,7 @@ Cada objetivo se verifica con un sí o un no.
 | OBJ-09 | Agente con los cuatro límites activos (iteraciones, presupuesto de tokens, confirmación humana, timeout por herramienta), **criterio de parada explícito** (condición de éxito) y mapa de autonomía por acción | Los cuatro existen, tienen valor justificado y se pueden mostrar en la demo; al agotarse un límite el agente se detiene y avisa en vez de seguir intentando; el mapa está en `docs/decisiones/semana06.md`. Sin límite no hay entrega | [Curso] |
 | OBJ-10 | Resiliencia y capa de proveedor desacoplada | Se fuerzan y se muestran tres fallos (timeout, salida que no valida, caída o 429) sin stack trace al usuario; el proveedor cambia por configuración | [Curso] |
 | **Evidencia** | | | |
-| OBJ-11 | Medir con método y mostrar trazas | `eval/` con 5 a 10 casos verificados a mano (al menos uno de rechazo); cuatro cifras con fecha y método en `docs/decisiones/semana10.md` (tasa de éxito, costo por tarea, mediana de latencia, recuperación si aplica); trazas visibles en vivo | [Curso] |
+| OBJ-11 | Medir con método y mostrar trazas | `eval/` con 5 a 10 casos verificados a mano (al menos uno de rechazo), más casos de estructuración de la entrada (D27); cuatro cifras con fecha y método en `docs/decisiones/semana10.md` (tasa de éxito, costo por tarea, mediana de latencia, recuperación si aplica); trazas visibles en vivo | [Curso] |
 | OBJ-12 | Sustentar la necesidad del LLM y del agente frente a alternativas más simples | Se listan las decisiones que toma el agente (qué consultar, cuánto retroceder, cuándo declarar información insuficiente) y lo que va deliberadamente en código; los seis ejes aplicados por componente; la misma suite corrida contra una versión sin modelo (informe por plantilla con métricas por código) | [Equipo] · [Curso] |
 | OBJ-13 | Entrega autosuficiente, reproducible y con plan B | Una IA que recibe solo el README, en un clon limpio del repositorio público, levanta todo sin pasos manuales (`./run.sh` o `docker compose up --build`; Docker Compose v2 como único prerrequisito); un compañero lo corre en menos de 5 minutos y la prueba queda documentada con lo que falló y lo que se corrigió; la llave del API se toma del entorno o se pide por consola y nunca va en el repo, y si falta la app arranca igual y avisa con claridad; ante un fallo del proveedor, entra el proveedor de respaldo (RF-19) | [Curso] |
 | OBJ-14 | Seguridad y gobernanza (hito del Momento 3) | `docs/seguridad.md` (modelo de amenazas, tríada evaluada, ataque propio documentado, hardening con antes y después), `docs/gobernanza.md` (cinco preguntas) y `docs/respuesta_auditoria.md` | [Curso] |
@@ -225,6 +233,8 @@ No se fija un umbral de éxito del agente antes de medir la línea base. El curs
 | Capacidad | Momento 2 (31-oct-2026) | Momento 3 (semana 14) |
 |---|---|---|
 | Alta mínima de paciente con id interno y registros diarios en texto libre (formulario simple y carga de datos sintéticos) | Sí | |
+| Estructuración de la entrada al registrarla: la IA propone síntomas con intensidad y veces y la persona los confirma, edita, quita, agrega o descarta antes de guardar; si falla, se guarda solo el texto o se agregan a mano (D27) | Sí | |
+| Texto corregido propuesto por la IA, guardado como versión con el original intacto (D27) | Si hay tiempo | |
 | Consulta, orden por fechas y métricas semanales calculadas por código | Sí | |
 | Agente integrado que genera el borrador: decide qué consultar con herramientas de lectura y de métricas, compara semana vs anteriores y opera con los cuatro límites | Sí | |
 | Borrador de informe semanal con fuente y criterio visibles | Sí | |
@@ -300,7 +310,7 @@ Es el texto final de los requisitos sin la columna de criterios de aceptación n
 | Enfermería | No releer todos los registros ni redactar el informe a mano cada semana | RF-08 a RF-13 |
 | Enfermería | Ver la evolución frente a semanas anteriores sin que se pierda un síntoma que reaparece | RF-07, RF-10 |
 | Enfermería | Revisar rápido con la evidencia a la mano, corregir y aprobar | RF-24 a RF-27 |
-| Enfermería | Registrar cada día sin fricción: texto libre y, opcionalmente, voz | RF-02, RF-38 |
+| Enfermería | Registrar cada día sin fricción: texto libre, con los síntomas propuestos por la IA para confirmar en un paso y, opcionalmente, voz | RF-02, RF-06, RF-40, RF-38 |
 | Médico | Recibir informes consistentes y aprobados que muestren la evolución en el tiempo | RF-28, RF-29, RF-36 |
 | Médico | Registrar entradas diarias cuando le corresponda | RF-30 |
 | Administrador | Gestionar usuarios y permisos sin acceder a datos clínicos (Momento 3) | RF-31 a RF-34 |
@@ -310,7 +320,7 @@ Es el texto final de los requisitos sin la columna de criterios de aceptación n
 
 | CU | Actor | Qué hace |
 | --- | --- | --- |
-| CU-01 Registrar entrada diaria | Enfermería, Médico | Escribe (o dicta) cómo está el paciente hoy |
+| CU-01 Registrar entrada diaria | Enfermería, Médico | Escribe (o dicta) cómo está el paciente hoy, revisa los síntomas que propone la IA y confirma |
 | CU-02 Generar borrador semanal | Enfermería | Pide el informe de un paciente y una semana; el agente lo redacta |
 | CU-03 Revisar y corregir | Enfermería | Lee el borrador, abre la evidencia y lo corrige |
 | CU-04 Aprobar o rechazar | Enfermería | Decide; el sistema registra quién y cuándo |
@@ -333,6 +343,16 @@ Es el texto final de los requisitos sin la columna de criterios de aceptación n
 
 **Excepciones:** semana sin datos suficientes, el informe lo declara (RF-14) · fallo del proveedor, mensaje honesto y respaldo (RF-19) · entrada con instrucciones, se trata como dato (RF-21).
 
+### Flujo de registro de una entrada (CU-01)
+
+1. La persona (enfermería o médico, D12) elige el paciente y escribe el texto del día (RF-02).
+2. El servidor manda al LLM el id interno y el texto; el modelo propone los eventos con intensidad y veces y el código valida el esquema (RF-06).
+3. La pantalla muestra el texto y los eventos propuestos con un estado visible mientras espera (RF-40).
+4. La persona confirma, cambia la intensidad o las veces, quita un evento, agrega uno a mano o descarta (RF-40).
+5. Al confirmar se guardan la entrada, con el texto tal como se escribió, y los eventos que quedaron, con quién y cuándo los confirmó (RF-02, RF-40). Descartar no guarda nada.
+
+**Excepciones:** el proveedor falla, se agota el tiempo o la salida no valida tras un reintento: se guarda solo el texto o se agregan los eventos a mano, y la entrada queda «sin estructurar» (RF-41) · el texto trae instrucciones: se trata como dato (RF-21) · el texto no menciona síntomas o los niega: no se proponen eventos (RN-11).
+
 ### Flujo de arranque en frío (CU-10)
 
 1. El evaluador clona el repositorio público y entrega el README a su IA.
@@ -344,7 +364,7 @@ Es el texto final de los requisitos sin la columna de criterios de aceptación n
 
 **Excepciones:** sin terminal y sin llave, no se queda esperando y arranca avisando que falta la llave · llave inválida, mensaje honesto y respaldo (RF-19) · reinicio con la semilla, sin duplicados (RF-05).
 
-### Requisitos funcionales (39)
+### Requisitos funcionales (42)
 
 En el Momento 2 no hay autenticación (D23): los usuarios de demostración existen desde el arranque, sin credenciales, y la persona elige con cuál trabaja; el servidor usa su rol y su identidad para separar funciones y para registrar quién hizo cada acción (D26, propuesta). Las credenciales, el inicio de sesión, la administración de usuarios y el tablero de permisos son del Momento 3.
 
@@ -352,13 +372,16 @@ En el Momento 2 no hay autenticación (D23): los usuarios de demostración exist
 | --- | --- | --- |
 | **Pacientes y entradas** |  |  |
 | RF-01 | Crear pacientes con un id interno y un alias legible; el LLM solo recibe el id interno | M2-N |
-| RF-02 | Registrar una entrada diaria en texto libre asociada a paciente, fecha y autor, sin plantilla obligatoria | M2-N |
+| RF-02 | Registrar una entrada diaria en texto libre asociada a paciente, fecha y autor, sin plantilla obligatoria; el texto se guarda tal como se escribió, se estructure o no | M2-N |
 | RF-03 | Permitir corregir una entrada conservando la versión anterior y quién la cambió | M2-S |
 | RF-04 | Listar las entradas de un paciente por fecha y filtrar por rango | M2-N |
-| RF-05 | Cargar el conjunto sintético de demostración al primer arranque, de forma idempotente, solo con la semilla activa (`APP_SEED_DEMO=true`) y nunca en el perfil `prod` | M2-N |
+| RF-05 | Cargar el conjunto sintético de demostración, con sus eventos ya confirmados y sin llamar al LLM, al primer arranque, de forma idempotente, solo con la semilla activa (`APP_SEED_DEMO=true`) y nunca en el perfil `prod` | M2-N |
 | **Eventos y métricas (el código cuenta, el LLM interpreta)** |  |  |
-| RF-06 | Derivar de cada entrada eventos estructurados (tipo, descripción normalizada, fecha) mediante el LLM, validados contra un esquema, guardados aparte del texto original y enlazados a su entrada | M2-N |
+| RF-06 | Proponer, mediante el LLM y al registrar una entrada, los eventos estructurados que el texto dice (tipo, descripción normalizada, intensidad, veces y fecha), validados contra un esquema; lo que el texto no dice queda «sin indicar» o vacío y nunca se inventa. Los eventos se guardan aparte del texto original y enlazados a su entrada (D27) | M2-N |
 | RF-07 | Calcular en código, a partir de entradas y eventos, las métricas semanales por paciente: días con entrada, días sin entrada, eventos por tipo, días con cada síntoma, variación frente a la semana anterior y síntomas nuevos, persistentes, desaparecidos y reaparecidos | M2-N |
+| RF-40 | Mostrar a la persona que registra, antes de guardar, el texto y los eventos propuestos para que los confirme, cambie la intensidad o las veces, quite uno, agregue uno a mano o descarte. Solo lo confirmado se guarda como evento, con quién lo confirmó y cuándo; descartar no guarda nada | M2-N |
+| RF-41 | Si la estructuración falla (caída o 429 del proveedor, tiempo agotado o salida que no valida tras un reintento), avisar con claridad y permitir guardar la entrada solo como texto o agregar los eventos a mano, sin perder lo escrito; la entrada sin eventos confirmados queda marcada «sin estructurar» y el informe lo declara (RN-08) | M2-N |
+| RF-42 | Proponer, junto a los eventos, una versión corregida del texto (ortografía y puntuación, sin cambiar el contenido) que la persona acepta, edita o ignora; se guarda como versión de la entrada con quién la confirmó, reutilizando el versionado de RF-03, y el original queda intacto y es el que citan los informes (RN-05, RN-07) | M2-S |
 | **Agente e informe** |  |  |
 | RF-08 | Generar un borrador de informe semanal para un paciente y una semana, a solicitud de enfermería | M2-N |
 | RF-09 | Dar al agente acceso a los datos solo mediante herramientas autorizadas de lectura y métricas | M2-N |
@@ -413,10 +436,10 @@ En el Momento 2 no hay autenticación (D23): los usuarios de demostración exist
 | RNF-10 | Integridad de datos | Las entradas y los informes no se borran, solo se corrigen con versión; las entradas son de solo lectura para el agente |
 | RNF-11 | Calidad | Pruebas automatizadas de las reglas críticas: aprobación, permisos, validador de cifras y citas, esquema. Commits convencionales. Cada integrante responde por las decisiones técnicas (qué se hizo y por qué) y puede explicar cualquier bloque que se le señale: la rúbrica escrita lo exige, aunque el profesor dijo en clase que preguntará sobre todo por decisiones |
 | RNF-12 | Cumplimiento del curso | Estructura de entrega, límites del agente, `eval/` y cifras con fecha, según `AGENTS.md`; enlace al repositorio entregado en el aula virtual hasta el jueves 29-oct a medianoche, con la versión congelada en un tag hasta la presentación |
-| RNF-13 | Arranque en frío | La aplicación completa (BD, backend, frontend, migraciones y semilla) levanta con un comando y sin labor manual en una máquina limpia con solo Docker Compose v2; la llave del proveedor se toma del entorno o se pide por consola si hay terminal, se guarda en `.env` (fuera del repo) y, si no hay llave ni terminal, el arranque no se bloquea y la app avisa con claridad que falta la llave |
+| RNF-13 | Arranque en frío | La aplicación completa (BD, backend, frontend, migraciones y semilla) levanta con un comando y sin labor manual en una máquina limpia con solo Docker Compose v2; la llave del proveedor se toma del entorno o se pide por consola si hay terminal, se guarda en `.env` (fuera del repo) y, si no hay llave ni terminal, el arranque no se bloquea y la app avisa con claridad que falta la llave; el `JWT_SECRET` no se exige antes del Momento 3 (D23) |
 | RNF-14 | Decisiones justificadas | `docs/decisiones.md` registra cada decisión técnica (forma del sistema, stack, proveedor y modelo, estrategia de datos con o sin RAG, patrón síncrono, streaming o cola, base de datos y cada herramienta opcional que entre) con su razón técnica y la alternativa descartada; incluye el registro de iteración de las descripciones de herramientas y la prueba del compañero |
 
-### Reglas de negocio (10)
+### Reglas de negocio (11)
 
 | ID | Regla | Origen |
 |---|---|---|
@@ -426,21 +449,22 @@ En el Momento 2 no hay autenticación (D23): los usuarios de demostración exist
 | RN-04 | Toda cifra del informe la calcula el código, no el LLM | [Equipo] |
 | RN-05 | Toda afirmación del informe cita al menos una entrada | [Curso] |
 | RN-06 | Una semana va de lunes a domingo. El informe se compara con la semana anterior y el agente decide cuántas más atrás revisar, con tope | [Equipo] (D10) |
-| RN-07 | El agente nunca modifica las entradas originales | [Equipo] |
+| RN-07 | El agente nunca modifica las entradas originales; el texto corregido (RF-42) es una versión aparte y el original sigue siendo la fuente citable | [Equipo] |
 | RN-08 | Si faltan datos, el informe lo declara y no los rellena | [Equipo] |
 | RN-09 | Se permiten varias entradas el mismo día; dentro del día se ordenan por hora de creación | [Propuesta] |
 | RN-10 | Un mes son cuatro semanas completas consecutivas (lunes a domingo, RN-06). El informe mensual solo se genera si cada una tiene informe semanal `APROBADO`; si falta alguna, no se genera y se indica cuál | [Equipo] (semanas aprobadas) · [Propuesta] (cuatro semanas y no mes calendario) (D4) |
+| RN-11 | La IA solo propone: ningún evento queda guardado sin confirmación de una persona, y el modelo no agrega lo que el texto no dice (intensidad «sin indicar» y veces vacías si no se indican, sin negaciones convertidas en síntomas y sin diagnóstico) | [Equipo] (confirmación humana) · [Propuesta] (no agregar lo que el texto no dice) (D27) |
 
 ### Modelo conceptual preliminar
 
-Solo entidades y relaciones. Atributos, tipos y tablas se definen en el diseño.
+Solo entidades y relaciones. Atributos, tipos y tablas están en `docs/DICCIONARIO_DATOS.md` y, recortados al Momento 2, en `docs/DICCIONARIO_DATOS_M2.md`.
 
 | Entidad | Qué es | Relaciones clave |
 |---|---|---|
 | Usuario, Rol, Permiso | Quién entra y qué puede hacer (en el Momento 2, usuarios de demostración sin credenciales cuyo rol aplica el servidor, D26; credenciales y administración de cuentas desde el Momento 3) | Un usuario tiene un rol; un rol agrupa permisos por módulo y acción |
 | Paciente | Persona seguida, identificada por id interno | Tiene muchas entradas e informes |
-| Entrada | Registro diario en texto libre (fecha, autor, versiones) | Pertenece a un paciente; tiene eventos derivados |
-| Evento | Dato estructurado derivado por el LLM de una entrada (tipo, descripción normalizada, fecha) | Enlaza a su entrada original |
+| Entrada | Registro diario en texto libre (fecha, autor, texto original, versión corregida si la hay y marca «sin estructurar») | Pertenece a un paciente; tiene eventos derivados |
+| Evento | Dato estructurado propuesto por el LLM y confirmado por una persona (tipo, descripción normalizada, intensidad, veces, fecha, origen y quién lo confirmó) | Enlaza a su entrada original |
 | Informe | Documento por paciente y período, con estado, contenido estructurado, versión del modelo, versión editada, aprobador y fecha | Tiene afirmaciones; tiene una ejecución del agente |
 | Afirmación | Frase del informe con su cita | Referencia una o más entradas |
 | Ejecución del agente | Traza de pasos: herramienta, parámetros, resultado, ms, tokens | Asociada a un informe |
@@ -463,20 +487,21 @@ Para poder avanzar, el análisis usa estos supuestos. Si cambian, se actualiza e
 | Arranque y llave del API | Una IA del profesor ejecuta solo el README; la llave se toma del entorno o se pide por consola; sin llave ni terminal, arranca igual y avisa que falta la llave | RNF-13 | D22 |
 | Usuarios de demostración | Sembrados al arrancar desde el Momento 2 (enfermería y médico, nombres ficticios, sin credenciales) para que cada acción tenga un autor identificable; credenciales sintéticas en el README y administrador desde el Momento 3 | RF-05, RF-35, RF-39 | D23 |
 | Informe mensual | En el Momento 2 (decidido). Un mes son cuatro semanas completas consecutivas (lunes a domingo) y exige el informe semanal aprobado de cada una; cuatro semanas y no mes calendario es propuesta por confirmar | RF-36, RN-10 | D4 |
+| Estructuración de la entrada | La IA propone los eventos al registrar y la persona los confirma antes de guardar; el original se guarda intacto y el texto corregido es una versión aparte (M2-S). Propuesta por confirmar | RF-06, RF-40 a RF-42, RN-07, RN-11 | D27 |
 | Identidad en el Momento 2 | Sin autenticación; el usuario de demostración elegido (enfermería o médico, sembrado sin credenciales) viaja en cada petición y el servidor lo usa para aprobar, para filtrar lo que ve el médico y para registrar quién hizo cada acción. Propuesta por confirmar | RF-02, RF-26, RF-28, RF-32, RF-35, RNF-01 | D26 |
 | Patrón de integración | Ejecución asíncrona del agente con eventos de progreso por SSE | RF-22, RNF-05 | D24 |
 | Evaluaciones y observabilidad | En clase el profesor las trató como deseables; la rúbrica escrita las puntúa; versión mínima: 3 a 5 casos dorados con script y traza visible en la app | RF-22, OBJ-11 | D25 |
 
-**Estado de las decisiones de la SPEC §7:** decididas D1, D2, D3, D4, D5, D7, D8, D9, D10, D11, D12, D13, D14, D17, D21, D22, D23, D24; propuestas D15, D26; supuestos D6, D19, D20, D25; por confirmar D18; descartada D16.
+**Estado de las decisiones de la SPEC §7:** decididas D1, D2, D3, D4, D5, D7, D8, D9, D10, D11, D12, D13, D14, D17, D21, D22, D23, D24; propuestas D15, D27; decidida también D26 (confirmada el 2026-10-28); supuestos D6, D19, D20, D25; por confirmar D18; descartada D16.
 
-**Para el diseño (no bloquean el análisis):** proveedor del LLM (D15, propuesta), subir la versión de Java de 17 a 21 (parte pendiente de D9), cifras del conjunto sintético (D11 está decidida, sin valores; debe incluir al menos un paciente con cuatro semanas aprobadas para el informe mensual) y dónde se derivan los eventos (al guardar la entrada o al generar el informe). Ya decididas: stack (D9), estrategia de datos (D8), motor de PDF (D13), voz (D14) y patrón de integración (D24).
+**Para el diseño (no bloquean el análisis):** proveedor del LLM (D15, propuesta), cómo recibe el profesor la llave si no tiene una (parte pendiente de D22), valores de intensidad y tipos de evento de la estructuración (D27, D18) y qué hace «Descartar». Ya decididas: stack con Java 17 (D9), conjunto sintético de 5 pacientes y 18 semanas-paciente con un paciente de cuatro semanas aprobadas para el mensual (D11), `JWT_SECRET` y JWT en el Momento 3 (D23), estrategia de datos (D8), motor de PDF (D13), voz (D14), patrón de integración (D24) y dónde se derivan los eventos (al registrar la entrada, D27 propuesta).
 
 ### Criterios de salida de la fase de análisis
 
 - [x] Cada objetivo de la SPEC tiene al menos un requisito o entregable (§7). Verificado el 2026-10-25, incluido OBJ-16.
-- [x] Cada requisito funcional tiene un criterio que se responde con sí o no. Verificado el 2026-10-25: los 39 RF.
+- [x] Cada requisito funcional tiene un criterio que se responde con sí o no. Verificado el 2026-10-25 en los 39 RF y el 2026-10-28 en RF-40 a RF-42 (42 RF).
 - [ ] Los dos integrantes revisaron los supuestos de trabajo de §8.
 - [ ] El catálogo de métricas (RF-07) y la estructura del informe (RF-11) se validaron con una persona de enfermería, o quedó registrado que no se pudo.
-- [ ] La SPEC se actualizó con las decisiones D18 a D20 y los supuestos confirmados (D18 a D20 ya están en la SPEC; faltan los supuestos confirmados, incluidos D21 a D26).
+- [ ] La SPEC se actualizó con las decisiones D18 a D20 y los supuestos confirmados (D18 a D20 ya están en la SPEC; faltan los supuestos confirmados, incluidos D21 a D27).
 
 Las casillas abiertas no bloquean el diseño; quedan como deuda con fecha límite propuesta: revisión de supuestos por los dos integrantes el lunes 26 y validación con enfermería (o constancia de que no se pudo) el miércoles 28 **[Propuesta]**.
