@@ -421,6 +421,19 @@ Sin Angular Material, Bootstrap, Tailwind, fuentes ni iconos externos: el diseñ
 
 **Qué no se midió.** El corrector se midió con 4 notas mal escritas (S25 a S28) y las 24 anteriores, 2 repeticiones, todas contestadas por Groq: la ruta por Gemini no se midió. No se comparó con un corrector ortográfico convencional (la biblioteca estándar de Python no trae uno; la cifra de la solución convencional queda «no medida», no cero). No se midió con notas largas. Las comprobaciones de «sin cambiar el contenido» son sobre números y negaciones: un cambio de otro tipo (un adjetivo, un lugar) no lo detecta el código; lo detecta la persona que revisa el campo antes de aprobar.
 
+## Puerto del frontend distinto del 4200 y CORS (2026-10-30)
+
+**El problema.** `run.sh` pasa el frontend a otro puerto si el 4200 está ocupado, pero el backend solo aceptaba el origen `http://localhost:4200`. En Docker el navegador habla únicamente con nginx, y nginx reenviaba `Host $host`, que **no lleva el puerto**: el backend veía `Host: localhost` y el `Origin: http://localhost:4201` que el navegador pone en todo POST, PUT o DELETE aunque sea del mismo origen. No coincidían, Spring lo trató como una petición cruzada y respondió `403 Invalid CORS request`. Con otro puerto la pantalla cargaba (los GET no llevan `Origin`), pero fallaban «Enviar» y «Aprobar y guardar». Reproducido contra el backend con las cabeceras de nginx.
+
+| Decisión | Razón | Alternativa descartada |
+|---|---|---|
+| nginx reenvía `Host $http_host` (con el puerto) en vez de `$host` | Así `Origin` y `Host` coinciden y la petición es del mismo origen, que es lo que es: no hay nada que permitir. Sirve para cualquier puerto, para `127.0.0.1` y para la IP de la red local, sin lista que mantener y sin tocar `run.sh` ni el compose. Un navegador no puede falsear el `Host`, así que un sitio ajeno sigue recibiendo 403 | Derivar `CORS_ALLOWED_ORIGINS` de `FRONTEND_PORT`: hay que listar cada nombre de host y falla con la IP de la máquina |
+| CORS **sigue estricto**: solo `http://localhost:4200` (`ng serve` llamando al backend en el 8080) | El Momento 3 añade autenticación; abrir CORS ahora habría que deshacerlo | `*` o un patrón de puertos |
+| No se borra la cabecera `Origin` en nginx | Arreglaría el síntoma pero desactivaría la comprobación de CORS en toda la ruta `/api` | `proxy_set_header Origin ""` |
+| `CORS_ALLOWED_ORIGINS` en `.env.example` queda documentada como solo de desarrollo sin Docker | El compose nunca la pasó al backend: en Docker rige el valor por defecto, y el comentario anterior hacía pensar que cambiarla servía | Pasarla en el compose (innecesario) |
+
+**Cómo se comprobó.** Dos nginx desechables en la red del backend en marcha, uno con la configuración anterior (puerto 4291) y otro con la nueva (4292), y los mismos cuatro envíos con el `Origin` que pone un navegador: POST desde el propio front, GET, POST desde `http://evil.example` y un preflight desde ese sitio. Anterior: **403** al propio front. Nueva: **400** (pasa CORS y falla la validación del texto en blanco). En las dos, el POST de otro sitio da **403** y el preflight no devuelve `Access-Control-Allow-Origin`. **No se probó con un navegador real ni con `run.sh` y el puerto cambiado de punta a punta**: la imagen del frontend se reconstruye en el próximo `./run.sh`.
+
 ## Decisiones del equipo (2026-10-28)
 
 | Decisión | Razón | Alternativa descartada |
