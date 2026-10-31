@@ -2,7 +2,7 @@ import { Component, ElementRef, OnInit, computed, inject, signal, viewChild } fr
 import { ActivatedRoute, RouterLink } from '@angular/router';
 
 import { apiFailure } from '../core/api-error';
-import { ConfirmedEvent, EntriesService, ProposedEvent } from '../core/entries.service';
+import { ConfirmedEvent, Correction, EntriesService, ProposedEvent } from '../core/entries.service';
 import { IconComponent } from '../core/icon.component';
 import { LlmStatus, LlmStatusService } from '../core/llm-status.service';
 import { Patient, PatientsService } from '../core/patients.service';
@@ -26,6 +26,9 @@ interface Turn {
   patientId: string;
   state: 'proposing' | 'preview' | 'saved' | 'discarded';
   rows: Row[];
+  // «Texto corregido» (RF-42): lo que propuso el modelo y lo que hay ahora en el campo. Sin propuesta no hay campo.
+  proposedText: string | null;
+  correctedText: string;
   // Por qué la IA no pudo proponer (RF-41); la persona puede guardar solo el texto o agregar a mano.
   failure: string | null;
   error: string;
@@ -34,7 +37,7 @@ interface Turn {
 
 const WHAT_NEXT = ' Puede guardar solo el texto o agregar los síntomas a mano.';
 
-// vRegNuevo(), filaSintoma() y vistaPrevia() del mockup. Sin el «texto corregido» (RF-42, fuera de esta entrega).
+// vRegNuevo(), filaSintoma() y vistaPrevia() del mockup, con el «texto corregido» editable (RF-42, E19).
 @Component({
   selector: 'app-entry-new',
   standalone: true,
@@ -62,7 +65,7 @@ const WHAT_NEXT = ' Puede guardar solo el texto o agregar los síntomas a mano.'
       </div>
       <div class="chat" id="rn-chat">
         @if (visibleTurns().length === 0) {
-          <p class="ayuda">Escriba cómo estuvo el paciente hoy, como en un chat.<br>La IA detecta los síntomas; usted revisa y aprueba antes de guardar.</p>
+          <p class="ayuda">Escriba cómo estuvo el paciente hoy, como en un chat.<br>La IA corrige la redacción y detecta los síntomas; usted revisa y aprueba antes de guardar.</p>
         }
         @for (turn of visibleTurns(); track turn.id) {
           <div class="burbuja">{{ turn.text }}</div>
@@ -72,7 +75,15 @@ const WHAT_NEXT = ' Puede guardar solo el texto o agregar los síntomas a mano.'
               @if (turn.failure; as reason) {
                 <div class="aviso"><svg appIcon="rechazar"></svg><span>{{ reason }}</span></div>
               }
-              <div class="campo">
+              @if (turn.proposedText !== null) {
+                <div class="campo">
+                  <label [attr.for]="'rn-texto-' + turn.id">Texto corregido</label>
+                  <textarea class="inp" data-f="texto" rows="4" [id]="'rn-texto-' + turn.id" [value]="turn.correctedText"
+                            (input)="turn.correctedText = $any($event.target).value"></textarea>
+                  <span class="sec">Tal como se escribió se guarda también el original; los informes citan el original.</span>
+                </div>
+              }
+              <div class="campo" [style.margin-top]="turn.proposedText !== null ? '12px' : null">
                 <label>Síntomas detectados</label>
                 <div class="sint-filas">
                   @for (row of turn.rows; track row) {
@@ -195,7 +206,7 @@ export class EntryNewComponent implements OnInit {
     if (this.dateError()) {
       return;
     }
-    const turn: Turn = { id: this.nextTurn++, text, patientId: this.patientId(), state: 'proposing', rows: [], failure: null, error: '', savedAs: null };
+    const turn: Turn = { id: this.nextTurn++, text, patientId: this.patientId(), state: 'proposing', rows: [], proposedText: null, correctedText: '', failure: null, error: '', savedAs: null };
     this.turns.update((list) => [...list, turn]);
     input.value = '';
     // El texto de la burbuja es el que se guarda: se fija aquí y no se vuelve a leer de la caja (E9, riesgo de texto distinto).
@@ -208,6 +219,8 @@ export class EntryNewComponent implements OnInit {
       this.patch(turn.id, (t) => {
         t.state = 'preview';
         t.failure = proposal.failure ?? null;
+        t.proposedText = proposal.correctedText ?? null;
+        t.correctedText = proposal.correctedText ?? '';
         t.rows = proposal.events.map((e) => ({
           symptom: SYMPTOM_LABELS[e.symptom] ?? e.label ?? e.symptom,
           intensity: e.intensity,
@@ -261,7 +274,9 @@ export class EntryNewComponent implements OnInit {
     }
     await button.run(async () => {
       try {
-        await this.entries.create(turn.patientId, { entryDate: date, body: turn.text, ...(events ? { events } : {}) });
+        const correction = events ? this.correctionOf(turn) : undefined;
+        await this.entries.create(turn.patientId, { entryDate: date, body: turn.text, ...(events ? { events } : {}),
+          ...(correction ? { correction } : {}) });
       } catch (e) {
         const failure = apiFailure(e);
         if (failure.fields['entryDate']) {
@@ -278,6 +293,15 @@ export class EntryNewComponent implements OnInit {
         t.savedAs = events ? 'structured' : 'text';
       });
     });
+  }
+
+  // El texto corregido que se guarda: el del campo si hay y es distinto del original (si es igual no hay nada que versionar).
+  private correctionOf(turn: Turn): Correction | undefined {
+    const body = turn.correctedText.trim();
+    if (turn.proposedText === null || !body || body === turn.text) {
+      return undefined;
+    }
+    return { body, origin: body === turn.proposedText ? 'IA_ACEPTADA' : 'IA_EDITADA' };
   }
 
   // Valida lo que la persona dejó en las filas con las mismas reglas que el servidor (que sigue decidiendo).

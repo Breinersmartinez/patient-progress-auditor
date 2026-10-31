@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.patientprogressauditor.agent.AgentRun;
 import com.patientprogressauditor.agent.AgentRunRepository;
@@ -76,7 +77,15 @@ public class StructuringService {
             StructuredResult result = gateway.structured(request, StructuringPrompt::problems);
             StructuringPrompt.Screened screened = StructuringPrompt.screen(result.json(), text);
             List<EventProposal> events = screened.kept();
+            JsonNode correctedNode = result.json().path("correctedText");
+            StructuringPrompt.Corrected corrected = StructuringPrompt.acceptCorrection(text,
+                    correctedNode.isTextual() ? correctedNode.asText() : null);
             addAttempts(trace, result.attempts());
+            // Si el modelo no devolvio texto no hay nada que explicar; si devolvio uno que cambia el contenido, la traza lo dice.
+            if (corrected.dropped() != null && correctedNode.isTextual() && !correctedNode.asText().isBlank()) {
+                trace.add(new StepDraft(AgentStep.Type.VALIDACION, "Se descartó el texto corregido: " + corrected.dropped(),
+                        false, null, 0, 0));
+            }
             if (!screened.dropped().isEmpty()) {
                 trace.add(new StepDraft(AgentStep.Type.VALIDACION, "Se descartaron síntomas propuestos sin respaldo en la nota: "
                         + String.join("; ", screened.dropped()), false, null, 0, 0));
@@ -90,7 +99,7 @@ public class StructuringService {
             finish(run, AgentRun.Status.COMPLETADA, AgentRun.StopReason.EXITO, result.result().provider(), result.result().model(),
                     result.result().fallbackUsed(), result.attempts(), result.costUsd(), null);
             save(run, trace);
-            return new Proposal(events, null, run.getProvider(), run.getModel(), run.isFallbackUsed(), run.getId());
+            return new Proposal(events, corrected.text(), null, run.getProvider(), run.getModel(), run.isFallbackUsed(), run.getId());
         } catch (LlmUnavailableException e) {
             addAttempts(trace, e.attempts());
             trace.add(new StepDraft(AgentStep.Type.ERROR, e.getMessage(), true, null, 0, 0));
@@ -113,7 +122,7 @@ public class StructuringService {
     }
 
     private Proposal failed(AgentRun run, String message) {
-        return new Proposal(List.of(), message + WHAT_NEXT, run.getProvider(), run.getModel(), run.isFallbackUsed(), run.getId());
+        return new Proposal(List.of(), null, message + WHAT_NEXT, run.getProvider(), run.getModel(), run.isFallbackUsed(), run.getId());
     }
 
     private record StepDraft(AgentStep.Type type, String message, boolean error, Integer millis, int tokensIn, int tokensOut) {

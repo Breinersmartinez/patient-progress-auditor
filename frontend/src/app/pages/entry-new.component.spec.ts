@@ -86,7 +86,7 @@ describe('EntryNewComponent (vRegNuevo del mockup)', () => {
     expect(root.querySelector<HTMLInputElement>('#rn-fecha')!.value).toBe('2026-10-28');
     expect(root.querySelector('#rn-fecha')!.getAttribute('max')).toBe('2026-10-28');
     expect(root.querySelector('.ayuda')?.textContent).toContain('Escriba cómo estuvo el paciente hoy, como en un chat.');
-    expect(root.querySelector('.ayuda')?.textContent).not.toContain('corrige la redacción');
+    expect(root.querySelector('.ayuda')?.textContent).toContain('La IA corrige la redacción y detecta los síntomas; usted revisa y aprueba antes de guardar.');
     expect(root.querySelectorAll('#catalogo option').length).toBe(9);
     expect(root.querySelector('.aviso')).toBeNull();
   });
@@ -133,7 +133,7 @@ describe('EntryNewComponent (vRegNuevo del mockup)', () => {
     expect(root.querySelector<HTMLInputElement>('#rn-txt')!.value).toBe(''); // la caja queda lista para el siguiente texto
     expect(root.querySelector('.ayuda')).toBeNull();
     expect(root.querySelector('.vista-ia h3')?.textContent).toBe('Así quedaría el registro');
-    expect(root.querySelector('.vista-ia textarea')).toBeNull(); // sin «texto corregido»
+    expect(root.querySelector('.vista-ia textarea')).toBeNull(); // la IA no dio texto corregido: no hay campo
     expect(rows().length).toBe(2);
     expect(rows()[0].querySelector<HTMLInputElement>('[data-s="n"]')!.value).toBe('Diarrea');
     expect(rows()[0].querySelector<HTMLSelectElement>('[data-s="intensidad"]')!.value).toBe('INTENSO');
@@ -317,5 +317,65 @@ describe('EntryNewComponent (vRegNuevo del mockup)', () => {
 
     expect(create.request.body).toEqual({ entryDate: '2026-10-27', body: 'Tranquilo.', events: [] });
     create.flush({ id: 'e2' }, { status: 201, statusText: 'Created' });
+  });
+
+  // --- «Texto corregido» (RF-42, E19) ---
+
+  const RAW = 'dolor de cabeza intenso desde la mañana tuvo diarea dos veces comio poko';
+  const FIXED = 'Dolor de cabeza intenso desde la mañana. Tuvo diarrea dos veces. Comió poco.';
+  const WITH_TEXT = { ...PROPOSAL, correctedText: FIXED };
+
+  it('muestra el texto corregido en un campo editable, antes de los síntomas, como el mockup', async () => {
+    await open();
+    await send(RAW, WITH_TEXT);
+
+    const field = root.querySelector<HTMLTextAreaElement>('.vista-ia textarea[data-f="texto"]')!;
+    expect(field.value).toBe(FIXED);
+    expect(root.querySelector('.vista-ia label[for="' + field.id + '"]')?.textContent).toBe('Texto corregido');
+    expect(root.querySelector('.burbuja')?.textContent).toBe(RAW); // lo que la persona escribió sigue a la vista
+    expect(field.compareDocumentPosition(root.querySelector('.sint-filas')!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('al aprobar sin tocarlo envía el original como body y el corregido como IA_ACEPTADA', async () => {
+    await open();
+    await send(RAW, WITH_TEXT);
+    const request = await save();
+
+    expect(request.request.body.body).toBe(RAW);
+    expect(request.request.body.correction).toEqual({ body: FIXED, origin: 'IA_ACEPTADA' });
+  });
+
+  it('si la persona edita el texto corregido, sale como IA_EDITADA con lo que dejó', async () => {
+    await open();
+    await send(RAW, WITH_TEXT);
+    type('.vista-ia textarea[data-f="texto"]', FIXED + ' Sin fiebre.');
+    const request = await save();
+
+    expect(request.request.body.correction).toEqual({ body: FIXED + ' Sin fiebre.', origin: 'IA_EDITADA' });
+  });
+
+  it('si el texto corregido queda vacío o igual al original no se envía corrección', async () => {
+    await open();
+    await send('Tuvo diarrea dos veces.', { ...PROPOSAL, correctedText: 'Tuvo diarrea dos veces.' });
+    expect((await save()).request.body.correction).toBeUndefined();
+
+    type('#rn-txt', RAW);
+    await settle();
+    submit();
+    await settle();
+    http.expectOne('/api/patients/p1/entries/propose').flush(WITH_TEXT);
+    await settle();
+    type('.vista-ia textarea[data-f="texto"]', '   ');
+    expect((await save()).request.body.correction).toBeUndefined();
+  });
+
+  it('sin texto corregido de la IA no hay campo ni corrección, y los síntomas siguen igual', async () => {
+    await open();
+    await send(RAW);
+    const request = await save();
+
+    expect(root.querySelector('.vista-ia')).toBeNull();
+    expect(request.request.body.correction).toBeUndefined();
+    expect(request.request.body.events.length).toBe(2);
   });
 });

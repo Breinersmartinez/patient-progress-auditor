@@ -38,7 +38,14 @@ public class EntryController {
             @NotNull(message = "Elija la fecha del registro.") LocalDate entryDate,
             @NotBlank(message = "El registro no puede quedar vacío.")
             @Size(max = EntryService.MAX_BODY_LENGTH, message = "El registro no puede pasar de 4000 caracteres.") String body,
-            @Valid List<EntryService.ConfirmedEvent> events) {
+            @Valid List<EntryService.ConfirmedEvent> events,
+            @Valid CorrectionRequest correction) {
+    }
+
+    // El texto corregido de la vista previa (RF-42), tal como la persona lo dejo. Sin `correction`, o igual al original, no se guarda version.
+    public record CorrectionRequest(
+            @Size(max = EntryService.MAX_BODY_LENGTH, message = "El texto corregido no puede pasar de 4000 caracteres.") String body,
+            String origin) {
     }
 
     public record ProposeRequest(
@@ -68,7 +75,9 @@ public class EntryController {
     @PreAuthorize("hasAuthority('ENTRIES_CREATE')")
     public EntryView create(@PathVariable UUID patientId, @Valid @RequestBody CreateEntryRequest request,
             @AuthenticationPrincipal DemoPrincipal principal) {
-        return service.create(patientId, request.entryDate(), request.body(), request.events(), principal);
+        EntryService.Correction correction = request.correction() == null ? null
+                : new EntryService.Correction(request.correction().body(), request.correction().origin());
+        return service.create(patientId, request.entryDate(), request.body(), request.events(), correction, principal);
     }
 
     // order=asc (cronologico, por defecto) o desc (mas reciente primero); from y to incluyen sus dos extremos.

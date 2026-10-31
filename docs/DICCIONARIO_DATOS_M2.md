@@ -227,9 +227,9 @@ Un síntoma que el texto dice, propuesto por el LLM y confirmado por una persona
 
 **Cómo se cuentan.** Las métricas semanales (RF-07) unen `entry_events` con `entries` por `entry_id` y filtran por `patient_id` y `entry_date`. Los días con un síntoma son los `entry_date` distintos, de modo que varias entradas el mismo día cuentan un día (RN-09); las veces son la suma de `occurrences` donde está indicado.
 
-### 4.6 `entry_versions` — Versiones de la entrada (M2-S)
+### 4.6 `entry_versions` — Versiones de la entrada (M2-S, implementada el 30-oct en E19)
 
-El texto corregido por la IA (ortografía y puntuación, sin cambiar el contenido) o editado por una persona. La versión vigente es la de mayor `version_no`; si no hay ninguna, vale el original.
+El texto corregido por la IA (ortografía y puntuación, sin cambiar el contenido) o editado por una persona. La versión vigente es la de mayor `version_no`; si no hay ninguna, vale el original. **E19:** al aprobar la vista previa se guarda la versión 1 (`IA_ACEPTADA` si la persona dejó el texto que propuso el modelo, `IA_EDITADA` si lo cambió); no se guarda si no hay texto corregido, si queda en blanco o si es igual al original. La tabla no cambió (sin migración).
 
 | Columna | Etiqueta | Tipo | Nulo | Clave | Descripción y reglas | Origen |
 |---|---|---|---|---|---|---|
@@ -478,7 +478,7 @@ Cada fila es una **[Propuesta]** para poder escribir `V3` y `V4` ya. Lo que camb
 | 10 | Zona horaria | `America/Bogota` para decidir «hoy» y los límites de la semana; la BD no cambia | §1 | — |
 | 11 | Informe nuevo tras un rechazo | No se agrega `replaces_report_id`: un rechazado y su reemplazo se relacionan por paciente, tipo y período | Ninguno | — |
 | 12 | Quién pide la generación | Se mantiene `REPORTS_REQUEST`, solo para enfermería | §3.4 | Matriz de `SPEC.md` §4 (Informes: «crear» pasa a «solicitar») |
-| 13 | Editar los eventos de una entrada ya guardada | No en el Momento 2: limitación conocida. Corregir el texto (RF-42, M2-S) no cambia los eventos | Ninguno | Decidir si se amplía cuando haya tiempo |
+| 13 | Editar los eventos de una entrada ya guardada | No en el Momento 2: limitación conocida. Corregir el texto (RF-42, hecho en E19) no cambia los eventos | Ninguno | Decidir si se amplía cuando haya tiempo |
 
 ## 9. Diferencias con el diccionario completo
 

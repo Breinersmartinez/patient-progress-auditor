@@ -257,6 +257,47 @@ class StructuringScore(unittest.TestCase):
             self.assertEqual(cases[name]["expect"], [])
 
 
+class CorrectedTextScore(unittest.TestCase):
+    NOTE = "dolor de cabeza intenso desde la mañana tuvo diarea dos veces comio poko"
+    FIXED = "Dolor de cabeza intenso desde la mañana. Tuvo diarrea dos veces. Comió poco."
+
+    def test_a_good_correction_passes_with_its_fragments_and_without_the_original_mistakes(self):
+        s = checks.score_correction(self.NOTE, self.FIXED, ["diarrea", "Comió poco"], ["diarea", "poko"])
+        self.assertTrue(s["ok"])
+        self.assertEqual((s["missing"], s["kept_errors"]), ([], []))
+
+    def test_a_missing_text_a_kept_mistake_or_a_missing_fragment_fail(self):
+        self.assertFalse(checks.score_correction(self.NOTE, None)["present"])
+        s = checks.score_correction(self.NOTE, "Dolor de cabeza intenso desde la mañana. Tuvo diarea dos veces. Comió poco.", ["diarrea"], ["diarea"])
+        self.assertFalse(s["ok"])
+        self.assertEqual((s["missing"], s["kept_errors"]), (["diarrea"], ["diarea"]))
+        # la tilde importa: es lo que se corrige
+        self.assertEqual(checks.score_correction("tomo agua", "Tomo agua.", ["tomó"])["missing"], ["tomó"])
+
+    def test_changing_a_number_or_a_negation_is_not_a_correction(self):
+        self.assertFalse(checks.score_correction("vomito 3 veces", "Vomitó 2 veces.")["preserved"])
+        self.assertFalse(checks.score_correction("vomito dos veces", "Vomitó tres veces.")["preserved"])
+        self.assertFalse(checks.score_correction("sin vomito hoy", "Vomitó hoy.")["preserved"])
+        self.assertTrue(checks.score_correction("vomito una vez", "Vomitó 1 vez.")["preserved"])
+        self.assertTrue(checks.score_correction("tuvo diarea 2 veces", "Tuvo diarrea dos veces.")["preserved"])
+
+    def test_it_must_start_with_a_capital_and_end_with_a_period(self):
+        self.assertFalse(checks.score_correction("hola", "hola.")["well_formed"])
+        self.assertFalse(checks.score_correction("hola", "Hola")["well_formed"])
+
+    def test_the_committed_cases_ask_for_corrections_and_every_expected_fragment_is_in_a_good_text(self):
+        cases = {c["id"]: c for c in json.loads((ROOT / "eval/cases/structuring.json").read_text(encoding="utf-8"))["cases"]}
+        self.assertGreaterEqual(len(cases), 28)
+        asked = [c for c in cases.values() if "corrected_contains" in c]
+        self.assertGreaterEqual(len(asked), 4)
+        for case in asked:
+            # lo esperado no puede ser lo que ya trae la nota mal escrita
+            for wrong in case.get("corrected_forbidden", []):
+                self.assertIn(wrong.lower(), case["note"].lower().replace("á", "a"), case["id"])
+            self.assertFalse(any(w.lower() in case["note"].lower() for w in case["corrected_contains"]
+                                 if w.lower() in [x.lower() for x in case.get("corrected_forbidden", [])]), case["id"])
+
+
 class SeededReportsAreReproducible(unittest.TestCase):
     def test_the_committed_file_is_what_the_script_generates(self):
         out = subprocess.run([sys.executable, str(ROOT / "scripts/make_seed_reports.py")], capture_output=True, text=True, check=True).stdout

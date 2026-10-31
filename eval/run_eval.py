@@ -198,7 +198,10 @@ def run_structuring_system(http, patient_id, case):
                 "score": checks.score_structuring([], case["expect"]), "failed": True}
     events = answer.get("events", [])
     record = {"case": case["id"], "latency_s": latency, "proposed": events, "provider": answer.get("provider"), "failure": answer.get("failure"),
-              "failed": bool(answer.get("failure")), "score": checks.score_structuring(events, case["expect"]), "cost_usd": None, "tokens": None}
+              "failed": bool(answer.get("failure")), "score": checks.score_structuring(events, case["expect"]), "cost_usd": None, "tokens": None,
+              "corrected_text": answer.get("correctedText"),
+              "correction": checks.score_correction(case["note"], answer.get("correctedText"), case.get("corrected_contains"),
+                                                    case.get("corrected_forbidden"))}
     if answer.get("runId"):
         run = http.get(f"/api/runs/{answer['runId']}")
         record["cost_usd"] = run.get("costUsd")
@@ -248,7 +251,18 @@ def structuring_figures(records):
         "failed_calls": len([r for r in records if r.get("failed")]),
         "median_latency_s": median([r.get("latency_s") for r in records]),
         "median_cost_usd": median([r.get("cost_usd") for r in records]),
+        **correction_figures(records),
     }
+
+
+def correction_figures(records):
+    """El texto corregido solo lo da el sistema real: la solucion convencional (sin modelo) no tiene corrector ortografico en la
+    biblioteca estandar, asi que ahi la cifra no se mide (no se inventa)."""
+    rows = [r["correction"] for r in records if "correction" in r]
+    if not rows:
+        return {}
+    return {"corrected_delivered": sum(1 for c in rows if c["present"]), "corrected_ok": sum(1 for c in rows if c["ok"]),
+            "corrected_n": len(rows)}
 
 
 def fmt(value, unit=""):
@@ -263,6 +277,10 @@ def print_report(title, figures, records, structured=False):
         failed = [name for name, ok, _ in r.get("checks", []) if not ok]
         mark = "OK " if (r.get("ok") if not structured else r["score"]["exact"]) else "FALLA"
         extra = r.get("error") or (f"{r['score']['false_positives']} de más, {r['score']['missed']} omitidos" if structured and not r["score"]["exact"] else "")
+        c = r.get("correction")
+        if c and not c["ok"]:
+            extra += f" [texto corregido: {'no llegó' if not c['present'] else ''}{'' if c['well_formed'] else ' mal formado'}{'' if c['preserved'] else ' cambia números o negaciones'}"\
+                     f"{' faltan ' + str(c['missing']) if c['missing'] else ''}{' quedan ' + str(c['kept_errors']) if c['kept_errors'] else ''}]"
         print(f"   [{mark}] {r['case']}  {fmt(r.get('latency_s'), ' s')}  {', '.join(failed) if failed else ''} {extra}")
 
 
