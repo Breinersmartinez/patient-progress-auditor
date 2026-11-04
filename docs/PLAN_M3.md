@@ -1,0 +1,107 @@
+# PLAN — Momento 3 (semana 14, aplicación completa con autenticación)
+
+> **Estado:** en construcción. Por ahora solo trae la pieza de Langfuse, aprobada el 2026-11-03. El resto del Momento 3 (autenticación y JWT RF-31, credenciales y administrador RF-33, tablero de permisos RF-34, `docs/seguridad.md` y `docs/respuesta_auditoria.md`) todavía no está especificado ni planeado; sin su plan aprobado no se escribe código de esas piezas. **[Equipo]**
+> **Fecha:** 2026-11-03 · **Rama:** `develop_BSMartinez` · **Plan del Momento 2:** `docs/PLAN.md` (E1 a E19, cerrado).
+
+## Pieza 1 — Langfuse: trazas de las consultas al modelo y costo por consulta
+
+**Origen:** el profesor recomendó Langfuse para trazas y costos. **[Curso]** El equipo lo integra como adicional, no obligatorio. **[Equipo]**
+
+### Encargo
+Que cada llamada al modelo de la aplicación (informe semanal, informe mensual y estructuración de una entrada) aparezca en Langfuse Cloud, de forma opcional y sin texto de pacientes, con su modelo, tokens, latencia y costo, para comparar el costo por consulta según el modelo usado.
+
+### Decisiones del encargo
+| Duda | Decisión | Por qué |
+|---|---|---|
+| Dónde corre Langfuse | Langfuse Cloud, región de Estados Unidos (`https://us.cloud.langfuse.com`), una cuenta y un proyecto compartidos por los dos integrantes, con el profesor invitado más adelante si el equipo lo decide **[Equipo]** | Autoalojado suma seis contenedores y pone en riesgo el arranque en menos de 5 minutos y la prueba en frío (RNF-13) |
+| Es obligatorio | No. Sin llaves la aplicación arranca igual y avisa **[Equipo]** | La prueba del profesor es un clon limpio y una IA que solo lee el README: no puede depender de una cuenta externa |
+| Qué se envía | Solo metadatos: proveedor, modelo, tokens, costo, latencia, categoría del fallo, tipo y resultado de la ejecución, id de la ejecución. Sin texto de notas, prompts ni respuestas, sin id del paciente, sin el detalle técnico del proveedor **[Equipo]** | RNF-02: a terceros sale lo mínimo. El texto sigue en la traza propia (RF-22) |
+| Dónde se ve el costo | Solo en Langfuse; la interfaz y los mockups no cambian **[Equipo]** | Los mockups no se modifican sin que el equipo lo pida |
+| Qué es una «consulta» | Cada llamada al modelo, más el total por ejecución, incluida la estructuración **[Equipo]** | Cubre todo lo que pasa por `LlmGateway` |
+| Quién calcula el costo | El código (`LlmPricing`, precio de lista); Langfuse lo muestra **[Propuesta]** | `AGENTS.md`: los números los calcula el código. Con el respaldo, un informe puede mezclar dos modelos |
+| Qué pasa si Langfuse falla | Nunca afecta al flujo de enfermería **[Propuesta]** | La observabilidad no puede tumbar el producto |
+| Relación con la traza propia | Complementa, no reemplaza, a RF-22 **[Propuesta]** | RF-22 es lo que revisa enfermería; Langfuse sirve al equipo y al evaluador |
+
+### Fuera del alcance
+Mostrar el costo en la interfaz · autoalojar Langfuse · enviar texto de notas, prompts o respuestas · gestión de prompts, evaluaciones, puntuaciones y alertas de Langfuse · trazas de las herramientas del agente (nombre y duración; se pueden añadir después del paso 5) · reemplazar la traza propia (RF-22) · cambiar modelos, precios o proveedores · cobro real (la capa gratuita no cobra y el costo es de lista).
+
+### Supuestos
+- Langfuse Cloud acepta por HTTP, en JSON, las trazas OpenTelemetry (OTLP) armadas por la aplicación, toma el costo enviado sin recalcularlo y deja vacía la entrada y la salida si no se mandan. **Probado en el paso 2 (2026-11-03).**
+- Las llaves entran por el entorno o por el `.env` local, que git ignora. Nunca van a un archivo versionado.
+- La API de ingesta antigua (`/api/public/ingestion`) está en desuso según Langfuse y no se usa.
+- Para `mvn -B verify` hay un PostgreSQL desechable.
+
+### Pasos
+- [x] 1. **Mirar** el estado de partida: correr las pruebas del backend y del frontend antes de tocar nada y confirmar los puntos de enganche (`LlmGateway`, el cierre de ejecución en `AgentRunner` y `StructuringService.finish`). Anotar la D y el RF o RNF libres.
+  - **Produce:** la línea base de pruebas y la lista de enganches con archivo y línea.
+  - **Se mira:** `mvn -B verify` y `ng test` en verde, con el número de pruebas anotado; cada enganche confirmado leyendo el código.
+  > Hecho el 2026-11-03. Backend: 366 pruebas, 0 fallos, 14 omitidas (las pruebas en vivo, que exigen `RUN_LIVE_LLM=true` y llaves), `BUILD SUCCESS` en 3 min 29 s contra una base desechable en el puerto 5439. Frontend: 129 de 129. Ambas cifras coinciden con `AGENTS.md`. Libres: **D28** y **RF-43**, que se usaron en el paso 3; no hizo falta un requisito no funcional nuevo.
+  > Enganches: `LlmGateway.complete` (`LlmGateway.java:63`, costo por llamada exitosa en la línea 85); en el agente, `State.attempts` (`AgentRunner.java:281`), `State.account` (303) y `State.finish` (443, costo en la 452); en la estructuración, `addAttempts` (`StructuringService.java:132`) y `finish` (146, costo en la 156).
+  > **Hallazgo 1:** en la estructuración, si la salida no valida tras el reintento (`SALIDA_INVALIDA`), `finish` recibe costo `null` aunque ya se gastaron tokens. En `agent_runs.cost_usd` ese costo queda vacío, y sumando los intentos en Langfuse no lo estaría. El criterio 1 compara solo las ejecuciones con `cost_usd` no vacío; las demás se documentan aparte.
+  > **Hallazgo 2:** `Attempt` guarda la duración pero no la hora de inicio, como se temía (riesgo del paso 5).
+  > **Hallazgo 3:** la base `ppa-test-db` (PostgreSQL 16.15, `127.0.0.1:5439`) sigue levantada para las pruebas de los pasos 4 a 7. En los puertos 5432 y 5433 hay otras bases locales que no son de este proyecto y no se usaron.
+- [x] 2. **Probar** el envío a mano: mandar con `curl` a `us.cloud.langfuse.com` una generación de prueba, sin texto, con modelo, tokens, costo y metadatos.
+  - **Produce:** el cuerpo mínimo que Langfuse acepta y la decisión entre JSON armado por la aplicación o la librería de OpenTelemetry.
+  - **Se mira:** en el panel aparece como generación, con el costo igual al enviado y sin entrada ni salida.
+  > Hecho el 2026-11-03. Se envió una traza OTLP/JSON (HTTP 200) con un tramo raíz y tres generaciones, y se leyó de vuelta con la API v2. **A** (costo coherente): `totalCost` 0,00036, igual al enviado. **B** (costo enviado 0,000777 a propósito, distinto de los 0,0008 que da `LlmPricing` para esos tokens): Langfuse conservó 0,000777, así que respeta el costo recibido y no recalcula con su tabla. **C** (intento fallido sin tokens ni costo): `usageDetails` y `costDetails` vacíos y `totalCost` vacío, no cero; el nivel `ERROR` y el mensaje `RATE_LIMIT` se conservan. `input` y `output` vacíos en las cuatro observaciones.
+  > **Decisión (plan paso 2):** la aplicación arma el JSON OTLP ella misma con `RestClient`, como ya hacen los clientes de Groq y Gemini. **No hace falta ninguna dependencia nueva**, así que no se pide permiso para instalar la librería de OpenTelemetry. **[Propuesta]**
+  > Cuerpo mínimo aceptado: `POST {LANGFUSE_BASE_URL}/api/public/otel/v1/traces`, `Authorization: Basic base64(pública:secreta)`, `Content-Type: application/json` y `x-langfuse-ingestion-version: 4`. `traceId` de 32 y `spanId` de 16 caracteres hexadecimales, tiempos en nanosegundos como texto. Atributos usados: `langfuse.observation.type` (`generation`), `langfuse.observation.model.name`, `langfuse.observation.usage_details` y `langfuse.observation.cost_details` (JSON como texto, claves `input`, `output`, `total`), `langfuse.observation.level` y `langfuse.observation.status_message`, y los metadatos con el prefijo `langfuse.observation.metadata.`. El atributo de recurso `deployment.environment.name` llega como el entorno de Langfuse.
+  > **Hallazgo 1:** el endpoint antiguo de lectura (`GET /api/public/traces/{id}`) responde **410**: Langfuse lo retira en la nube el 2026-11-16. Para verificar (pasos 6 y 7) se usa `GET /api/public/v2/observations` con `traceId`, `fromStartTime`, `toStartTime` y `fields=core,basic,usage,io,metadata`.
+  > **Hallazgo 2:** la lectura tiene un límite de ritmo (429 al consultar cada 5 s). Se consulta con pausas de 15 a 20 s.
+  > **Hallazgo 3:** el entorno de Langfuse sirve para separar las trazas de la demo, de `eval/` y de pruebas (`deployment.environment.name`); con eso se mitiga el riesgo de que `eval/` llene el proyecto compartido.
+  > **Hallazgo 4:** los metadatos guardados son solo los míos, más `scope.name`, `resourceAttributes.*` y un eco de los atributos `langfuse.*`; no hay datos ajenos.
+  > **No verificado:** que el nombre de la traza (`langfuse.trace.name` en el tramo raíz) quede como nombre de la traza; la API v2 de observaciones no lo devuelve. Se mira en el panel en el paso 6. Tampoco medí cuánto tarda en aparecer: lo leí unos minutos después.
+  > **Queda en el proyecto compartido** una traza de prueba (entorno `spike`, nombre `spike-ppa-ejecucion`, id `d8144a2d534fc64557d4afccdc839793`, cuatro observaciones). Se puede borrar desde el panel.
+- [x] 3. **Registrar** la decisión antes de programar, en el orden de `CLAUDE.md`: D28 en `docs/SPEC.md` §7, el requisito con hito Opc y los conteos en `docs/REQUISITOS.md`, `docs/decisiones.md`, `docs/gobernanza.md` (completo, con lo construido hasta ahora más la integración), `AGENTS.md` y el resumen ejecutivo.
+  - **Produce:** los documentos coherentes entre sí.
+  - **Se mira:** sin IDs inexistentes, sin tablas descuadradas, conteos por hito sumados y lo que sale a Langfuse escrito con su región.
+  > Hecho el 2026-11-03. **D28** en la SPEC (v0.8: nota de versión, fila de alcance y referencia desde D25) y **RF-43** en los requisitos (v0.5), con hito **Opc**: el equipo dijo que es un plus del Momento 3 y que no hace falta mostrarlo en la demo, así que no se suma a lo obligatorio. Total: **43 RF y 2 opcionales** (RF-38 y RF-43); los demás conteos por hito no cambian (calculado de la tabla: 29 M2-N, 2 repartidos entre M2 y M3, 7 M2-S, 3 M3). También quedaron al día `docs/decisiones.md` (sección nueva con razón y alternativa de cada decisión), `AGENTS.md`, `CLAUDE.md`, `docs/README.md` y el resumen ejecutivo. Los diccionarios de datos no cambian: no hay tablas ni columnas nuevas. **`docs/gobernanza.md` v0.1** responde las cinco preguntas del curso y cita el código o la prueba de cada hecho.
+  > Comprobación: un script revisó los IDs citados, que las filas de cada tabla tengan las columnas de su encabezado, los conteos, la región (Estados Unidos aparece en la ficha, `decisiones.md`, la SPEC y este plan) y que ninguna llave aparezca fuera del `.env`. Todo cuadra; el único aviso fue una mención mía de un ID «libre», ya redactada de otro modo.
+  > **Hallazgos de la ficha** (el curso pide describir lo que el sistema hace, no lo deseado; **no se corrigió nada**, quedan para el plan del Momento 3 y para `docs/seguridad.md`): (1) el servidor exige el rol de enfermería para aprobar, pero **no verifica la identidad**: el usuario viaja en `X-Demo-User` y el propio filtro dice que no es autenticación (se cierra con RF-31); (2) **no hay cómo cancelar** una ejecución en curso; (3) **no hay política de retención** ni rotación de registros; (4) un informe aprobado **no se puede retirar**, solo reemplazar con uno nuevo; (5) el texto libre de las notas **no se depura** antes de salir al proveedor; (6) el motivo técnico de un fallo del proveedor, que se escribe en el registro del servidor, **puede traer un fragmento de su respuesta**.
+  > **Decisiones que nadie pidió:** añadí a `CLAUDE.md` la referencia a `docs/PLAN_M3.md` (decía que el plan del Momento 3 no existía); en el resumen ejecutivo corregí la línea que ponía al PDF como opcional del Momento 3 (pasó al Momento 2, D13), pero dejé lo demás de esa foto de las fases 1 y 2 como estaba (por ejemplo «31 de los 43 RF» en el núcleo, que no coincide con los 29 + 2 de la tabla).
+- [ ] 4. **Construir** la pieza de envío dentro de `llm`: recibe cada llamada ya resuelta, la manda en segundo plano y nunca bloquea ni lanza error; se apaga sola si faltan las llaves. Sumar las variables a `application.yml`, `.env.example` y `docker-compose.yml`.
+  - **Produce:** la clase de envío, la configuración y sus pruebas.
+  - **Se mira:** pruebas verdes que cubren que el cuerpo no lleva texto de notas ni el `detail` técnico, que el costo vacío se manda vacío, que un host caído no lanza ni retrasa y que sin llaves no hace nada; `scripts/check-env-example.sh` en verde.
+- [ ] 5. **Conectar** las dos rutas, el informe (semanal y mensual) y la estructuración: cada ejecución es una traza con el id de la ejecución, cada intento una generación, y el cierre lleva tipo, resultado y totales.
+  - **Produce:** las rutas enviando, sin cambiar lo que ve enfermería.
+  - **Se mira:** con el cliente guionado, un 429 seguido del respaldo da dos generaciones, la fallida con error y costo vacío, y la suma de costos es igual al `costUsd` de la ejecución; las pruebas anteriores siguen en verde.
+- [ ] 6. **Verificar en vivo** con las llaves del equipo: un informe semanal con Groq, uno con `LLM_PROVIDER=gemini`, una estructuración, una corrida sin llaves y una con el host inalcanzable.
+  - **Produce:** de tres a cinco ejecuciones reales en el panel y la tabla de comparación.
+  - **Se mira:** el costo del panel es igual, a 6 decimales, al `cost_usd` de `agent_runs`; cada modelo usa su precio; una frase de nota, un alias y un prompt no aparecen en el buscador; sin llaves o sin host el flujo termina igual.
+- [ ] 7. **Comprobar** el criterio de aceptación del encargo, punto por punto, y dejar la evidencia en `docs/decisiones/semana14.md`.
+  - **Produce:** el veredicto sí o no por criterio, con lo que no se pudo verificar.
+  - **Se mira:** los seis criterios contestados; `./run.sh` en un clon limpio sin llaves arranca igual (si no se puede correr, se dice); backend y frontend en verde.
+
+### Criterio de aceptación
+1. El costo de cada ejecución en Langfuse es igual, a los 6 decimales, al `cost_usd` de su fila en `agent_runs`.
+2. Con una ejecución normal y otra con `LLM_PROVIDER=gemini`, cada una muestra su costo con el precio de su modelo (tokens × precio de `LlmPricing`).
+3. Se busca en Langfuse una frase conocida de una nota sintética, el alias de un paciente y un prompt, y no aparece ninguna.
+4. Sin llaves, o con un host de Langfuse inalcanzable, el informe y la estructuración funcionan igual, y la mediana de estructuración no se aleja de la línea base de 1,40 s (`docs/decisiones/semana10.md`).
+5. `scripts/check-env-example.sh` y Gitleaks pasan, y `./run.sh` en un clon limpio sigue levantando todo sin mencionar Langfuse.
+6. Las pruebas existentes siguen en verde, más las nuevas.
+
+Orden de magnitud a precio de lista (línea base de `docs/decisiones/semana10.md`): informe semanal cerca de 0,003 USD, mensual cerca de 0,009 y estructuración cerca de 0,0004. Un valor diez veces fuera de eso es una alarma.
+
+### El paso más riesgoso
+El **paso 2**. Si el JSON armado a mano no se registra como generación, o Langfuse recalcula el costo por su cuenta, cambia el diseño de los pasos 4 y 5.
+- Si el JSON falla: se usa la librería de OpenTelemetry, que es una dependencia nueva y se pide permiso antes de instalarla.
+- Si Langfuse recalcula el costo: se envía por el campo que sí respeta y, si no hay otro, se define el modelo en el proyecto con los precios de `LlmPricing`.
+- Si nada funciona: se para y se informa antes de gastar más. Langfuse es un adicional, no una condición de entrega.
+
+### Dónde se puede caer
+| Paso | Qué puede salir mal | Cómo se nota |
+|---|---|---|
+| 2 | El formato de los identificadores o de los números de OTLP en JSON no es el esperado | Respuesta 4xx, o 200 y el panel vacío tras un minuto |
+| 2, 6 | Falta el encabezado `x-langfuse-ingestion-version=4` | Los datos tardan hasta 10 minutos en aparecer |
+| 4, 5 | El `detail` del intento (texto técnico del proveedor) se cuela en las trazas | El buscador del panel encuentra texto de error; se manda solo la categoría del fallo |
+| 5 | `Attempt` guarda la duración pero no la hora de inicio | Las generaciones salen superpuestas o desordenadas en la línea de tiempo |
+| 4 | El envío se hace en el hilo de la petición | La mediana de estructuración sube frente a 1,40 s con el host inalcanzable |
+| 5, 6 | Una ejecución mezcla dos modelos por el respaldo y la suma no coincide | El costo del panel difiere de `agent_runs.cost_usd` en el último decimal |
+| 6 | La suite de `eval/` llena el proyecto compartido de trazas | Decenas de trazas de evaluación mezcladas con las de la demo |
+
+### Qué se entrega al final
+- Una pieza nueva en el paquete `llm`, con su configuración y pruebas; cambios pequeños en el agente y la estructuración.
+- `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` y `LANGFUSE_BASE_URL` en `.env.example` y `docker-compose.yml`, sin valores reales.
+- D28, el requisito nuevo, la entrada en `docs/decisiones.md`, `docs/gobernanza.md` y `AGENTS.md` y el resumen ejecutivo actualizados.
+- `docs/decisiones/semana14.md` con la comparación de costos y el veredicto del criterio de aceptación.
+- Cambios sin commit: el equipo los verifica y los sube.

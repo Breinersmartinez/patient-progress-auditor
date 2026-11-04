@@ -4,7 +4,7 @@ Oct 28, 2026 · @brei
 
 ## Resumen en una página
 
-La planificación está cerrada (SPEC v0.7) y el análisis de requisitos está en su cuarto borrador (REQUISITOS v0.4): 42 requisitos funcionales, 14 no funcionales, 11 reglas de negocio y 10 casos de uso. El enlace al repositorio se entrega el jueves 29 de octubre de 2026 a medianoche y la demo del Momento 2 es el sábado 31. El 27 de octubre el equipo movió el alcance: el informe mensual entra al Momento 2 y la autenticación pasa al Momento 3; el 28 se incorporó la estructuración del registro por IA (D27, propuesta). Lo que más condiciona ahora es el arranque en frío, que todavía no existe: `docker-compose.yml` y `run.sh` están en el repo pero vacíos, y el README describe el scaffold.
+La planificación está cerrada (SPEC v0.8) y el análisis de requisitos está en su quinto borrador (REQUISITOS v0.5): 43 requisitos funcionales, 14 no funcionales, 11 reglas de negocio y 10 casos de uso. El enlace al repositorio se entrega el jueves 29 de octubre de 2026 a medianoche y la demo del Momento 2 es el sábado 31. El 27 de octubre el equipo movió el alcance: el informe mensual entra al Momento 2 y la autenticación pasa al Momento 3; el 28 se incorporó la estructuración del registro por IA (D27, propuesta). Lo que más condiciona ahora es el arranque en frío, que todavía no existe: `docker-compose.yml` y `run.sh` están en el repo pero vacíos, y el README describe el scaffold.
 
 **Qué es.** Patient Progress Auditor: enfermería registra cada día, en texto libre, cómo está un paciente. Un agente de IA lee los registros de la semana, los compara con las anteriores y redacta un borrador de informe semanal o mensual. Enfermería lo revisa y lo aprueba antes de que llegue al médico. El sistema no diagnostica ni receta.
 
@@ -22,12 +22,12 @@ La planificación está cerrada (SPEC v0.7) y el análisis de requisitos está e
 | En una mirada | Estado |
 | --- | --- |
 | Fase 1, Planificación | Cerrada: SPEC v0.7 con 16 objetivos verificables y 27 decisiones |
-| Fase 2, Análisis de requisitos | Borrador v0.4: 42 RF, 14 RNF, 11 reglas de negocio, 10 casos de uso |
+| Fase 2, Análisis de requisitos | Borrador v0.5: 43 RF, 14 RNF, 11 reglas de negocio, 10 casos de uso |
 | Fase 3, Diseño | Siguiente; el stack ya no la bloquea (D9) |
 | Entrega | Enlace al repositorio público en el aula virtual hasta el jueves 29 de octubre a medianoche; versión congelada en el tag `m2-entrega` |
 | Momento 2 | Sábado 31 de octubre de 2026: demo de 6 min y 3 min de preguntas |
-| Núcleo para el Momento 2 | 31 de los 42 RF; otros 6 se recortan primero si falta tiempo |
-| Momento 3 | 3 RF (inicio de sesión, administración de usuarios, tablero de permisos), más seguridad y gobernanza; 2 RF opcionales (PDF y voz) |
+| Núcleo para el Momento 2 | 31 de los 43 RF; otros 6 se recortan primero si falta tiempo |
+| Momento 3 | 3 RF (inicio de sesión, administración de usuarios, tablero de permisos), más seguridad y gobernanza; 2 RF opcionales (voz y Langfuse; el PDF pasó al Momento 2, D13) |
 
 ## Qué se trabajó
 
@@ -77,6 +77,7 @@ De las 27 decisiones registradas en la SPEC, 18 están tomadas, 4 son supuestos 
 | D22 | Arranque en frío con un comando; la llave del API se toma del entorno o se pide por consola | Decidida |
 | D23 | Usuarios de demostración sembrados desde el Momento 2, sin credenciales; autenticación, credenciales y administrador en el Momento 3 | Decidida |
 | D24 | Ejecución asíncrona del agente con eventos de progreso por SSE | Decidida |
+| D28 | Trazas y costo por consulta en Langfuse Cloud (Estados Unidos), como adicional opcional del Momento 3: solo metadatos, costo calculado por el código y sin afectar el flujo si falta | Decidida |
 | D6 | El médico solo ve informes aprobados; queda abierto si ve borradores | Supuesto de trabajo |
 | D19 | La generación del informe es manual (botón) en el Momento 2 | Supuesto de trabajo |
 | D20 | Sin campo de consulta libre en el Momento 2 | Supuesto de trabajo |
@@ -252,6 +253,7 @@ No se fija un umbral de éxito del agente antes de medir la línea base. El curs
 | Cifras finales comparadas contra la línea base | | Sí |
 | Exportación a PDF de informes aprobados | | Opcional |
 | Dictado por voz con transcripción editable | | Opcional |
+| Trazas y costo por consulta en Langfuse Cloud, opcional y solo con metadatos (D28) | | Opcional |
 
 Los hitos son **[Propuesta]** salvo lo que el equipo decidió (D4 y D23): el Momento 2 presenta lo principal, el agente y los informes semanal y mensual, y el Momento 3 presenta la aplicación completa, con la autenticación y lo que depende de ella. La entrega es el jueves 29 de octubre a medianoche, así que desde el 26 quedan cuatro días de construcción. PDF y voz solo entran si todo lo demás está cerrado; si entran, hay que poder justificar la tecnología elegida (D13 y D14).
 
@@ -364,7 +366,7 @@ Es el texto final de los requisitos sin la columna de criterios de aceptación n
 
 **Excepciones:** sin terminal y sin llave, no se queda esperando y arranca avisando que falta la llave · llave inválida, mensaje honesto y respaldo (RF-19) · reinicio con la semilla, sin duplicados (RF-05).
 
-### Requisitos funcionales (42)
+### Requisitos funcionales (43)
 
 En el Momento 2 no hay autenticación (D23): los usuarios de demostración existen desde el arranque, sin credenciales, y la persona elige con cuál trabaja; el servidor usa su rol y su identidad para separar funciones y para registrar quién hizo cada acción (D26, propuesta). Las credenciales, el inicio de sesión, la administración de usuarios y el tablero de permisos son del Momento 3.
 
@@ -419,6 +421,7 @@ En el Momento 2 no hay autenticación (D23): los usuarios de demostración exist
 | RF-36 | Generar el informe mensual de cuatro semanas completas consecutivas (RN-10), a partir de las entradas y eventos de esas semanas, mostrando la evolución semana a semana. Solo se genera si las cuatro semanas tienen informe semanal aprobado; si falta alguna, no se genera y se indica cuál. Pasa por la misma revisión de enfermería antes de llegar al médico (RN-01, RN-02) | M2-N |
 | RF-37 | Exportar a PDF un informe aprobado, con aprobador, fecha, id del informe y nota de asistencia de IA (D13) | Opc |
 | RF-38 | Dictar una entrada por voz con transcripción editable antes de guardar, origen `VOZ` y sin guardar el audio (D14) | Opc |
+| RF-43 | Enviar a Langfuse Cloud, de forma opcional y solo si hay llaves, la traza de cada ejecución del modelo (una generación por llamada, con proveedor, modelo, tokens, latencia y costo calculado por el código, más el total por ejecución), solo metadatos y sin afectar el flujo si falta o falla (D28) | Opc |
 
 ### Requisitos no funcionales (14)
 
@@ -499,7 +502,7 @@ Para poder avanzar, el análisis usa estos supuestos. Si cambian, se actualiza e
 ### Criterios de salida de la fase de análisis
 
 - [x] Cada objetivo de la SPEC tiene al menos un requisito o entregable (§7). Verificado el 2026-10-25, incluido OBJ-16.
-- [x] Cada requisito funcional tiene un criterio que se responde con sí o no. Verificado el 2026-10-25 en los 39 RF y el 2026-10-28 en RF-40 a RF-42 (42 RF).
+- [x] Cada requisito funcional tiene un criterio que se responde con sí o no. Verificado el 2026-10-25 en los 39 RF y el 2026-10-28 en RF-40 a RF-42 y el 2026-11-03 en RF-43 (43 RF).
 - [ ] Los dos integrantes revisaron los supuestos de trabajo de §8.
 - [ ] El catálogo de métricas (RF-07) y la estructura del informe (RF-11) se validaron con una persona de enfermería, o quedó registrado que no se pudo.
 - [ ] La SPEC se actualizó con las decisiones D18 a D20 y los supuestos confirmados (D18 a D20 ya están en la SPEC; faltan los supuestos confirmados, incluidos D21 a D27).

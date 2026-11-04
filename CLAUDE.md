@@ -11,7 +11,7 @@ Lee, en este orden, solo lo que la tarea necesita:
 3. `docs/REQUISITOS.md` — RF, RNF, RN y CU con su hito (M2-N, M2-S, M3, Opc) y su criterio de aceptación.
 4. `docs/DICCIONARIO_DATOS.md` — tablas, columnas, tipos, catálogos y reglas de integridad; base de las migraciones Flyway. Identificadores en inglés y `snake_case`.
 5. `docs/DICCIONARIO_DATOS_M2.md` — lo mismo recortado al Momento 2, con los puntos abiertos cerrados por propuesta; es el que se usa para escribir `V3` y `V4`. Si choca con el completo, avisa.
-6. `docs/PLAN.md` — el plan de trabajo. Cubre el Momento 2 (E1 a E19); el del Momento 3 aún no existe y sin plan no se ejecuta.
+6. `docs/PLAN.md` — el plan de trabajo. Cubre el Momento 2 (E1 a E19); el del Momento 3 está en construcción en `docs/PLAN_M3.md` (hoy solo con la pieza de Langfuse, aprobada); lo que no esté en un plan aprobado no se ejecuta.
 7. `CONTRIBUTING.md` — ramas, commits, pull requests y qué del harness de IA se versiona.
 
 ## Qué se construye ahora
@@ -20,7 +20,7 @@ Lee, en este orden, solo lo que la tarea necesita:
   - Núcleo (M2-N): RF-01, RF-02, RF-04 a RF-26, RF-28, RF-32, RF-36, RF-40, RF-41 y RF-39 en su parte del Momento 2, más los requisitos no funcionales (RNF-01 se cumple solo en parte hasta el Momento 3). Es el registro con estructuración por IA (D27), el agente, el informe semanal y el mensual, y la revisión de enfermería.
   - Opcionales (M2-S) que entraron: RF-27 (rechazar un informe), RF-37 (PDF con JasperReports, D13, desde el 29-oct por pedido del equipo) y RF-42 (texto corregido). Quedaron fuera RF-03 (corregir una entrada) y RF-35 (auditoría), y no hay pantalla del médico (E12c).
   - Sin inicio de sesión: la app abre con datos y usuarios de demostración, sin credenciales, y se elige con cuál trabajar (D26). Eso cambia con el Momento 3.
-- **Opcionales:** voz (RF-38, D14).
+- **Opcionales:** voz (RF-38, D14) y Langfuse (RF-43, D28): trazas y costo por consulta en Langfuse Cloud, solo metadatos, con llaves opcionales. El plan aprobado y el avance por pasos están en `docs/PLAN_M3.md`; se ejecuta un paso por vez con `ejecuta-plan`.
 - No agregues funcionalidades que no estén en `docs/REQUISITOS.md`. Si algo del Momento 3 choca con lo ya construido, indícalo antes de asumir una solución.
 
 ## Cómo trabajar con Claude Code

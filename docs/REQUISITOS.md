@@ -1,7 +1,9 @@
 # REQUISITOS — Patient Progress Auditor
 
-> **Estado:** borrador v0.4 para aprobación · **Fase del ciclo de vida:** 2 — Análisis de requisitos · **Fecha:** 2026-10-28
+> **Estado:** borrador v0.5 para aprobación · **Fase del ciclo de vida:** 2 — Análisis de requisitos · **Fecha:** 2026-11-03
 > **Base:** `docs/SPEC.md` v0.7 (§1–§3, objetivos OBJ-01 a OBJ-16), `AGENTS.md`, las rúbricas del curso *Ingeniería de Aplicaciones con IA* y lo dicho por el profesor en la clase del 24 de octubre de 2026.
+>
+> **Cambios de la v0.5 (decisión del equipo del 3 de noviembre de 2026):** se agrega RF-43 (trazas y costo por consulta en Langfuse Cloud, opcional y solo con metadatos) con hito Opc, por la recomendación del profesor (D28). Los RF pasan de 42 a 43 y los opcionales de 1 a 2 (RF-38 y RF-43); el resto de los conteos por hito no cambia. RF-43 desarrolla RNF-06 (costo por tarea) y RNF-07 (trazas consultables) sin sustituir a RF-22, y respeta RNF-02.
 >
 > **Cambios de la v0.4 (pantalla de registro del equipo y decisiones del 28 de octubre de 2026):** RF-06 pasa de derivar eventos «de cada entrada» a proponerlos al registrarla, con intensidad y veces, y se resuelve dónde se derivan los eventos (D27, propuesta). Se agregan RF-40 (confirmar, editar, quitar, agregar o descartar antes de guardar) y RF-41 (si la estructuración falla, guardar solo el texto o agregar a mano) al núcleo del Momento 2, RF-42 (texto corregido como versión, con el original intacto) como M2-S, y la regla RN-11 (la IA solo propone). RF-02 aclara que el texto se guarda tal como se escribió y RF-05 que la semilla trae los eventos ya confirmados. Se ajustan RN-07, CU-01, el modelo conceptual y §8. El núcleo del Momento 2 queda en 31 RF, los M2-S en 6, el Momento 3 en 3 y los opcionales en 2; en total son 42 RF. Ese día el equipo también decidió que el `JWT_SECRET` y la protección con JWT esperan al Momento 3 (D23, RNF-13), que Java se queda en 17 (D9) y que el conjunto sintético tiene 5 pacientes y 18 semanas-paciente (D11, RF-05).
 >
@@ -163,6 +165,7 @@
 | RF-36 | Generar el informe mensual de cuatro semanas completas consecutivas (RN-10), a partir de las entradas y eventos de esas semanas, mostrando la evolución semana a semana. Solo se genera si las cuatro semanas tienen informe semanal aprobado; si falta alguna, no se genera y se indica cuál. Pasa por la misma revisión de enfermería antes de llegar al médico (RN-01, RN-02) | M2-N | OBJ-03 | Con cuatro semanas con informe semanal aprobado, ¿el informe muestra la evolución por semana, y con una semana sin aprobar el sistema no lo genera e indica cuál falta? |
 | RF-37 | Exportar a PDF un informe aprobado, con aprobador, fecha, id del informe y nota de asistencia de IA (D13: JasperReports, desde el 29-oct) | M2-S | — | ¿El texto extraído del PDF contiene la aprobación? |
 | RF-38 | Dictar una entrada por voz con transcripción editable antes de guardar, origen `VOZ` y sin guardar el audio (D14) | Opc | — | ¿La entrada dictada se puede corregir antes de guardar y queda con origen `VOZ` sin audio almacenado? |
+| RF-43 | Enviar a Langfuse Cloud, de forma opcional y solo si hay llaves, la traza de cada ejecución del modelo (informe semanal, informe mensual y estructuración de una entrada): una generación por llamada, con proveedor, modelo, tokens de entrada y salida, latencia, costo en USD calculado por el código a precio de lista y resultado, más el total por ejecución. Solo metadatos: nunca texto de notas, prompts ni respuestas, ni el id del paciente. Si Langfuse falta o falla, el informe y el registro siguen igual (D28) | Opc | OBJ-11, RNF-02, RNF-06, RNF-07 | Con las llaves puestas, ¿el costo de cada ejecución en Langfuse coincide, a seis decimales, con el que guarda la aplicación (salvo las ejecuciones con costo vacío allí) y la búsqueda de una frase de una nota sintética en el panel no devuelve nada? Sin llaves, o con Langfuse inalcanzable, ¿el informe y el registro de entradas funcionan igual? |
 
 ---
 
@@ -236,7 +239,7 @@ Solo entidades y relaciones. Atributos, tipos y tablas están en `docs/DICCIONAR
 | OBJ-08 No diagnosticar | RF-15 |
 | OBJ-09 Límites y parada | RF-09, RF-16, RF-17 |
 | OBJ-10 Resiliencia y proveedor | RF-18, RF-19, RF-20, RF-41 |
-| OBJ-11 Medición y trazas | RF-22, RNF-05 a RNF-07; entregables `eval/` y `docs/decisiones.md` (cifras; detalle en `docs/decisiones/semana10.md`) |
+| OBJ-11 Medición y trazas | RF-22, RF-43, RNF-05 a RNF-07; entregables `eval/` y `docs/decisiones.md` (cifras; detalle en `docs/decisiones/semana10.md`) |
 | OBJ-12 Necesidad del LLM y del agente | RF-10; entregable: decisiones del agente y comparación contra la plantilla sin LLM |
 | OBJ-13 Entrega autosuficiente y plan B | RF-05, RF-19, RF-39, RNF-08, RNF-13 |
 | OBJ-14 Seguridad y gobernanza | RF-21, RF-35, RNF-01 a RNF-03; entregables del Momento 3 |
@@ -260,6 +263,7 @@ Para poder avanzar, el análisis usa estos supuestos. Si cambian, se actualiza e
 | Catálogo de métricas | El de RF-07 es una propuesta; conviene validarlo con una persona de enfermería | RF-07, RF-11 | D18 |
 | Disparo de la generación | Manual (botón) en M2; programado al cierre de semana queda para M3 | RF-08 | D19 |
 | Consulta libre al pedir el informe | Sin campo libre en M2; el caso de rechazo se construye con una entrada que pide un diagnóstico | RF-15 | D20 |
+| Trazas y costo en Langfuse | Adicional opcional del Momento 3: Langfuse Cloud (Estados Unidos), solo metadatos, costo calculado por el código; sin llaves la aplicación arranca igual | RF-43, RNF-02, RNF-13 | D28 |
 | Forma de entrega | Enlace al repositorio público de GitHub, sin ZIP; el privado es opcional según el profesor | RNF-01, RNF-08, RNF-12 | D21 |
 | Arranque y llave del API | Una IA del profesor ejecuta solo el README; la llave se toma del entorno o se pide por consola; sin llave ni terminal, arranca igual y avisa que falta la llave | RNF-13 | D22 |
 | Usuarios de demostración | Sembrados al arrancar desde el Momento 2 (enfermería y médico, nombres ficticios, sin credenciales) para que cada acción tenga un autor identificable; credenciales sintéticas en el README y administrador desde el Momento 3 | RF-05, RF-35, RF-39 | D23 |
@@ -278,7 +282,7 @@ Para poder avanzar, el análisis usa estos supuestos. Si cambian, se actualiza e
 ## 9. Criterios de salida de la fase de análisis
 
 - [x] Cada objetivo de la SPEC tiene al menos un requisito o entregable (§7). Verificado el 2026-10-25, incluido OBJ-16.
-- [x] Cada requisito funcional tiene un criterio que se responde con sí o no. Verificado el 2026-10-25 en los 39 RF y el 2026-10-28 en RF-40 a RF-42 (42 RF).
+- [x] Cada requisito funcional tiene un criterio que se responde con sí o no. Verificado el 2026-10-25 en los 39 RF, el 2026-10-28 en RF-40 a RF-42 y el 2026-11-03 en RF-43 (43 RF).
 - [ ] Los dos integrantes revisaron los supuestos de trabajo de §8.
 - [ ] El catálogo de métricas (RF-07) y la estructura del informe (RF-11) se validaron con una persona de enfermería, o quedó registrado que no se pudo.
 - [ ] La SPEC se actualizó con las decisiones D18 a D20 y los supuestos confirmados (D18 a D20 ya están en la SPEC; faltan los supuestos confirmados, incluidos D21 a D27).
