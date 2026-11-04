@@ -29,4 +29,15 @@ final class LlmPricing {
         BigDecimal out = new BigDecimal(price.outputPerMillion()).multiply(BigDecimal.valueOf(tokensOut));
         return in.add(out).divide(BigDecimal.valueOf(1_000_000), 6, RoundingMode.HALF_UP);
     }
+
+    // La parte del costo que corresponde a los tokens de entrada, a 6 decimales, o null si el modelo no tiene precio. La de
+    // salida es el resto: asi las dos partes suman exactamente cost(...) y Langfuse no puede mostrar otro total.
+    static BigDecimal inputCost(String provider, String model, int tokensIn) {
+        Price price = PRICES.get(provider + "/" + model);
+        if (price == null) {
+            return null;
+        }
+        return new BigDecimal(price.inputPerMillion()).multiply(BigDecimal.valueOf(tokensIn))
+                .divide(BigDecimal.valueOf(1_000_000), 6, RoundingMode.HALF_UP);
+    }
 }

@@ -40,6 +40,13 @@ llm:
     api-key: ${GEMINI_API_KEY:}
     model: ${GEMINI_MODEL:gemini-3.5-flash-lite}
 
+# Trazas y costo por consulta en Langfuse Cloud (D28, RF-43). Opcional: sin las dos llaves no se envia nada. Solo metadatos.
+langfuse:
+  public-key: ${LANGFUSE_PUBLIC_KEY:}
+  secret-key: ${LANGFUSE_SECRET_KEY:}
+  base-url: ${LANGFUSE_BASE_URL:https://us.cloud.langfuse.com}
+  environment: ${LANGFUSE_ENVIRONMENT:demo}
+
 # Limites del agente (AGENTS.md; valores y razon en docs/decisiones.md). Cambiarlos por variable fuerza cada limite en la
 # demo sin simular nada: por ejemplo AGENT_MAX_ITERATIONS=1.
 agent:
