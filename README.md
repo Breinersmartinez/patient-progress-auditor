@@ -322,9 +322,9 @@ frontend/     SPA Angular 19 (Node 20)
 docker-compose.yml · run.sh · .env.example               — arranque en un comando
 eval/         casos dorados, solución convencional, script y resultados fechados
 scripts/      verificación de variables, cálculo independiente de métricas, generador de la semilla
-docs/         SPEC.md · REQUISITOS.md · PLAN.md · decisiones.md · decisiones/ · diccionarios de datos
+docs/         SPEC.md · REQUISITOS.md · PLAN.md · decisiones.md · decisiones/ · diccionarios de datos · entregables/
 skills/       los cuatro skills del curso (especifica-encargo, planea-trabajo, ejecuta-plan, valida-resultado)
-.github/      CI, Security (CodeQL, Dependency Review, Gitleaks) y Qodana
+.github/      CI, Security (CodeQL, Dependency Review, Gitleaks), Qodana y la plantilla de pull request
 ```
 
 | Para saber… | Lea |
@@ -334,4 +334,5 @@ skills/       los cuatro skills del curso (especifica-encargo, planea-trabajo, e
 | Cada decisión técnica con su razón y alternativa | [docs/decisiones.md](docs/decisiones.md) |
 | Tablas, columnas y reglas de integridad | [docs/DICCIONARIO_DATOS_M2.md](docs/DICCIONARIO_DATOS_M2.md) |
 | Reglas del proyecto y del curso | [AGENTS.md](AGENTS.md) |
+| Cómo contribuir: ramas, commits, pruebas y herramientas de IA | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Prueba con una persona ajena al código | [docs/prueba_companero.md](docs/prueba_companero.md) |

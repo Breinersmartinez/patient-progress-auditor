@@ -31,7 +31,7 @@ Lee, en este orden, solo lo que la tarea necesita:
 - **Mockups:** el diseño de la interfaz es el de los mockups del equipo; no se modifican sin que lo pidan. Pueden mostrar la autenticación en el hito anterior a la decisión del 27-oct: en alcance mandan la SPEC y los requisitos; en interfaz, los mockups.
 
 ## Mantener los documentos coherentes
-- Cuando cambia una decisión, actualiza en este orden: `docs/SPEC.md` §7, luego `docs/REQUISITOS.md` (hito del RF, §8, conteos), `docs/DICCIONARIO_DATOS.md` y `docs/DICCIONARIO_DATOS_M2.md` si cambian los datos, `AGENTS.md` y el resumen ejecutivo de `docs/`. La copia de `AGENTS.md` en el Project de claude.ai se sincroniza aparte.
+- Cuando cambia una decisión, actualiza en este orden: `docs/SPEC.md` §7, luego `docs/REQUISITOS.md` (hito del RF, §8, conteos), `docs/DICCIONARIO_DATOS.md` y `docs/DICCIONARIO_DATOS_M2.md` si cambian los datos, `AGENTS.md` y el resumen ejecutivo (`docs/entregables/RESUMEN_EJECUTIVO.md`). La copia de `AGENTS.md` en el Project de claude.ai se sincroniza aparte.
 - No renumeres RF, RNF, RN, OBJ ni D: se citan entre documentos.
 - Cada afirmación lleva su origen: **[Curso]**, **[Equipo]** o **[Propuesta]**. Lo que no está decidido se marca como propuesta o supuesto, no como hecho.
 - Tablas de requisitos: ID, requisito, hito, traza y criterio que se responde con sí o no. Revisa que cada fila conserve el mismo número de columnas.

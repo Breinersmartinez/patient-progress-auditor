@@ -47,3 +47,26 @@ uploads/
 # Python (eval/ y scripts/)
 __pycache__/
 *.pyc
+
+# === Harness de IA ===
+# Se versionan a propósito: AGENTS.md (reglas compartidas), skills/ (los cuatro del curso, exigidos en la entrega),
+# CLAUDE.md y .claude/. La configuración de cualquier otra herramienta es de cada integrante y no se sube.
+.opencode/
+opencode.json
+.codex/
+.cursor/
+.cursorrules
+.windsurf/
+.windsurfrules
+.aider*
+.continue/
+.gemini/
+GEMINI.md
+.amazonq/
+.clinerules
+.roo/
+.github/copilot-instructions.md
+.github/modernize/
+
+# Prompts de trabajo personales (no son documentación del producto)
+docs/prompts/
