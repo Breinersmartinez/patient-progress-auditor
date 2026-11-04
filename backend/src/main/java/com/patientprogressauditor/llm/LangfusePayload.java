@@ -41,27 +41,11 @@ final class LangfusePayload {
         // ejecucion. Las esperas entre reintentos y las herramientas del agente no ocupan lugar en esa linea de tiempo.
         long start = nanos(run.startedAt());
         long cursor = start;
-        int tokensIn = 0;
-        int tokensOut = 0;
-        BigDecimal cost = BigDecimal.ZERO;
-        boolean costKnown = true;
-        boolean anySucceeded = false;
         int index = 1;
         for (Attempt attempt : run.attempts()) {
             long end = cursor + attempt.millis() * NANOS_PER_MILLI;
             spans.add(generation(mapper, traceId, spanId(seed, index++), rootId, attempt, cursor, end));
             cursor = end;
-            if (attempt.succeeded()) {
-                anySucceeded = true;
-                tokensIn += attempt.tokensIn();
-                tokensOut += attempt.tokensOut();
-                BigDecimal one = LlmPricing.cost(attempt.provider(), attempt.model(), attempt.tokensIn(), attempt.tokensOut());
-                if (one == null) {
-                    costKnown = false;
-                } else {
-                    cost = cost.add(one);
-                }
-            }
         }
 
         Map<String, String> attrs = new LinkedHashMap<>();
@@ -74,9 +58,10 @@ final class LangfusePayload {
             attrs.put(META + "stop_reason", run.stopReason());
         }
         attrs.put(META + "attempts", String.valueOf(run.attempts().size()));
-        attrs.put(META + "tokens_in", String.valueOf(tokensIn));
-        attrs.put(META + "tokens_out", String.valueOf(tokensOut));
-        if (anySucceeded && costKnown) {
+        attrs.put(META + "tokens_in", String.valueOf(run.tokensIn()));
+        attrs.put(META + "tokens_out", String.valueOf(run.tokensOut()));
+        BigDecimal cost = run.costUsd();
+        if (cost != null) {
             attrs.put(META + "cost_usd", cost.toPlainString());
         }
         String level = "FALLIDA".equals(run.status()) ? "ERROR" : "INCOMPLETA".equals(run.status()) ? "WARNING" : null;

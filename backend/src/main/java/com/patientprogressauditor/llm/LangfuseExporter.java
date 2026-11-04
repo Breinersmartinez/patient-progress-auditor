@@ -63,9 +63,10 @@ public class LangfuseExporter implements AutoCloseable {
         return executor != null;
     }
 
-    // Encola la traza y vuelve de inmediato.
+    // Encola la traza y vuelve de inmediato. Una ejecucion que no llego a llamar al modelo (por ejemplo, una semana sin
+    // registros) no es una consulta: no se manda.
     public void export(LangfuseRun run) {
-        if (!enabled() || run == null) {
+        if (!enabled() || run == null || run.attempts().isEmpty()) {
             return;
         }
         try {

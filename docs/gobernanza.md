@@ -2,7 +2,7 @@
 
 > **Estado:** v0.1 para revisión · **Fecha:** 2026-11-03 · **Equipo:** Breiner Martinez Muñoz y Andres Felipe Lopez Vivas · **Entregable:** Momento 3, OBJ-14 **[Curso]**
 >
-> **Qué describe.** El sistema como está hoy: el módulo de enfermería del Momento 2, **sin autenticación** (usuarios de demostración, D26), más la integración opcional de Langfuse (D28), que **aún no está construida**. Cada afirmación sin etiqueta se verificó en el código o en una prueba, y la ruta va entre paréntesis. Lo que es decisión del equipo lleva **[Equipo]** y lo que es propuesta, **[Propuesta]**. Lo que cambia con el Momento 3 va marcado «M3».
+> **Qué describe.** El sistema como está hoy: el módulo de enfermería del Momento 2, **sin autenticación** (usuarios de demostración, D26), más la integración opcional de Langfuse (D28), ya escrita en el código (pasos 4 y 5 de `docs/PLAN_M3.md`) y **todavía sin comprobar contra Langfuse Cloud** (paso 6). Cada afirmación sin etiqueta se verificó en el código o en una prueba, y la ruta va entre paréntesis. Lo que es decisión del equipo lleva **[Equipo]** y lo que es propuesta, **[Propuesta]**. Lo que cambia con el Momento 3 va marcado «M3».
 >
 > **Qué no es.** No es el modelo de amenazas: `docs/seguridad.md` no existe todavía (Momento 3) y esta ficha se debe reescribir sobre él. El curso pide una página; esta versión la supera porque también dice lo que falta, y se compacta al cerrar el Momento 3 **[Propuesta]**.
 
@@ -49,7 +49,7 @@ La supervisión es **exigida por el sistema**, no una costumbre del operador: si
 | Ejecuciones | `agent_runs` | Tipo, estado, motivo de parada, proveedor, modelo, respaldo, tokens, costo a precio de lista, tiempos | Igual |
 | **Trazas** | `agent_steps` | Por paso: herramienta, parámetros, resultado (hasta 1 500 caracteres, que incluyen texto de notas), ms y tokens. Se ven en la pantalla del informe (RF-22) | Igual |
 | Registro del servidor | Salida estándar del contenedor, nivel INFO | Por llamada: proveedor, modelo, tokens, ms e intento; errores con el id de la ejecución. Ninguna línea escribe a propósito el texto de las notas, **pero** el motivo técnico de un fallo del proveedor puede traer un fragmento de su respuesta | Lo que Docker conserve; no se configuró rotación |
-| Langfuse (si se activa; **no construido**) | Langfuse Cloud, región de Estados Unidos | Los metadatos de cada llamada (ver 4) | Lo define Langfuse; **no verificado** (hay cifras de terceros: 30 días en el plan gratuito) |
+| Langfuse (si se activa; **escrito y probado contra un servidor local, no contra la nube**) | Langfuse Cloud, región de Estados Unidos | Los metadatos de cada llamada (ver 4) | Lo define Langfuse; **no verificado** (hay cifras de terceros: 30 días en el plan gratuito) |
 
 **Lo que no existe:** una política de retención, un registro de auditoría aparte (RF-35 quedó fuera del Momento 2) y rotación de los registros. Los datos son sintéticos; si el sistema pasara a datos reales, el plazo tendría que acordarse con la institución antes **[Propuesta]**.
 
@@ -61,7 +61,7 @@ La supervisión es **exigida por el sistema**, no una costumbre del operador: si
 |---|---|---|---|
 | **Groq** (principal, `openai/gpt-oss-120b`) | El texto de los registros de la semana (fecha y texto), las métricas, los eventos, los informes semanales aprobados (en el mensual), el prompt del sistema y la «indicación» de hasta 300 caracteres si la API la recibe (la interfaz no la expone) | Nombre, alias, cama, edad, ingreso, documento y **el id del paciente**: el agente no lo recibe (las herramientas lo toman del contexto de la ejecución) y los registros se citan con alias como `e1` | Su política de retención: **no verificada** |
 | **Gemini** (respaldo, `gemini-3.5-flash-lite`) | Lo mismo, solo si Groq falla | Lo mismo | La página de precios de Google dice que el contenido enviado en la capa gratuita puede usarse para mejorar sus productos (verificado el 28-oct). Por eso solo se usan datos sintéticos |
-| **Langfuse Cloud** (opcional, D28; **no construido**) | Solo metadatos: proveedor, modelo, tokens, costo, latencia, categoría del fallo, tipo y resultado de la ejecución y su id | Texto de notas, prompts, respuestas, el id del paciente y el detalle técnico del proveedor | Retención y límites del plan gratuito, no verificados |
+| **Langfuse Cloud** (opcional, D28; **escrito y probado contra un servidor local, no contra la nube**) | Solo metadatos: proveedor, modelo, tokens, costo, latencia, categoría del fallo, tipo y resultado de la ejecución y su id | Texto de notas, prompts, respuestas, el id del paciente y el detalle técnico del proveedor | Retención y límites del plan gratuito, no verificados |
 | **GitHub** (repositorio público) | El código y los datos sintéticos de la semilla y de `eval/` | Llaves y datos reales (Gitleaks en CI) | — |
 
 **El prompt puede contener datos personales.** El texto de las notas es libre y **no hay depuración automática**: si alguien escribe un nombre propio o un documento en una nota, sale tal cual a Groq o a Gemini. Hoy no es un riesgo real porque todos los datos son sintéticos; con datos reales sería el primer hueco a cerrar. Los datos en reposo están en un PostgreSQL local en Docker, sin cifrado en reposo configurado, y la interfaz se sirve por HTTP en `localhost`.
@@ -85,4 +85,4 @@ Daños que consideramos: **a)** un informe con una afirmación falsa o un diagn�
 2. **El modelo de amenazas:** `docs/seguridad.md` no existe; esta ficha se reescribe sobre él.
 3. **La retención y la auditoría:** sin política de plazos y sin registro de auditoría (RF-35 fuera).
 4. **Qué hacen Groq, Google y Langfuse con lo que reciben:** no está verificado; por eso solo hay datos sintéticos.
-5. **Langfuse en la práctica:** la fila de la sección 4 describe lo decidido (D28), no algo que ya funcione. Se confirma al cerrar el paso 6 de `docs/PLAN_M3.md`.
+5. **Langfuse en la práctica:** el envío existe y se probó contra un servidor local (`LangfuseExporterTest`, `LangfusePayloadTest`, `AgentRunnerTest`, `StructuringServiceTest`), pero no contra Langfuse Cloud. Lo que puede salir lo limita la forma de `LangfuseRun` (no tiene campo para texto, paciente ni detalle técnico). Se confirma al cerrar el paso 6 de `docs/PLAN_M3.md`.

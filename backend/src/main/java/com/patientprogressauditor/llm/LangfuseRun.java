@@ -1,5 +1,6 @@
 package com.patientprogressauditor.llm;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -12,5 +13,32 @@ public record LangfuseRun(UUID runId, String type, String status, String stopRea
 
     public LangfuseRun {
         attempts = List.copyOf(attempts);
+    }
+
+    public int tokensIn() {
+        return attempts.stream().filter(Attempt::succeeded).mapToInt(Attempt::tokensIn).sum();
+    }
+
+    public int tokensOut() {
+        return attempts.stream().filter(Attempt::succeeded).mapToInt(Attempt::tokensOut).sum();
+    }
+
+    // La suma del costo de lista de las llamadas que respondieron, la misma que guarda el agente en agent_runs.cost_usd. Es
+    // null si ninguna respondio o si alguna usa un modelo sin precio conocido: vacio, no cero.
+    public BigDecimal costUsd() {
+        BigDecimal total = BigDecimal.ZERO;
+        boolean any = false;
+        for (Attempt attempt : attempts) {
+            if (!attempt.succeeded()) {
+                continue;
+            }
+            BigDecimal cost = LlmPricing.cost(attempt.provider(), attempt.model(), attempt.tokensIn(), attempt.tokensOut());
+            if (cost == null) {
+                return null;
+            }
+            total = total.add(cost);
+            any = true;
+        }
+        return any ? total : null;
     }
 }

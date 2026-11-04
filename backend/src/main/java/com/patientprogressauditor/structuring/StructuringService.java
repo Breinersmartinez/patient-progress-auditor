@@ -17,8 +17,10 @@ import com.patientprogressauditor.agent.AgentRun;
 import com.patientprogressauditor.agent.AgentRunRepository;
 import com.patientprogressauditor.agent.AgentStep;
 import com.patientprogressauditor.agent.AgentStepRepository;
+import com.patientprogressauditor.agent.LangfuseTraces;
 import com.patientprogressauditor.llm.Attempt;
 import com.patientprogressauditor.llm.InvalidOutputException;
+import com.patientprogressauditor.llm.LangfuseExporter;
 import com.patientprogressauditor.llm.LlmGateway;
 import com.patientprogressauditor.llm.LlmProperties;
 import com.patientprogressauditor.llm.LlmPurpose;
@@ -47,9 +49,10 @@ public class StructuringService {
     private final AgentStepRepository steps;
     private final Clock clock;
     private final ResponseSchema schema;
+    private final LangfuseExporter langfuse;
 
     public StructuringService(LlmGateway gateway, LlmProperties properties, PatientRepository patients,
-            AgentRunRepository runs, AgentStepRepository steps, Clock clock, ObjectMapper mapper) {
+            AgentRunRepository runs, AgentStepRepository steps, Clock clock, ObjectMapper mapper, LangfuseExporter langfuse) {
         this.gateway = gateway;
         this.properties = properties;
         this.patients = patients;
@@ -57,6 +60,7 @@ public class StructuringService {
         this.steps = steps;
         this.clock = clock;
         this.schema = StructuringPrompt.schema(mapper);
+        this.langfuse = langfuse;
     }
 
     public Proposal propose(UUID patientId, String text, DemoPrincipal principal) {
@@ -98,7 +102,7 @@ public class StructuringService {
                     false, null, 0, 0));
             finish(run, AgentRun.Status.COMPLETADA, AgentRun.StopReason.EXITO, result.result().provider(), result.result().model(),
                     result.result().fallbackUsed(), result.attempts(), result.costUsd(), null);
-            save(run, trace);
+            save(run, trace, result.attempts());
             return new Proposal(events, corrected.text(), null, run.getProvider(), run.getModel(), run.isFallbackUsed(), run.getId());
         } catch (LlmUnavailableException e) {
             addAttempts(trace, e.attempts());
@@ -106,7 +110,7 @@ public class StructuringService {
             Attempt last = e.attempts().isEmpty() ? null : e.attempts().get(e.attempts().size() - 1);
             finish(run, AgentRun.Status.FALLIDA, AgentRun.StopReason.PROVEEDOR_NO_DISPONIBLE, last == null ? null : last.provider(),
                     last == null ? null : last.model(), false, e.attempts(), null, e.getMessage());
-            save(run, trace);
+            save(run, trace, e.attempts());
             return failed(run, e.getMessage());
         } catch (InvalidOutputException e) {
             addAttempts(trace, e.attempts());
@@ -116,7 +120,7 @@ public class StructuringService {
             finish(run, AgentRun.Status.FALLIDA, AgentRun.StopReason.SALIDA_INVALIDA, last.provider(), last.model(),
                     last.provider() != null && !last.provider().equals(e.attempts().get(0).provider()), e.attempts(), null,
                     e.getMessage());
-            save(run, trace);
+            save(run, trace, e.attempts());
             return failed(run, e.getMessage());
         }
     }
@@ -159,7 +163,7 @@ public class StructuringService {
     }
 
     // La traza es parte del requisito, pero un fallo al guardarla no debe tumbar la entrada de la persona.
-    private void save(AgentRun run, List<StepDraft> trace) {
+    private void save(AgentRun run, List<StepDraft> trace, List<Attempt> attempts) {
         try {
             runs.save(run);
             List<AgentStep> rows = new ArrayList<>();
@@ -180,5 +184,7 @@ public class StructuringService {
         } catch (RuntimeException e) {
             log.error("No se pudo guardar la traza de la estructuración {}", run.getId(), e);
         }
+        // Aunque la traza propia no se haya guardado, la de Langfuse sale: no bloquea ni lanza.
+        langfuse.export(LangfuseTraces.of(run, attempts));
     }
 }

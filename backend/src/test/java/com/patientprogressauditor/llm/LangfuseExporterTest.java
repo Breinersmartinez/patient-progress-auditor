@@ -14,6 +14,7 @@ import java.util.function.BooleanSupplier;
 import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -26,6 +27,12 @@ class LangfuseExporterTest {
 
     private FakeProvider server;
     private LangfuseExporter exporter;
+
+    // El primer uso del cliente HTTP de la JDK en una JVM cargada puede tardar segundos: se calienta antes de medir nada.
+    @BeforeAll
+    static void warmUpTheHttpClient() throws Exception {
+        Class.forName("com.patientprogressauditor.llm.JsonHttp");
+    }
 
     @BeforeEach
     void start() throws Exception {
@@ -41,12 +48,16 @@ class LangfuseExporterTest {
     }
 
     private static LangfuseProperties properties(String baseUrl, String publicKey, String secretKey) {
+        return properties(baseUrl, publicKey, secretKey, Duration.ofSeconds(3));
+    }
+
+    private static LangfuseProperties properties(String baseUrl, String publicKey, String secretKey, Duration timeout) {
         LangfuseProperties properties = new LangfuseProperties();
         properties.setBaseUrl(baseUrl);
         properties.setPublicKey(publicKey);
         properties.setSecretKey(secretKey);
         properties.setEnvironment("pruebas");
-        properties.setTimeout(Duration.ofMillis(500));
+        properties.setTimeout(timeout);
         return properties;
     }
 
@@ -116,6 +127,14 @@ class LangfuseExporterTest {
     }
 
     @Test
+    void aRunThatNeverCalledTheModelIsNotAQueryAndIsNotSent() throws Exception {
+        exporter("pk", "sk").export(new LangfuseRun(UUID.randomUUID(), "INFORME", "FALLIDA", null, Instant.now(), 5, List.of()));
+        Thread.sleep(300);
+
+        assertThat(server.requests).isEmpty();
+    }
+
+    @Test
     void aNullRunIsIgnored() {
         assertThatCode(() -> exporter("pk", "sk").export(null)).doesNotThrowAnyException();
     }
@@ -136,7 +155,7 @@ class LangfuseExporterTest {
     @Test
     void aHostThatDoesNotAnswerNeverDelaysTheCaller() {
         server.replyWith(Reply.slow(Duration.ofSeconds(2)));
-        exporter("pk", "sk");
+        exporter = new LangfuseExporter(properties(server.baseUrl(), "pk", "sk", Duration.ofMillis(500)), MAPPER);
 
         // 200 envios contra un host que tarda 2 s, con cola de 50: ninguna llamada espera ni se desborda.
         assertThat(worstExportMillis(200)).isLessThan(250);

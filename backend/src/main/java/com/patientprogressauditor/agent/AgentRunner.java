@@ -28,6 +28,7 @@ import com.patientprogressauditor.agent.tools.AgentTool;
 import com.patientprogressauditor.agent.tools.ToolException;
 import com.patientprogressauditor.entry.EntryRepository;
 import com.patientprogressauditor.llm.Attempt;
+import com.patientprogressauditor.llm.LangfuseExporter;
 import com.patientprogressauditor.llm.LlmGateway;
 import com.patientprogressauditor.llm.LlmMessage;
 import com.patientprogressauditor.llm.LlmPurpose;
@@ -76,6 +77,7 @@ public class AgentRunner {
     private final ApprovedWeeklyReports approvedWeekly;
     private final Clock clock;
     private final ObjectMapper mapper;
+    private final LangfuseExporter langfuse;
     // Las herramientas corren aparte para poder cortarlas al pasar su tiempo maximo.
     private final ExecutorService toolPool = Executors.newCachedThreadPool(r -> {
         Thread t = new Thread(r, "agent-tool");
@@ -86,7 +88,7 @@ public class AgentRunner {
     public AgentRunner(LlmGateway gateway, List<AgentTool> tools, AgentProperties properties, AgentRunRepository runs,
             AgentStepRepository steps, ReportDraftService drafts, ReportContentBuilder contentBuilder,
             ReportRepository reports, EntryRepository entries, MonthlyEligibility eligibility, ApprovedWeeklyReports approvedWeekly,
-            Clock clock, ObjectMapper mapper) {
+            Clock clock, ObjectMapper mapper, LangfuseExporter langfuse) {
         this.gateway = gateway;
         this.tools = tools.stream().collect(Collectors.toMap(AgentTool::name, Function.identity()));
         this.properties = properties;
@@ -100,6 +102,7 @@ public class AgentRunner {
         this.approvedWeekly = approvedWeekly;
         this.clock = clock;
         this.mapper = mapper;
+        this.langfuse = langfuse;
     }
 
     // Las herramientas que el modelo puede pedir (sin ninguna de salida ni de aprobacion).
@@ -231,6 +234,8 @@ public class AgentRunner {
         boolean fallbackUsed;
         String lastDraft;
         List<UUID> weeklyReportIds = List.of();
+        // Todos los intentos de la ejecucion, en orden: al cerrar se mandan a Langfuse como una traza.
+        final List<Attempt> allAttempts = new ArrayList<>();
 
         State(AgentRun run, Task task) {
             this.run = run;
@@ -279,6 +284,7 @@ public class AgentRunner {
         }
 
         void attempts(List<Attempt> attempts) {
+            allAttempts.addAll(attempts);
             String previous = null;
             for (Attempt a : attempts) {
                 if (previous != null && !previous.equals(a.provider())) {
@@ -453,6 +459,8 @@ public class AgentRunner {
             run.setErrorMessage(status == AgentRun.Status.COMPLETADA || message == null ? null : message.substring(0, Math.min(500, message.length())));
             run.setFinishedAt(clock.instant());
             runs.save(run);
+            // Despues de guardar la fila: la traza de Langfuse nunca cuenta algo que la base no tiene. No bloquea ni lanza.
+            langfuse.export(LangfuseTraces.of(run, allAttempts));
         }
     }
 }

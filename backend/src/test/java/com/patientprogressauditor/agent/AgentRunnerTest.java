@@ -1,6 +1,8 @@
 package com.patientprogressauditor.agent;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -12,6 +14,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -22,6 +25,9 @@ import com.patientprogressauditor.agent.AgentProperties.DescriptionVersion;
 import com.patientprogressauditor.agent.tools.AgentTool;
 import com.patientprogressauditor.agent.tools.ToolException;
 import com.patientprogressauditor.entry.EntryRepository;
+import com.patientprogressauditor.llm.Attempt;
+import com.patientprogressauditor.llm.LangfuseExporter;
+import com.patientprogressauditor.llm.LangfuseRun;
 import com.patientprogressauditor.llm.LlmException;
 import com.patientprogressauditor.llm.LlmException.Kind;
 import com.patientprogressauditor.llm.LlmGateway;
@@ -59,6 +65,8 @@ class AgentRunnerTest {
     @Autowired private ObjectMapper mapper;
 
     private final AgentProperties properties = new AgentProperties();
+    // Un exportador de mentira que recuerda lo que se le entrega: las pruebas nunca hablan con Langfuse.
+    private final LangfuseExporter langfuse = mock(LangfuseExporter.class);
     private final List<UUID> runIds = new ArrayList<>();
     private UUID patient;
     private UUID nurse;
@@ -88,7 +96,14 @@ class AgentRunnerTest {
         List<AgentTool> all = new ArrayList<>(realTools);
         all.addAll(List.of(extra));
         return new AgentRunner(gateway, all, properties, runs, steps, drafts, builder, reports, entries, eligibility,
-                approvedWeekly, Clock.systemDefaultZone(), mapper);
+                approvedWeekly, Clock.systemDefaultZone(), mapper, langfuse);
+    }
+
+    // La traza que el agente entrego a Langfuse al cerrar: una sola por ejecucion.
+    private LangfuseRun sent() {
+        ArgumentCaptor<LangfuseRun> captor = ArgumentCaptor.forClass(LangfuseRun.class);
+        verify(langfuse).export(captor.capture());
+        return captor.getValue();
     }
 
     private AgentRun newRun() {
@@ -292,6 +307,8 @@ class AgentRunnerTest {
         // Lo que el modelo lee no trae el alias, la cama ni el id del paciente
         String everything = groq.calls.stream().flatMap(r -> r.messages().stream()).map(LlmMessage::content).filter(c -> c != null).reduce("", String::concat);
         assertThat(everything).doesNotContain("P-014").doesNotContain("204-A").doesNotContain(patient.toString());
+        // Langfuse: el mensual es otro tipo de ejecucion, con su propio nombre de traza
+        assertThat(sent().type()).isEqualTo("MENSUAL");
     }
 
     @Test
@@ -555,6 +572,87 @@ class AgentRunnerTest {
         assertThat(stepTypes(run)).contains(AgentStep.Type.ERROR, AgentStep.Type.LLAMADA_LLM);
     }
 
+    // --- Langfuse (D28, RF-43): lo que el agente entrega al cerrar ---
+
+    @Test
+    void aFullRunSendsOneTraceWhoseTotalsAreTheOnesOfTheRunRow() {
+        ScriptedClient groq = new ScriptedClient("groq", true)
+                .then(tools(1500, 80, call("1", "get_week_metrics", WEEK_ARGS), call("2", "get_week_entries", WEEK_ARGS)))
+                .then(tools(3200, 60, call("3", "get_symptom_history", "{\"symptom\":\"NAUSEAS\",\"weeks_back\":5}")))
+                .then(tools(4000, 420, call("4", "save_draft", goodDraft())));
+        AgentRun run = newRun();
+
+        execute(runner(groq, new ScriptedClient("gemini", true)), run);
+
+        LangfuseRun sent = sent();
+        AgentRun saved = runs.findById(run.getId()).orElseThrow();
+        assertThat(sent.runId()).isEqualTo(run.getId());
+        assertThat(sent.type()).isEqualTo("INFORME");
+        assertThat(sent.status()).isEqualTo("COMPLETADA");
+        assertThat(sent.stopReason()).isEqualTo("EXITO");
+        assertThat(sent.startedAt()).isEqualTo(run.getStartedAt());
+        assertThat(sent.attempts()).hasSize(3).allMatch(Attempt::succeeded);
+        // El criterio 1 del plan, a nivel de unidad: lo que Langfuse suma es lo que quedo en agent_runs.
+        assertThat(saved.getCostUsd()).isNotNull();
+        assertThat(sent.costUsd()).isEqualByComparingTo(saved.getCostUsd());
+        assertThat(sent.tokensIn()).isEqualTo(saved.getTokensIn());
+        assertThat(sent.tokensOut()).isEqualTo(saved.getTokensOut());
+    }
+
+    @Test
+    void aRateLimitFollowedByTheFallbackSendsTheFailedAttemptsAndTheCostsStillAddUp() {
+        // Un 429 que pide esperar mas que el tope (30 s contra 8 s) no se reintenta: se pasa directo al respaldo.
+        ScriptedClient groq = new ScriptedClient("groq", true)
+                .thenAlways(new LlmException(Kind.RATE_LIMIT, "groq", Duration.ofSeconds(30), "HTTP 429"), 1);
+        ScriptedClient gemini = new ScriptedClient("gemini", true)
+                .then(tools(1500, 80, call("1", "get_week_metrics", WEEK_ARGS), call("2", "get_week_entries", WEEK_ARGS)))
+                .then(tools(4000, 420, call("3", "save_draft", goodDraft())));
+        AgentRun run = newRun();
+
+        AgentRunner.Outcome outcome = execute(runner(groq, gemini), run);
+
+        assertThat(outcome.status()).isEqualTo(AgentRun.Status.COMPLETADA);
+        LangfuseRun sent = sent();
+        AgentRun saved = runs.findById(run.getId()).orElseThrow();
+        assertThat(sent.attempts()).extracting(Attempt::provider).containsExactly("groq", "gemini", "groq", "gemini");
+        assertThat(sent.attempts()).extracting(Attempt::failure).containsExactly(Kind.RATE_LIMIT, null, Kind.RATE_LIMIT, null);
+        // Precio de Gemini: (1500 + 4000) * 0,30 + (80 + 420) * 2,50 por millon de tokens. Los dos 429 no suman nada.
+        assertThat(sent.costUsd()).isEqualByComparingTo("0.002900");
+        assertThat(saved.getCostUsd()).isEqualByComparingTo(sent.costUsd());
+        assertThat(saved.isFallbackUsed()).isTrue();
+    }
+
+    @Test
+    void aRunWhereNoProviderAnswersSendsItsFailedAttemptsWithNoCost() {
+        ScriptedClient groq = new ScriptedClient("groq", true).thenAlways(new LlmException(Kind.UNAVAILABLE, "groq", "HTTP 503"), 1);
+        ScriptedClient gemini = new ScriptedClient("gemini", true).thenAlways(new LlmException(Kind.UNAVAILABLE, "gemini", "HTTP 503"), 1);
+        AgentRun run = newRun();
+
+        execute(runner(groq, gemini), run);
+
+        LangfuseRun sent = sent();
+        assertThat(sent.status()).isEqualTo("FALLIDA");
+        assertThat(sent.stopReason()).isEqualTo("PROVEEDOR_NO_DISPONIBLE");
+        // Cuatro intentos por proveedor (el primero y tres reintentos), ninguno con respuesta.
+        assertThat(sent.attempts()).hasSize(8).noneMatch(Attempt::succeeded);
+        assertThat(sent.costUsd()).isNull();
+        assertThat(runs.findById(run.getId()).orElseThrow().getCostUsd()).isNull();
+    }
+
+    @Test
+    void anIterationLimitSendsTheRunAsIncompleteWithItsStopReason() {
+        ScriptedClient groq = new ScriptedClient("groq", true).thenAlways(tools(500, 30, call("1", "list_patient_weeks", "{}")), 1);
+        AgentRun run = newRun();
+
+        execute(runner(groq, new ScriptedClient("gemini", true)), run);
+
+        LangfuseRun sent = sent();
+        assertThat(sent.status()).isEqualTo("INCOMPLETA");
+        assertThat(sent.stopReason()).isEqualTo("MAX_ITERACIONES");
+        assertThat(sent.attempts()).hasSize(5);
+        assertThat(sent.costUsd()).isEqualByComparingTo(runs.findById(run.getId()).orElseThrow().getCostUsd());
+    }
+
     @Test
     void aWeekWithoutEntriesDoesNotCallTheModelAtAll() {
         ScriptedClient groq = new ScriptedClient("groq", true);
@@ -565,7 +663,8 @@ class AgentRunnerTest {
 
         assertThat(outcome.status()).isEqualTo(AgentRun.Status.FALLIDA);
         assertThat(outcome.message()).contains("no tiene registros");
-        assertThat(groq.calls).isEmpty();
+        assertThat(groq.calls).isEmpty();        // Sin llamadas al modelo no hay consulta: la traza que se entrega no trae intentos (el exportador la ignora).
+        assertThat(sent().attempts()).isEmpty();
     }
 
     @Test

@@ -1,9 +1,12 @@
 package com.patientprogressauditor.llm;
 
+import static com.patientprogressauditor.llm.LlmFixtures.ASK;
+import static com.patientprogressauditor.llm.LlmFixtures.EVENTS_SCHEMA;
 import static com.patientprogressauditor.llm.LlmFixtures.MAPPER;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -105,6 +108,29 @@ class LangfusePayloadTest {
         assertThat(cost.path("input").decimalValue().add(cost.path("output").decimalValue())).isEqualByComparingTo(expected);
         assertThat(cost.path("input").decimalValue()).isEqualByComparingTo("0.000150");
         assertThat(cost.path("output").decimalValue()).isEqualByComparingTo("0.000001");
+    }
+
+    // La comprobacion del paso 5 con la pasarela real y proveedores con guion: un 429 que pide esperar mucho pasa directo al
+    // respaldo, y lo que llega a Langfuse suma lo mismo que el costo que la pasarela entrega a quien guarda agent_runs.
+    @Test
+    void aRateLimitFollowedByTheFallbackGivesTwoGenerationsWhoseCostsAddUpToTheCostOfTheResult() {
+        ScriptedClient groq = new ScriptedClient("groq", true).thenAlways(new LlmException(Kind.RATE_LIMIT, "groq", Duration.ofSeconds(30), "HTTP 429"), 1);
+        ScriptedClient gemini = new ScriptedClient("gemini", true).then(ScriptedClient.answer("{}", 1234, 321));
+        LlmResult result = new LlmGateway(List.of(groq, gemini), new LlmProperties(), d -> { }, MAPPER)
+                .complete(LlmRequest.structured(LlmPurpose.STRUCTURING, ASK, EVENTS_SCHEMA));
+
+        List<JsonNode> spans = spans(body(new LangfuseRun(RUN_ID, "ESTRUCTURACION", "COMPLETADA", "EXITO", START, result.millis(), result.attempts())));
+
+        assertThat(spans).hasSize(3);
+        Map<String, String> failed = attributes(spans.get(1));
+        assertThat(failed).containsEntry("langfuse.observation.level", "ERROR").containsEntry("langfuse.observation.status_message", "RATE_LIMIT")
+                .doesNotContainKey("langfuse.observation.cost_details");
+        Map<String, String> succeeded = attributes(spans.get(2));
+        assertThat(succeeded).containsEntry("langfuse.observation.model.name", "gemini-3.5-flash-lite");
+        // Gemini: 1234 * 0,30 + 321 * 2,50 por millon de tokens; el 429 de Groq no suma nada.
+        assertThat(result.costUsd()).isEqualByComparingTo("0.001173");
+        assertThat(json(succeeded.get("langfuse.observation.cost_details")).path("total").decimalValue()).isEqualByComparingTo(result.costUsd());
+        assertThat(attributes(spans.get(0)).get("langfuse.observation.metadata.cost_usd")).isEqualTo(result.costUsd().toPlainString());
     }
 
     @Test
