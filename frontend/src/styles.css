@@ -325,6 +325,11 @@
   .vista-ia .botones { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
   .entrada { position: sticky; bottom: 0; display: flex; gap: 8px; padding: 12px 0; background: var(--bg); }
   .entrada .inp { flex: 1; }
+  /* Dictado por voz (RF-38): deshabilitado se ve apagado pero sigue explicando el motivo al pulsarlo */
+  .btn--mic[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; }
+  .btn--grabando { color: var(--color-danger); }
+  .btn--grabando .i-latido { fill: currentColor; animation: i-pulso 1.2s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce) { .btn--grabando .i-latido { animation: none; } }
 
   .icbtn { position: relative; width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: var(--radius-ui);
     background: none; color: var(--text-primary); cursor: pointer; }

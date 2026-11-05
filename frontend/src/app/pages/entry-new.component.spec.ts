@@ -4,6 +4,8 @@ import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 
 import { SessionService } from '../core/session.service';
+import { ToastService } from '../core/toast.service';
+import { RecordedAudio, RecorderError, RecorderProblem, VoiceRecorderService } from '../core/voice-recorder.service';
 import { EntryNewComponent } from './entry-new.component';
 
 const PATIENTS = [
@@ -24,10 +26,13 @@ describe('EntryNewComponent (vRegNuevo del mockup)', () => {
   let http: HttpTestingController;
   let root: HTMLElement;
   let settle: () => Promise<void>;
+  let destroy: () => void;
 
-  async function open(routeId: string | null = null, llm: object = { available: true, primary: { configured: true } }) {
+  async function open(routeId: string | null = null, llm: object = { available: true, primary: { configured: true } },
+      recorder: object | null = null) {
     TestBed.configureTestingModule({
       providers: [
+        ...(recorder ? [{ provide: VoiceRecorderService, useValue: recorder }] : []),
         provideHttpClient(), provideHttpClientTesting(), provideRouter([]),
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap(routeId ? { id: routeId } : {}) } } },
       ],
@@ -40,6 +45,7 @@ describe('EntryNewComponent (vRegNuevo del mockup)', () => {
     http.expectOne('/api/patients').flush(PATIENTS);
     root = fixture.nativeElement;
     settle = async () => { await new Promise((resolve) => setTimeout(resolve)); fixture.detectChanges(); };
+    destroy = () => fixture.destroy();
     await settle();
   }
 
@@ -377,5 +383,219 @@ describe('EntryNewComponent (vRegNuevo del mockup)', () => {
     expect(root.querySelector('.vista-ia')).toBeNull();
     expect(request.request.body.correction).toBeUndefined();
     expect(request.request.body.events.length).toBe(2);
+  });
+
+  // --- Dictado por voz (RF-38, D14), con un grabador sustituto: la prueba decide qué «graba» el navegador ---
+
+  const WITH_VOICE = { available: true, primary: { configured: true }, transcription: { provider: 'groq', configured: true, model: 'whisper-large-v3-turbo' } };
+  const NO_GROQ_KEY = { available: true, primary: { configured: false }, transcription: { provider: 'groq', configured: false, model: 'whisper-large-v3-turbo' } };
+  const TRANSCRIBE = '/api/patients/p1/entries/transcribe';
+
+  function fakeRecorder(options: { problem?: RecorderProblem; startError?: RecorderProblem; audio?: Partial<RecordedAudio> } = {}) {
+    const audio: RecordedAudio = { blob: new Blob(['audio-sintetico'], { type: 'audio/webm;codecs=opus' }), mimeType: 'audio/webm;codecs=opus',
+      seconds: 5, voiceDetected: true, ...options.audio };
+    const fake = {
+      starts: 0,
+      cancels: 0,
+      onTick: (_seconds: number) => undefined as void,
+      onLimit: () => undefined as void,
+      problem: () => options.problem ?? null,
+      start: async (_max: number, onTick: (seconds: number) => void, onLimit: () => void) => {
+        fake.starts++;
+        if (options.startError) {
+          throw new RecorderError(options.startError);
+        }
+        fake.onTick = onTick;
+        fake.onLimit = onLimit;
+        return { stop: async () => audio, cancel: () => { fake.cancels++; } };
+      },
+    };
+    return fake;
+  }
+
+  const mic = () => root.querySelector<HTMLButtonElement>('#rn-mic')!;
+  const draft = () => root.querySelector<HTMLInputElement>('#rn-txt')!;
+  const toasts = () => TestBed.inject(ToastService).toasts().map((t) => t.text);
+
+  async function dictate(answer: object): Promise<TestRequest> {
+    click('#rn-mic');
+    await settle();
+    click('#rn-mic');
+    await settle();
+    const request = http.expectOne(TRANSCRIBE);
+    request.flush(answer);
+    await settle();
+    return request;
+  }
+
+  it('pone el micrófono junto a Enviar, con íconos y sin emojis', async () => {
+    await open(null, WITH_VOICE, fakeRecorder());
+
+    const buttons = Array.from(root.querySelectorAll('form.entrada button'));
+    expect(buttons.map((b) => b.id || b.getAttribute('type'))).toEqual(['rn-mic', 'submit']);
+    expect(mic().querySelector('svg.i-microfono')).not.toBeNull();
+    expect(mic().textContent).toContain('Dictar');
+    expect(mic().textContent).not.toMatch(/\p{Extended_Pictographic}/u);
+    expect(mic().getAttribute('aria-disabled')).toBeNull();
+    expect(mic().getAttribute('aria-label')).toBe('Dictar la nota');
+  });
+
+  it('sin la llave de Groq el micrófono queda deshabilitado y dice por qué, sin grabar', async () => {
+    const recorder = fakeRecorder();
+    await open(null, NO_GROQ_KEY, recorder);
+
+    expect(mic().getAttribute('aria-disabled')).toBe('true');
+    expect(mic().title).toContain('falta la llave de Groq (GROQ_API_KEY)');
+    click('#rn-mic');
+    await settle();
+    expect(recorder.starts).toBe(0);
+    expect(toasts()).toContain('El dictado no está disponible: falta la llave de Groq (GROQ_API_KEY). Escriba la nota.');
+  });
+
+  it('en un navegador que no puede grabar, el micrófono explica por qué y escribir sigue igual', async () => {
+    await open(null, WITH_VOICE, fakeRecorder({ problem: 'unsupported' }));
+
+    expect(mic().getAttribute('aria-disabled')).toBe('true');
+    expect(mic().title).toBe('Este navegador no puede grabar audio para dictar. Escriba la nota.');
+    await send('Escrita a mano.');
+    expect(root.querySelector('.vista-ia')).not.toBeNull();
+  });
+
+  it('fuera de localhost o HTTPS dice que el dictado necesita un contexto seguro', async () => {
+    await open(null, WITH_VOICE, fakeRecorder({ problem: 'insecure' }));
+
+    expect(mic().title).toContain('localhost o con HTTPS');
+  });
+
+  it('dicta, cuenta los segundos, transcribe y deja el texto en la caja; al guardar va con origen VOZ', async () => {
+    const recorder = fakeRecorder();
+    await open(null, WITH_VOICE, recorder);
+
+    click('#rn-mic');
+    await settle();
+    expect(recorder.starts).toBe(1);
+    expect(mic().getAttribute('aria-pressed')).toBe('true');
+    expect(mic().querySelector('svg.i-detener')).not.toBeNull();
+    recorder.onTick(12);
+    await settle();
+    expect(mic().textContent).toContain('Detener 0:12');
+
+    click('#rn-mic');
+    await settle();
+    const request = http.expectOne(TRANSCRIBE);
+    expect(request.request.method).toBe('POST');
+    expect(request.request.headers.get('Content-Type')).toBe('audio/webm;codecs=opus');
+    expect(request.request.body instanceof Blob).toBeTrue();
+    expect(mic().getAttribute('aria-busy')).toBe('true');
+    request.flush({ text: 'Comió poco.', seconds: 5, model: 'whisper-large-v3-turbo', runId: 'r9' });
+    await settle();
+
+    expect(draft().value).toBe('Comió poco.');
+    expect(mic().getAttribute('aria-busy')).toBeNull();
+    // Nada se guarda al dictar: el texto se revisa y se envía como siempre.
+    http.expectNone('/api/patients/p1/entries');
+    submit();
+    await settle();
+    const propose = http.expectOne('/api/patients/p1/entries/propose');
+    expect(propose.request.body).toEqual({ body: 'Comió poco.' });
+    propose.flush(PROPOSAL);
+    await settle();
+  });
+
+  it('una nota dictada se guarda con origen VOZ aunque se haya corregido en la caja', async () => {
+    await open(null, WITH_VOICE, fakeRecorder());
+    await dictate({ text: 'Comió poco.' });
+    draft().value = 'Comió poco y durmió bien.';
+    draft().dispatchEvent(new Event('input'));
+    submit();
+    await settle();
+    http.expectOne('/api/patients/p1/entries/propose').flush(PROPOSAL);
+    await settle();
+
+    const request = await save();
+
+    expect(request.request.body.body).toBe('Comió poco y durmió bien.');
+    expect(request.request.body.source).toBe('VOZ');
+  });
+
+  it('el texto dictado se agrega a lo que ya estaba escrito', async () => {
+    await open(null, WITH_VOICE, fakeRecorder());
+    type('#rn-txt', 'Durmió bien.');
+
+    await dictate({ text: 'Comió poco.' });
+
+    expect(draft().value).toBe('Durmió bien. Comió poco.');
+  });
+
+  it('si no se oyó voz, el audio no sale del navegador y lo dice', async () => {
+    await open(null, WITH_VOICE, fakeRecorder({ audio: { voiceDetected: false } }));
+
+    click('#rn-mic');
+    await settle();
+    click('#rn-mic');
+    await settle();
+
+    http.expectNone(TRANSCRIBE);
+    expect(toasts()).toContain('No se oyó ninguna voz. Intente de nuevo o escriba la nota.');
+    expect(mic().getAttribute('aria-busy')).toBeNull();
+  });
+
+  it('si la transcripción falla, la caja queda como estaba y se dice por qué', async () => {
+    await open(null, WITH_VOICE, fakeRecorder());
+    type('#rn-txt', 'Durmió bien.');
+    const failure = 'No se pudo transcribir el audio. El servicio de IA no está disponible en este momento. Puede escribir la nota.';
+
+    await dictate({ failure, runId: 'r9' });
+
+    expect(draft().value).toBe('Durmió bien.');
+    expect(toasts()).toContain(failure);
+  });
+
+  it('si el navegador niega el micrófono, lo dice y no queda grabando', async () => {
+    await open(null, WITH_VOICE, fakeRecorder({ startError: 'denied' }));
+
+    click('#rn-mic');
+    await settle();
+
+    expect(toasts()[0]).toContain('no dio permiso para usar el micrófono');
+    expect(mic().getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('al llegar a los 2 minutos corta solo y transcribe lo grabado', async () => {
+    const recorder = fakeRecorder();
+    await open(null, WITH_VOICE, recorder);
+    click('#rn-mic');
+    await settle();
+
+    recorder.onLimit();
+    await settle();
+
+    http.expectOne(TRANSCRIBE).flush({ text: 'Nota larga.' });
+    await settle();
+    expect(draft().value).toBe('Nota larga.');
+    expect(toasts()).toContain('Se alcanzó el máximo de 2 minutos de dictado; se transcribe lo grabado.');
+  });
+
+  it('si se borra todo lo dictado, lo que se escriba después se guarda como texto', async () => {
+    await open(null, WITH_VOICE, fakeRecorder());
+    await dictate({ text: 'Comió poco.' });
+    draft().value = '';
+    draft().dispatchEvent(new Event('input'));
+
+    await send('Escrito a mano.');
+    const request = await save();
+
+    expect(request.request.body.source).toBeUndefined();
+  });
+
+  it('salir de la pantalla mientras graba suelta el micrófono', async () => {
+    const recorder = fakeRecorder();
+    await open(null, WITH_VOICE, recorder);
+    click('#rn-mic');
+    await settle();
+
+    destroy();
+
+    expect(recorder.cancels).toBe(1);
   });
 });

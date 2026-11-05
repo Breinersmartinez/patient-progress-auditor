@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnInit, computed, inject, signal, viewChild } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, computed, inject, signal, viewChild } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 
 import { apiFailure } from '../core/api-error';
@@ -9,6 +9,7 @@ import { Patient, PatientsService } from '../core/patients.service';
 import { SessionService } from '../core/session.service';
 import { INTENSITY_OPTIONS, SYMPTOM_CODES, SYMPTOM_LABELS, looksLikeSymptom, normalizeCode, symptomCode } from '../core/symptoms';
 import { ToastService } from '../core/toast.service';
+import { RecorderError, RecorderProblem, Recording, VoiceRecorderService } from '../core/voice-recorder.service';
 import { ProcessButtonComponent } from '../ui/process-button.component';
 
 // Una fila de «Síntomas detectados» (filaSintoma del mockup). `original` es lo que propuso el modelo: sirve para saber
@@ -33,9 +34,22 @@ interface Turn {
   failure: string | null;
   error: string;
   savedAs: 'structured' | 'text' | null;
+  // Si alguna parte del texto vino de un dictado (RF-38): la entrada se guarda con origen VOZ aunque luego se haya editado.
+  dictated: boolean;
 }
 
 const WHAT_NEXT = ' Puede guardar solo el texto o agregar los síntomas a mano.';
+
+// Dictado por voz (RF-38, D14). Tope por dictado [Propuesta]: una nota diaria cabe de sobra.
+const MAX_DICTATION_SECONDS = 120;
+const NO_KEY = 'El dictado no está disponible: falta la llave de Groq (GROQ_API_KEY). Escriba la nota.';
+const PROBLEMS: Record<RecorderProblem, string> = {
+  insecure: 'El dictado necesita abrir la aplicación en localhost o con HTTPS. Escriba la nota.',
+  unsupported: 'Este navegador no puede grabar audio para dictar. Escriba la nota.',
+  denied: 'El navegador no dio permiso para usar el micrófono. Permítalo junto a la barra de direcciones o escriba la nota.',
+  'no-mic': 'No se encontró un micrófono. Conecte uno o escriba la nota.',
+  error: 'No se pudo usar el micrófono. Escriba la nota.',
+};
 
 // vRegNuevo(), filaSintoma() y vistaPrevia() del mockup, con el «texto corregido» editable (RF-42, E19).
 @Component({
@@ -137,7 +151,17 @@ const WHAT_NEXT = ' Puede guardar solo el texto o agregar los síntomas a mano.'
         }
       </div>
       <form class="entrada" autocomplete="off" (submit)="send($event, sendButton)">
-        <input class="inp" id="rn-txt" #draftInput aria-label="Registro del día">
+        <input class="inp" id="rn-txt" #draftInput aria-label="Registro del día" (input)="draftEdited()">
+        <!-- Dictado por voz (RF-38): el texto cae en la caja para revisarlo antes de enviar; el audio no se guarda. -->
+        <button type="button" class="btn btn--sec btn--mic" id="rn-mic" (click)="toggleDictation()"
+                [class.btn--grabando]="mic() === 'recording'" [attr.aria-pressed]="mic() === 'recording'"
+                [attr.aria-busy]="mic() === 'transcribing' ? 'true' : null" [attr.aria-disabled]="micBlocked() ? 'true' : null"
+                [attr.title]="micBlocked()" [attr.aria-label]="micLabel()">
+          <span class="btn__icon"><svg [appIcon]="mic() === 'recording' ? 'detener' : 'microfono'"></svg><svg appIcon="anillo"></svg></span>
+          <span class="btn__text">
+            <span class="btn__idle">{{ mic() === 'recording' ? 'Detener ' + clock() : 'Dictar' }}</span><span class="btn__busy">Transcribiendo</span>
+          </span>
+        </button>
         <button appProcessButton #sendButton="processButton" label="Enviar" busyLabel="Enviando" icon="enviar" type="submit"
                 class="btn--primary"></button>
       </form>
@@ -147,13 +171,14 @@ const WHAT_NEXT = ' Puede guardar solo el texto o agregar los síntomas a mano.'
     </div>
   `,
 })
-export class EntryNewComponent implements OnInit {
+export class EntryNewComponent implements OnInit, OnDestroy {
   protected readonly session = inject(SessionService);
   private readonly route = inject(ActivatedRoute);
   private readonly patientsService = inject(PatientsService);
   private readonly entries = inject(EntriesService);
   private readonly llmStatus = inject(LlmStatusService);
   private readonly toast = inject(ToastService);
+  private readonly recorder = inject(VoiceRecorderService);
 
   protected readonly catalog = SYMPTOM_CODES;
   protected readonly labels = SYMPTOM_LABELS;
@@ -171,6 +196,23 @@ export class EntryNewComponent implements OnInit {
 
   private nextTurn = 0;
 
+  // Dictado: estado del micrófono, segundos grabados y si el borrador de la caja trae texto dictado.
+  protected readonly mic = signal<'idle' | 'recording' | 'transcribing'>('idle');
+  private readonly elapsed = signal(0);
+  protected readonly clock = computed(() => `${Math.floor(this.elapsed() / 60)}:${String(this.elapsed() % 60).padStart(2, '0')}`);
+  private readonly browserProblem = this.recorder.problem();
+  // Por qué no se puede dictar, o null. Sin llave de Groq o sin un navegador que grabe, el micrófono queda deshabilitado.
+  protected readonly micBlocked = computed(() => {
+    if (this.llm()?.transcription && !this.llm()!.transcription!.configured) {
+      return NO_KEY;
+    }
+    return this.browserProblem ? PROBLEMS[this.browserProblem] : null;
+  });
+  protected readonly micLabel = computed(() => this.mic() === 'recording' ? `Detener el dictado (${this.clock()})`
+    : this.mic() === 'transcribing' ? 'Transcribiendo el dictado' : 'Dictar la nota');
+  private recording: Recording | null = null;
+  private draftDictated = false;
+
   async ngOnInit(): Promise<void> {
     this.date.set(this.session.today() ?? '');
     this.llmStatus.get().then((status) => this.llm.set(status)).catch(() => undefined);
@@ -182,6 +224,12 @@ export class EntryNewComponent implements OnInit {
     } catch (e) {
       this.toast.show(apiFailure(e).message, false);
     }
+  }
+
+  // Salir de la pantalla suelta el micrófono y descarta lo grabado.
+  ngOnDestroy(): void {
+    this.recording?.cancel();
+    this.recording = null;
   }
 
   private patch(id: number, change: (turn: Turn) => void): void {
@@ -206,9 +254,10 @@ export class EntryNewComponent implements OnInit {
     if (this.dateError()) {
       return;
     }
-    const turn: Turn = { id: this.nextTurn++, text, patientId: this.patientId(), state: 'proposing', rows: [], proposedText: null, correctedText: '', failure: null, error: '', savedAs: null };
+    const turn: Turn = { id: this.nextTurn++, text, patientId: this.patientId(), state: 'proposing', rows: [], proposedText: null, correctedText: '', failure: null, error: '', savedAs: null, dictated: this.draftDictated };
     this.turns.update((list) => [...list, turn]);
     input.value = '';
+    this.draftDictated = false;
     // El texto de la burbuja es el que se guarda: se fija aquí y no se vuelve a leer de la caja (E9, riesgo de texto distinto).
     await button.run(() => this.propose(turn));
   }
@@ -235,6 +284,77 @@ export class EntryNewComponent implements OnInit {
         t.rows = [];
       });
     }
+  }
+
+  // Si la persona borra todo lo de la caja, lo siguiente que escriba ya no viene de un dictado.
+  protected draftEdited(): void {
+    if (!this.draftInput().nativeElement.value.trim()) {
+      this.draftDictated = false;
+    }
+  }
+
+  // Un clic empieza a dictar; el segundo detiene y transcribe. Mientras transcribe, no hace nada.
+  protected async toggleDictation(): Promise<void> {
+    const blocked = this.micBlocked();
+    if (blocked) {
+      this.toast.show(blocked, false);
+      return;
+    }
+    if (this.mic() === 'recording') {
+      await this.finishDictation(false);
+      return;
+    }
+    if (this.mic() === 'transcribing') {
+      return;
+    }
+    try {
+      this.elapsed.set(0);
+      this.recording = await this.recorder.start(MAX_DICTATION_SECONDS, (seconds) => this.elapsed.set(seconds),
+        () => void this.finishDictation(true));
+      this.mic.set('recording');
+    } catch (e) {
+      this.toast.show(e instanceof RecorderError ? PROBLEMS[e.problem] : PROBLEMS.error, false);
+    }
+  }
+
+  private async finishDictation(reachedLimit: boolean): Promise<void> {
+    const recording = this.recording;
+    if (this.mic() !== 'recording' || !recording) {
+      return;
+    }
+    this.recording = null;
+    this.mic.set('transcribing');
+    try {
+      const audio = await recording.stop();
+      if (!audio.voiceDetected) {
+        // Whisper inventa texto con silencio o ruido: sin voz, el audio no sale del navegador.
+        this.toast.show('No se oyó ninguna voz. Intente de nuevo o escriba la nota.', false);
+        return;
+      }
+      if (reachedLimit) {
+        this.toast.show(`Se alcanzó el máximo de ${MAX_DICTATION_SECONDS / 60} minutos de dictado; se transcribe lo grabado.`);
+      }
+      const result = await this.entries.transcribe(this.patientId(), audio.blob, audio.mimeType);
+      if (result.text) {
+        this.insertDictation(result.text);
+      } else {
+        this.toast.show(result.failure ?? 'No se pudo transcribir el audio. Escriba la nota.', false);
+      }
+    } catch (e) {
+      this.toast.show(apiFailure(e).message, false);
+    } finally {
+      this.mic.set('idle');
+      this.elapsed.set(0);
+    }
+  }
+
+  // El texto dictado se agrega a lo que ya haya en la caja, para revisarlo y corregirlo antes de enviar (RF-38).
+  private insertDictation(text: string): void {
+    const input = this.draftInput().nativeElement;
+    const current = input.value.trimEnd();
+    input.value = current ? `${current} ${text}` : text;
+    this.draftDictated = true;
+    input.focus();
   }
 
   private checkDate(date: string): string {
@@ -276,7 +396,7 @@ export class EntryNewComponent implements OnInit {
       try {
         const correction = events ? this.correctionOf(turn) : undefined;
         await this.entries.create(turn.patientId, { entryDate: date, body: turn.text, ...(events ? { events } : {}),
-          ...(correction ? { correction } : {}) });
+          ...(correction ? { correction } : {}), ...(turn.dictated ? { source: 'VOZ' as const } : {}) });
       } catch (e) {
         const failure = apiFailure(e);
         if (failure.fields['entryDate']) {

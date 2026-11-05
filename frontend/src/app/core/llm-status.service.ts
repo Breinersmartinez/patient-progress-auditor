@@ -14,6 +14,8 @@ export interface LlmStatus {
   fallback?: LlmProviderStatus;
   // Qué falta, en lenguaje claro, o ausente si todo está bien (D22, RNF-13).
   warning?: string;
+  // El dictado por voz (RF-38): si hay llave para transcribir y con qué modelo.
+  transcription?: { provider: string; configured: boolean; model: string };
 }
 
 @Injectable({ providedIn: 'root' })
