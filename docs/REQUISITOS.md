@@ -1,7 +1,9 @@
 # REQUISITOS — Patient Progress Auditor
 
-> **Estado:** borrador v0.5 para aprobación · **Fase del ciclo de vida:** 2 — Análisis de requisitos · **Fecha:** 2026-11-03
+> **Estado:** borrador v0.6 para aprobación · **Fase del ciclo de vida:** 2 — Análisis de requisitos · **Fecha:** 2026-11-05
 > **Base:** `docs/SPEC.md` v0.7 (§1–§3, objetivos OBJ-01 a OBJ-16), `AGENTS.md`, las rúbricas del curso *Ingeniería de Aplicaciones con IA* y lo dicho por el profesor en la clase del 24 de octubre de 2026.
+>
+> **Cambios de la v0.6 (decisión del equipo del 5 de noviembre de 2026):** se construye RF-38 (dictado por voz), que sigue con hito Opc; no cambia ningún ID ni conteo. Se agrega su supuesto en §8 (D14 precisada): Whisper en Groq, audio sin guardar en ninguna parte, una ejecución `TRANSCRIPCION` por dictado y los formatos de los navegadores actuales.
 >
 > **Cambios de la v0.5 (decisión del equipo del 3 de noviembre de 2026):** se agrega RF-43 (trazas y costo por consulta en Langfuse Cloud, opcional y solo con metadatos) con hito Opc, por la recomendación del profesor (D28). Los RF pasan de 42 a 43 y los opcionales de 1 a 2 (RF-38 y RF-43); el resto de los conteos por hito no cambia. RF-43 desarrolla RNF-06 (costo por tarea) y RNF-07 (trazas consultables) sin sustituir a RF-22, y respeta RNF-02.
 >
@@ -263,6 +265,7 @@ Para poder avanzar, el análisis usa estos supuestos. Si cambian, se actualiza e
 | Catálogo de métricas | El de RF-07 es una propuesta; conviene validarlo con una persona de enfermería | RF-07, RF-11 | D18 |
 | Disparo de la generación | Manual (botón) en M2; programado al cierre de semana queda para M3 | RF-08 | D19 |
 | Consulta libre al pedir el informe | Sin campo libre en M2; el caso de rechazo se construye con una entrada que pide un diagnóstico | RF-15 | D20 |
+| Dictado por voz | Opcional (Momento 3): Whisper en Groq (`whisper-large-v3-turbo`, configurable) detrás de un puerto; el audio no se guarda en la base, ni en disco, ni en registros o trazas; cada dictado es una ejecución `TRANSCRIPCION` con traza y costo; formatos de los navegadores actuales (webm, ogg y mp4); si no se oyó voz, no se envía | RF-38, RNF-02, RF-22, RF-43 | D14 |
 | Trazas y costo en Langfuse | Adicional opcional del Momento 3: Langfuse Cloud (Estados Unidos), solo metadatos, costo calculado por el código; sin llaves la aplicación arranca igual | RF-43, RNF-02, RNF-13 | D28 |
 | Forma de entrega | Enlace al repositorio público de GitHub, sin ZIP; el privado es opcional según el profesor | RNF-01, RNF-08, RNF-12 | D21 |
 | Arranque y llave del API | Una IA del profesor ejecuta solo el README; la llave se toma del entorno o se pide por consola; sin llave ni terminal, arranca igual y avisa que falta la llave | RNF-13 | D22 |

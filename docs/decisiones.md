@@ -459,6 +459,26 @@ Sin Angular Material, Bootstrap, Tailwind, fuentes ni iconos externos: el diseñ
 
 **Dato para gobernanza.** Langfuse es un tercero nuevo: recibe solo metadatos, en la región de Estados Unidos de Langfuse Cloud (la que eligió el equipo; dónde la aloja Langfuse no se verificó). Está declarado en `docs/gobernanza.md`.
 
+## Dictado por voz: Whisper en Groq (2026-11-05)
+
+**El encargo.** RF-38 (opcional) y D14 ya estaban decididos; el equipo pidió construirlo el 2026-11-05 con dos condiciones: **el audio no se guarda en ninguna parte** y se respetan la SPEC y los requisitos. Plan y avance en `docs/PLAN_M3.md` (Pieza 2).
+
+**Estado.** Lo marcado «probado» se comprobó el 2026-11-05 con un audio sintético en español (paso 2 del plan); lo demás se construye en los pasos 4 y 5 y se verifica en vivo en el paso 6.
+
+| Decisión | Razón | Alternativa descartada |
+|---|---|---|
+| **Por qué Whisper:** transcribir con Whisper en Groq, detrás de un puerto propio (`Transcriber`), con la misma `GROQ_API_KEY`. El adaptador local que prevé D14 queda para después | Whisper es un modelo de voz a texto multilingüe que acepta el idioma como parámetro; Groq ya es el proveedor principal (D15), así que no hay cuenta ni llave nueva y la capa `llm` sigue siendo la única que habla con terceros. Probado: transcripción exacta de la frase de prueba en 382 a 518 ms | El reconocimiento del navegador (Web Speech API): Chrome manda el audio a Google sin control nuestro y Firefox no lo trae, y la aplicación se probará en varios navegadores. Whisper local ahora: una imagen de varios GB pone en riesgo el arranque en frío (RNF-13). Gemini con audio: otra API y fuera de D14 |
+| Modelo `whisper-large-v3-turbo`, configurable por variable | Condición del equipo: relación precio-calidad. Probado: el mismo texto exacto que `whisper-large-v3`, con la misma latencia; cuesta 0,04 USD por hora de audio frente a 0,111 (documentación de Groq, leída el 2026-11-05). Si con voces reales se equivoca en términos clínicos, se cambia la variable a `whisper-large-v3` sin tocar código | `whisper-large-v3` fijo: 2,8 veces más caro sin mejora medida |
+| **El audio no se guarda:** el navegador lo manda como cuerpo crudo (no multipart), el backend lo tiene solo en memoria y lo reenvía a Groq; nginx no lo bufferiza en disco; nunca va a registros, trazas ni Langfuse (se construye) | Condición del equipo, SPEC §3.2, RNF-02 y el diccionario («Audio de dictado: no se guarda»). Hallazgo del paso 1: nginx escribe a un archivo temporal los cuerpos de más de 16 KB, y el multipart de Tomcat puede usar disco | Multipart: Tomcat y nginx escriben partes grandes a archivos temporales |
+| Cada dictado es una ejecución `TRANSCRIPCION` (`V9`) con su traza y su traza en Langfuse; el costo lo calcula el código: duración de audio (mínimo 10 s, como cobra Groq) × precio por hora / 3 600 (se construye) | Decisión del equipo: es una llamada a un modelo y se mide como las demás (RF-22, RF-43). Probado: la respuesta trae la duración; como Groq no la documenta, sin ella el costo queda vacío, no cero | Solo el registro del servidor: el dictado no aparecería en la traza ni su costo se mediría |
+| Formato según el navegador: webm/opus (Chrome, Edge, Brave), ogg/opus (Firefox) y mp4/aac (Safari); el backend acepta solo esos | La aplicación se probará en distintos navegadores (equipo). Probado: Groq transcribió los cuatro archivos (webm, ogg, m4a y mp4) con el mismo resultado | Un formato fijo: dejaría fuera a Firefox o a Safari |
+| Si no se oyó voz, el audio no se envía (se construye) **[Propuesta]** | Probado: con 6 s de silencio y con 6 s de ruido Whisper devolvió «Gracias.», con `no_speech_prob` = 0. Inventa texto y el servidor no lo puede detectar; la pantalla sí puede medir el nivel mientras graba. Además ahorra costo (cada petición se cobra al menos 10 s) | Filtrar en el servidor por `no_speech_prob`: salió 0, no sirve |
+| Topes: 120 s por dictado y 5 MB por audio **[Propuesta]** | Una nota diaria cabe de sobra; acota costo (120 s = 0,001333 USD) y tamaño, muy por debajo de los 25 MB que acepta Groq en la capa gratuita | Sin tope: un micrófono olvidado grabando |
+| Sin respaldo para transcribir; si Groq falla, mensaje honesto y la nota se escribe a mano **[Propuesta]** | D14 solo nombra a Groq y al local; RF-41: la entrada nunca depende de la IA | Gemini como respaldo de voz |
+| El origen queda `VOZ` si cualquier parte del texto enviado vino de un dictado, aunque luego se edite **[Propuesta]** | RF-38 pide la transcripción editable; editarla no cambia de dónde salió | `VOZ` solo si no se editó |
+
+**Lo que no se sabe.** Si los límites de la página de Groq (20 peticiones por minuto, 2 000 por día, 7 200 s de audio por hora) son los del plan gratuito: la página no lo aclara. Qué hace Groq con el audio: por defecto no lo retiene, pero puede guardarlo hasta 30 días para fiabilidad o abuso salvo *Zero Data Retention* (ver `docs/gobernanza.md`). La calidad con voces reales, acentos y términos clínicos: la prueba fue con voz sintética. Safari: no se puede probar en Linux.
+
 ## Decisiones del equipo (2026-10-28)
 
 | Decisión | Razón | Alternativa descartada |

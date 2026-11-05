@@ -1,6 +1,6 @@
 # PLAN — Momento 3 (semana 14, aplicación completa con autenticación)
 
-> **Estado:** en construcción. Por ahora solo trae la pieza de Langfuse, aprobada el 2026-11-03. El resto del Momento 3 (autenticación y JWT RF-31, credenciales y administrador RF-33, tablero de permisos RF-34, `docs/seguridad.md` y `docs/respuesta_auditoria.md`) todavía no está especificado ni planeado; sin su plan aprobado no se escribe código de esas piezas. **[Equipo]**
+> **Estado:** en construcción. Trae dos piezas opcionales: Langfuse (aprobada el 2026-11-03) y el dictado por voz (aprobada el 2026-11-05). El resto del Momento 3 (autenticación y JWT RF-31, credenciales y administrador RF-33, tablero de permisos RF-34, `docs/seguridad.md` y `docs/respuesta_auditoria.md`) todavía no está especificado ni planeado; sin su plan aprobado no se escribe código de esas piezas. **[Equipo]**
 > **Fecha:** 2026-11-03 · **Rama:** `develop_BSMartinez` · **Plan del Momento 2:** `docs/PLAN.md` (E1 a E19, cerrado).
 
 ## Pieza 1 — Langfuse: trazas de las consultas al modelo y costo por consulta
@@ -123,3 +123,87 @@ El **paso 2**. Si el JSON armado a mano no se registra como generación, o Langf
 - D28, el requisito nuevo, la entrada en `docs/decisiones.md`, `docs/gobernanza.md` y `AGENTS.md` y el resumen ejecutivo actualizados.
 - `docs/decisiones/semana14.md` con la comparación de costos y el veredicto del criterio de aceptación.
 - Cambios sin commit: el equipo los verifica y los sube.
+
+## Pieza 2 — Dictado por voz de la nota (RF-38, D14)
+
+**Origen:** RF-38 (hito Opc) y D14 (decidida) ya estaban especificados; el equipo pidió construirlo el 2026-11-05. **[Equipo]** Aprobado con dos condiciones explícitas: **el audio no se guarda en ninguna parte** y se respetan las decisiones de la SPEC y de los requisitos. **[Equipo]**
+
+### Encargo
+Que quien puede registrar entradas (`ENTRIES_CREATE`) dicte la nota desde la pantalla de registro: Whisper en Groq la transcribe, el texto cae en la caja del chat para corregirlo y sigue el flujo de siempre (estructuración, vista previa, confirmación). La entrada queda con origen `VOZ`, el audio no se guarda en ninguna parte y cada transcripción es una ejecución con traza, costo y Langfuse.
+
+### Decisiones del encargo
+| Duda | Decisión | Por qué |
+|---|---|---|
+| Transcriptor | Whisper en Groq detrás de un puerto (`Transcriber`), con la misma `GROQ_API_KEY`. El adaptador local que prevé D14 queda para después **[Equipo]** | Sin contenedor nuevo: no pesa en el arranque en frío. El puerto deja enchufar el local sin tocar el resto |
+| Registro | Ejecución nueva `TRANSCRIPCION` en `agent_runs` (migración `V9`), con traza propia y traza en Langfuse **[Equipo]** | Es una llamada a un modelo: se mide como las demás (RF-22, RF-43) |
+| Botón | Micrófono a la izquierda de «Enviar», con íconos SVG del sistema y sin emojis. Estados: Dictar → Detener (con contador) → Transcribiendo **[Equipo]** | Los mockups no tienen dictado; el equipo eligió el lugar |
+| Tope de duración | 120 s por dictado **[Propuesta]** | Una nota diaria cabe de sobra; acota tamaño y costo |
+| Origen `VOZ` | Si cualquier parte del texto enviado vino de un dictado, aunque luego se edite **[Propuesta]** | RF-38 pide la transcripción editable; editarla no cambia de dónde salió |
+| Si Groq falla | Sin respaldo para transcribir: mensaje honesto y el registro por texto sigue igual **[Propuesta]** | D14 solo nombra a Groq y al local; la entrada nunca depende de la voz (RF-41) |
+| Costo | Lo calcula el código: segundos de audio × precio de lista del modelo **[Propuesta]** | `AGENTS.md`: los números los calcula el código |
+| Navegadores | La aplicación se probará en distintos navegadores **[Equipo, 2026-11-05]**. Objetivo: Chrome, Edge, Firefox y Safari en sus versiones actuales **[Propuesta]**. Cada uno graba en su formato (los de motor Chromium en webm/opus, Firefox en ogg u webm con opus, Safari en mp4/aac): la pantalla elige uno que el navegador soporte (`MediaRecorder.isTypeSupported`) y lo declara al enviarlo; el backend acepta solo los formatos que Groq transcribe | Un formato fijo dejaría fuera a Firefox o a Safari |
+| Navegador que no puede grabar | Sin `MediaRecorder`, sin un formato aceptado o fuera de un contexto seguro, el micrófono se muestra deshabilitado con el motivo y escribir la nota funciona igual **[Propuesta]** | RF-41: la entrada nunca depende de la IA, tampoco de la voz |
+| Audio | Ni en la base, ni en el disco del backend o de nginx (ni temporal), ni en registros ni en trazas **[Equipo]** | Condición de la aprobación; SPEC §3.2, RNF-02 y el diccionario («Audio de dictado: no se guarda») |
+
+### Fuera del alcance
+El Whisper local en contenedor · medir la calidad de la transcripción en `eval/` · transcribir en vivo mientras se habla · dictar en otros campos (texto corregido, informe) · mostrar el origen `VOZ` en el historial · guardar el audio · un respaldo con otro proveedor para transcribir.
+
+### Supuestos
+- Groq transcribe con Whisper en la capa gratuita, en español, y acepta los tres formatos que graban los navegadores: webm/opus, ogg/opus y mp4/aac. **Se prueba en el paso 2.**
+- La demo se abre en `http://localhost`: todos los navegadores dan el micrófono solo en `localhost` o con HTTPS.
+- En esta máquina hay Chrome 145, Firefox 159 y Brave 151 (motor Chromium, como Edge). **Safari no se puede probar aquí** (Linux): queda para un integrante con Mac o iPhone, y mientras tanto se reporta como no verificado.
+
+### Pasos
+- [x] 1. **Mirar** el punto de partida: backend y frontend en verde como línea base, y los enganches confirmados (`CreateEntryRequest`, `send()` de `entry-new`, `GroqClient`, la ruta del costo de `LangfuseRun`, los límites de tamaño de nginx y de Spring).
+  - **Produce:** la línea base y la lista de enganches con archivo y línea.
+  - **Se mira:** `mvn -B verify` y `ng test` en verde con el número anotado.
+  > Hecho el 2026-11-05. Backend: **404 pruebas, 0 fallos, 14 omitidas** (las en vivo), `BUILD SUCCESS` en 4 min 14 s contra `ppa-test-db` (127.0.0.1:5439, encendida de nuevo; estaba detenida). Frontend: **129 de 129**.
+  > Enganches: la creación es `CreateEntryRequest` (`EntryController.java:37`, sin campo de origen) y `EntryService.create` (`EntryService.java:80`; `source` queda en su valor por defecto `TEXTO`, `Entry.java:49`); la columna y su `CHECK (TEXTO, VOZ)` ya existen en `V3`. En la pantalla, la caja del chat es un `<input>` de una línea (`#rn-txt`) y `send()` lo lee y lo vacía (`entry-new.component.ts:196`). `GroqClient` llama con `JsonHttp`, que solo manda JSON: la transcripción de Groq pide `multipart/form-data`, que hay que armar en memoria. El costo hacia Langfuse sale de tokens (`LangfuseRun.costUsd`, `LangfusePayload`): el audio no tiene tokens, hay que extender esa ruta. No hay ícono de micrófono ni de detener en `core/icons.ts`.
+  > **Hallazgo (condición del audio):** `frontend/nginx.conf` no fija `client_max_body_size` (1 MB por defecto) y nginx escribe a un archivo temporal los cuerpos de más de `client_body_buffer_size` (16 KB por defecto en 64 bits): sin configurarlo, **un dictado pasaría por el disco de nginx**. Spring tampoco fija límites de multipart; por eso el backend recibirá el audio como cuerpo crudo (`byte[]`), que Tomcat lee en memoria.
+- [x] 2. **Probar** a mano la transcripción de Groq con un audio sintético en español, sin datos reales.
+  - **Produce:** el modelo elegido, qué formatos acepta (webm/opus, ogg/opus y mp4/aac, los que graban Chromium, Firefox y Safari), si devuelve la duración, el tope de tamaño, el mínimo que cobra y el precio de lista verificado en la página de Groq.
+  - **Se mira:** HTTP 200 con el texto esperado para cada uno de los tres formatos; las cifras salen de la respuesta o de la página, no de memoria.
+  > Hecho el 2026-11-05. Audio sintético: la frase «Paciente con náuseas leves por la mañana. Vomitó dos veces después del almuerzo. Comió poco y durmió bien.» generada con `espeak-ng` dentro de un contenedor desechable (nada instalado en la máquina) y convertida con `ffmpeg` a webm/opus (35 KB), ogg/opus (33 KB), m4a/aac y mp4/aac (48 KB); 8,58 s. Sin datos reales.
+  > **Resultado:** `POST https://api.groq.com/openai/v1/audio/transcriptions` (multipart: `file`, `model`, `language=es`, `response_format=verbose_json`, `temperature=0`) respondió **HTTP 200 con la transcripción exacta en los cuatro archivos** y con los dos modelos, en 382 a 518 ms. La respuesta trae `duration` (8,579 s), `text`, `segments`, `language` y `x_groq.id`; la duración no está en la documentación, así que el código no puede darla por segura (sin ella, costo vacío, no cero).
+  > **Documentación de Groq** (`console.groq.com/docs/speech-to-text`, leída el 2026-11-05): modelos `whisper-large-v3-turbo` (**0,04 USD por hora** de audio) y `whisper-large-v3` (0,111 USD por hora); **se cobra un mínimo de 10 s** por petición; hasta **25 MB** por archivo en la capa gratuita; formatos flac, mp3, mp4, mpeg, mpga, m4a, ogg, wav y webm; el audio se reduce a 16 kHz mono. En `docs/rate-limits`: 20 peticiones por minuto, 2 000 por día, 7 200 s de audio por hora y 28 800 por día (la página no deja claro si es la tabla del plan gratuito; la cabecera `x-ratelimit-limit-requests: 2000` coincide con las 2 000 por día). La página de precios de Groq no mostró las cifras (contenido dinámico): el precio sale solo de la de speech-to-text. La página no dice qué hace Groq con el audio; `docs/your-data` no se leyó todavía (paso 3, gobernanza).
+  > **Decisión (propuesta):** `whisper-large-v3-turbo`. En la prueba acertó igual que `whisper-large-v3`, con la misma latencia, y cuesta 2,8 veces menos. Costo: un dictado de 8,6 s se cobra como 10 s (0,000111 USD); uno de 120 s, 0,001333 USD.
+  > **Hallazgo 1 (honestidad, importante):** con **6 s de silencio** y con **6 s de ruido**, Whisper devolvió «Gracias.», con `no_speech_prob` = 0. Inventa texto y el servidor no lo puede detectar con los datos de la respuesta. Mitigación propuesta para el paso 5: la pantalla mide el nivel de la voz mientras graba y, si no oyó voz, no manda el audio a Groq («No se oyó ninguna voz; intente de nuevo o escriba la nota»). Además el texto nunca se envía solo: cae en la caja para revisarlo (RF-38).
+  > **Hallazgo 2:** Groq (Cloudflare) rechaza con 403 «error code: 1010» el agente de usuario por defecto de Python. La aplicación usa el cliente de la JDK, que ya funciona con el chat de Groq; se confirma con la transcripción en el paso 6.
+  > **Hallazgo 3 (tamaño):** a 32 kb/s, 120 s son unos 480 KB, pero los navegadores graban por defecto con más tasa (puede pasar de 1 MB). En el paso 5 se fija `audioBitsPerSecond` y el tope del servidor se pone con margen (propuesta: 5 MB), muy por debajo de los 25 MB de Groq.
+- [x] 3. **Registrar** antes de programar: D14 y RF-38 al día en la SPEC y los requisitos, `TRANSCRIPCION` en los dos diccionarios, `docs/decisiones.md` («por qué Whisper», que el profesor preguntará), `docs/gobernanza.md` (el audio sale a Groq) y `AGENTS.md`.
+  - **Se mira:** sin IDs inexistentes, tablas cuadradas y conteos por hito sin cambio (RF-38 sigue Opc).
+  > Hecho el 2026-11-05. **SPEC v0.9:** nota de versión, D14 precisada (solo el adaptador Groq por ahora, `whisper-large-v3-turbo` configurable, ejecución `TRANSCRIPCION`, audio sin guardar, formatos de los navegadores) y dos casos borde nuevos en §5 (silencio y navegador que no puede grabar). **Requisitos v0.6:** nota de versión y el supuesto del dictado en §8; RF-38 no cambia de texto ni de hito. **Diccionarios:** `agent_runs.run_type` con `TRANSCRIPCION` (`V9`) en los dos, y de paso con `MENSUAL`, que existía desde `V7` y los diccionarios no listaban. **`docs/decisiones.md`:** sección «Dictado por voz: Whisper en Groq», con el «por qué Whisper» y la alternativa descartada de cada decisión. **`docs/gobernanza.md`:** Groq-Whisper como tercero que recibe el audio, el párrafo del audio sin guardar y lo que dice Groq de sus datos. **`AGENTS.md`** y el resumen ejecutivo (fila D14), al día.
+  > Comprobación (script): ningún ID citado inexistente, ninguna fila descuadrada, conteos por hito sin cambio (43 RF: 29 M2-N, 2 repartidos, 7 M2-S, 3 M3, 2 Opc) y ninguna llave en los archivos cambiados.
+  > **Condición del equipo sobre el modelo (2026-11-05):** relación precio-calidad. Se eligió `whisper-large-v3-turbo` (mismo resultado que `whisper-large-v3` en la prueba, 0,04 frente a 0,111 USD por hora) y queda configurable para cambiarlo sin código si con voces reales falla.
+  > **Hallazgo (gobernanza):** según `console.groq.com/docs/your-data`, Groq no retiene por defecto, pero **puede guardar entradas y salidas hasta 30 días** para fiabilidad o abuso, salvo que se active *Zero Data Retention* en la consola; no dice si entrena con los datos. La aplicación cumple la condición del audio por su lado, pero para que Groq tampoco lo conserve el equipo debe activar ZDR (acción en la consola de Groq, no en el código).
+  > **Decisiones que nadie pidió:** completar `MENSUAL` en los diccionarios; marcar como **[Propuesta]** el tope de 120 s y 5 MB, no enviar audio sin voz, el origen `VOZ` aunque se edite y no tener respaldo para transcribir.
+- [ ] 4. **Construir el backend:** puerto `Transcriber` y adaptador Groq; `POST …/entries/transcribe` con el audio como cuerpo crudo (sin multipart) y tope de tamaño; la ejecución `TRANSCRIPCION` (`V9`) con traza, costo y Langfuse; `source` al crear la entrada; en nginx el tamaño y sin búfer a disco.
+  - **Se mira:** pruebas verdes que cubren que el audio no se escribe a disco ni a registros, el tope, el fallo de Groq sin llave o caído, el costo y el origen `VOZ`.
+- [ ] 5. **Construir la pantalla:** grabar con `MediaRecorder` en el formato que soporte cada navegador, deshabilitar el micrófono con su motivo si no puede grabar, estados con íconos nuevos, el texto en la caja y editable, mensajes para el micrófono negado o ausente y el fallo de Groq, y enviar con origen `VOZ`.
+  - **Se mira:** `ng test` verde con las pruebas nuevas; la pantalla sin dictar se comporta igual que antes.
+- [ ] 6. **Verificar en vivo** en Chrome, Firefox y Brave (Chromium, como Edge); Safari solo si el equipo lo prueba en un Mac o iPhone: un dictado real en cada uno, uno sin llave, uno con el permiso del micrófono negado, uno de más de 120 s; buscar el audio en el disco de los contenedores y la traza en Langfuse.
+  - **Se mira:** los seis criterios con evidencia.
+- [ ] 7. **Comprobar** el criterio de aceptación, punto por punto, y dejar la evidencia.
+
+### Criterio de aceptación
+1. En Chrome, Edge, Firefox y Safari (versiones actuales), en `http://localhost:4200`, una nota dictada aparece en la caja, se puede editar y, al guardarla, la entrada queda con `source = 'VOZ'`; una escrita sigue con `TEXTO`.
+2. El audio no queda en la base, ni en el disco del backend o de nginx (ni como archivo temporal), ni en los registros ni en las trazas.
+3. Cada dictado es una fila `TRANSCRIPCION` con su traza; su costo es igual al de Langfuse a 6 decimales y Langfuse no recibe el texto.
+4. Sin llave, con Groq caído, sin micrófono, con el permiso negado o en un navegador que no puede grabar, hay un mensaje claro y escribir la nota funciona igual.
+5. Un dictado de más de 120 s o un audio demasiado grande se corta o se rechaza con un mensaje claro, sin traza de pila.
+6. Las pruebas existentes siguen verdes, más las nuevas; `scripts/check-env-example.sh` pasa y `./run.sh` no cambia para el profesor.
+
+### El paso más riesgoso
+El **paso 2**. Si Groq no acepta el webm de Chrome, o el precio y los límites no son los esperados, cambia el diseño de los pasos 4 y 5. Si no transcribe en la capa gratuita, se para y se informa.
+
+### Dónde se puede caer
+| Paso | Qué puede salir mal | Cómo se nota |
+|---|---|---|
+| 4 | nginx y Spring aceptan hasta 1 MB por defecto | 413 con dictados largos |
+| 4 | nginx o Tomcat escriben a disco los cuerpos grandes | Archivos en el directorio temporal del contenedor durante la petición |
+| 5, 6 | El micrófono solo funciona en `localhost` o HTTPS | En otra máquina por IP el botón no puede grabar |
+| 2, 5 | Cada navegador graba en otro formato (Safari en mp4/aac, Firefox en ogg) | Groq rechaza el formato o el navegador no ofrece el que se pidió |
+| 5, 6 | Safari pide el micrófono de otra forma (solo tras un gesto, y en iPhone cada vez) | El permiso no aparece o la grabación sale vacía |
+| 6 | Safari no se puede probar en Linux | El criterio 1 queda sin verificar para Safari hasta que el equipo lo pruebe |
+| 4 | El costo por audio no cabe en la ruta del costo por tokens de `LangfuseRun` | El costo en Langfuse queda vacío o en cero |
+

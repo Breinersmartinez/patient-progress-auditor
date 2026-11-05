@@ -71,7 +71,7 @@ De las 27 decisiones registradas en la SPEC, 18 están tomadas, 4 son supuestos 
 | D11 | Conjunto sintético: 5 pacientes y 18 semanas-paciente, con fechas fijas y un paciente de cinco semanas para el mensual | Decidida |
 | D12 | El médico también registra y se audita qué médico hizo cada registro | Decidida |
 | D13 | PDF con Thymeleaf y HTML a PDF; opcional | Decidida |
-| D14 | Voz con Whisper detrás de un puerto, sin guardar el audio; opcional | Decidida |
+| D14 | Voz con Whisper detrás de un puerto, sin guardar el audio; opcional. Desde el 5-nov: Groq con `whisper-large-v3-turbo`, en construcción | Decidida |
 | D17 | La necesidad de IA quedó aprobada por el profesor | Decidida |
 | D21 | Entrega: enlace al repositorio público de GitHub, sin ZIP | Decidida |
 | D22 | Arranque en frío con un comando; la llave del API se toma del entorno o se pide por consola | Decidida |

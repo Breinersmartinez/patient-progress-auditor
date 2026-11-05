@@ -96,7 +96,7 @@ Se guardan como `VARCHAR` con `CHECK`, no como `ENUM` de PostgreSQL, para poder 
 | `entry_events.intensity` | `LEVE`, `MODERADO`, `INTENSO`, `SIN_INDICAR` | La pantalla del equipo muestra «intenso» y «Sin indicar»; los otros dos son **[Propuesta]** | RF-06, D27 |
 | `entry_events.origin` | `IA`, `EDITADO`, `MANUAL` | Propuesto por la IA y confirmado igual, propuesto y cambiado por la persona, o agregado a mano | RF-40, D27 |
 | `entry_versions.origin` | `IA_ACEPTADA`, `IA_EDITADA`, `MANUAL` | Texto corregido propuesto por la IA y aceptado o editado, o edición manual | RF-03, RF-42 |
-| `agent_runs.run_type` | `INFORME`, `ESTRUCTURACION` | **[Propuesta]**: la estructuración al registrar también deja traza | RF-22, RNF-07 |
+| `agent_runs.run_type` | `INFORME`, `MENSUAL`, `ESTRUCTURACION`, `TRANSCRIPCION` | **[Propuesta]**: la estructuración al registrar también deja traza. `MENSUAL` entró con `V7` (E13). `TRANSCRIPCION` (dictado por voz, Opc, D14) entra con `V9` | RF-22, RNF-07, RF-36, RF-38 |
 | `agent_runs.status` | `EN_COLA`, `EN_CURSO`, `COMPLETADA`, `INCOMPLETA`, `FALLIDA` | **[Propuesta]**: el estado de la ejecución vive en la BD para poder consultarlo y reanudar | D24 |
 | `agent_runs.stop_reason` | `EXITO`, `MAX_ITERACIONES`, `MAX_TOKENS`, `TIMEOUT_HERRAMIENTA`, `SALIDA_INVALIDA`, `PROVEEDOR_NO_DISPONIBLE` | **[Propuesta]**: el motivo con el que termina | RF-16, RF-17, RF-19 |
 | `agent_steps.step_type` | `ESTADO`, `LLAMADA_LLM`, `HERRAMIENTA`, `VALIDACION`, `LIMITE`, `FALLBACK`, `ERROR` | **[Propuesta]** | RF-22, D24 |
@@ -307,7 +307,7 @@ Una fila por ejecución del agente de informes y por cada estructuración de una
 | Columna | Etiqueta | Tipo | Nulo | Clave | Descripción y reglas | Origen |
 |---|---|---|---|---|---|---|
 | `id` | Id | `UUID` | No | PK | | D24 |
-| `run_type` | Tipo de ejecución | `VARCHAR(20)` | No | — | `INFORME` o `ESTRUCTURACION` | RF-22, **[Propuesta]** |
+| `run_type` | Tipo de ejecución | `VARCHAR(20)` | No | — | `INFORME`, `MENSUAL` (`V7`), `ESTRUCTURACION` o `TRANSCRIPCION` (`V9`, dictado por voz, Opc) | RF-22, RF-38, **[Propuesta]** |
 | `patient_id` | Paciente | `UUID` | No | FK → `patients` | | RF-22 |
 | `requested_by` | Pidió | `UUID` | No | FK → `app_users` | | RF-08 |
 | `period_start` | Inicio solicitado | `DATE` | Sí | — | Solo en `INFORME` | RF-08 |
