@@ -1,10 +1,12 @@
 package com.patientprogressauditor.entry;
 
+import java.io.IOException;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -12,17 +14,20 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.patientprogressauditor.dictation.DictationService;
 import com.patientprogressauditor.entry.EntryService.EntryView;
 import com.patientprogressauditor.session.DemoPrincipal;
 import com.patientprogressauditor.structuring.Proposal;
 import com.patientprogressauditor.structuring.StructuringService;
 import com.patientprogressauditor.web.FieldException;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -39,7 +44,9 @@ public class EntryController {
             @NotBlank(message = "El registro no puede quedar vacío.")
             @Size(max = EntryService.MAX_BODY_LENGTH, message = "El registro no puede pasar de 4000 caracteres.") String body,
             @Valid List<EntryService.ConfirmedEvent> events,
-            @Valid CorrectionRequest correction) {
+            @Valid CorrectionRequest correction,
+            // `VOZ` si el texto vino de un dictado (RF-38); ausente o `TEXTO`, escrito a mano.
+            String source) {
     }
 
     // El texto corregido de la vista previa (RF-42), tal como la persona lo dejo. Sin `correction`, o igual al original, no se guarda version.
@@ -55,10 +62,24 @@ public class EntryController {
 
     private final EntryService service;
     private final StructuringService structuring;
+    private final DictationService dictation;
 
-    public EntryController(EntryService service, StructuringService structuring) {
+    public EntryController(EntryService service, StructuringService structuring, DictationService dictation) {
         this.service = service;
         this.structuring = structuring;
+        this.dictation = dictation;
+    }
+
+    // Transcribe un dictado (RF-38, D14). El audio llega como cuerpo crudo (audio/webm, audio/ogg o audio/mp4), no como
+    // multipart: asi Tomcat no lo escribe a un archivo temporal. NO guarda nada del audio ni la entrada: devuelve el texto
+    // para revisarlo en la caja. Si Groq falla responde 200 con `failure`, para que la persona escriba la nota.
+    @PostMapping("/patients/{patientId}/entries/transcribe")
+    @PreAuthorize("hasAuthority('ENTRIES_CREATE')")
+    public DictationService.Dictation transcribe(@PathVariable UUID patientId,
+            @RequestHeader(value = HttpHeaders.CONTENT_TYPE, required = false) String contentType, HttpServletRequest request,
+            @AuthenticationPrincipal DemoPrincipal principal) throws IOException {
+        byte[] audio = DictationService.readAudio(request.getInputStream(), request.getContentLengthLong());
+        return dictation.transcribe(patientId, audio, contentType, principal);
     }
 
     // Propone los sintomas con IA. NO guarda nada: la entrada y los eventos se guardan al confirmar (POST de abajo, RN-11).
@@ -77,7 +98,7 @@ public class EntryController {
             @AuthenticationPrincipal DemoPrincipal principal) {
         EntryService.Correction correction = request.correction() == null ? null
                 : new EntryService.Correction(request.correction().body(), request.correction().origin());
-        return service.create(patientId, request.entryDate(), request.body(), request.events(), correction, principal);
+        return service.create(patientId, request.entryDate(), request.body(), request.events(), correction, request.source(), principal);
     }
 
     // order=asc (cronologico, por defecto) o desc (mas reciente primero); from y to incluyen sus dos extremos.

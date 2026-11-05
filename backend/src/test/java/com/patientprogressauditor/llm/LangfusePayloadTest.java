@@ -134,6 +134,23 @@ class LangfusePayloadTest {
     }
 
     @Test
+    void aTranscriptionIsChargedByAudioTimeAndSendsNeitherTextNorAudio() {
+        Attempt whisper = new Attempt("groq", "whisper-large-v3-turbo", 1, null, 450, null, 0, 0, 8.579);
+        LangfuseRun run = run("TRANSCRIPCION", "COMPLETADA", "EXITO", 500, whisper);
+
+        List<JsonNode> spans = spans(body(run));
+
+        assertThat(spans.get(0).path("name").asText()).isEqualTo("transcripcion");
+        Map<String, String> attrs = attributes(spans.get(1));
+        assertThat(attrs).containsEntry("langfuse.observation.model.name", "whisper-large-v3-turbo")
+                .containsEntry("langfuse.observation.metadata.audio_seconds", "8.579");
+        assertThat(json(attrs.get("langfuse.observation.usage_details")).path("audio_seconds").asInt()).isEqualTo(9);
+        assertThat(json(attrs.get("langfuse.observation.cost_details")).path("total").decimalValue()).isEqualByComparingTo("0.000111");
+        assertThat(run.costUsd()).isEqualByComparingTo("0.000111");
+        assertThat(attributes(spans.get(0))).containsEntry("langfuse.observation.metadata.cost_usd", "0.000111");
+    }
+
+    @Test
     void aFailedAttemptHasNoCostNorTokensAndIsMarkedAsError() {
         JsonNode generation = spans(body(run("INFORME", "COMPLETADA", "EXITO", 400, failed("groq", "openai/gpt-oss-120b", 1, 300, Kind.RATE_LIMIT)))).get(1);
 

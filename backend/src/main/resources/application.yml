@@ -36,6 +36,8 @@ llm:
     api-key: ${GROQ_API_KEY:}
     agent-model: ${GROQ_MODEL:openai/gpt-oss-120b}
     structuring-model: ${GROQ_STRUCTURING_MODEL:openai/gpt-oss-120b}
+    # Dictado por voz (RF-38, D14): Whisper en Groq, elegido por relacion precio-calidad (docs/decisiones.md).
+    transcription-model: ${GROQ_TRANSCRIPTION_MODEL:whisper-large-v3-turbo}
   gemini:
     api-key: ${GEMINI_API_KEY:}
     model: ${GEMINI_MODEL:gemini-3.5-flash-lite}

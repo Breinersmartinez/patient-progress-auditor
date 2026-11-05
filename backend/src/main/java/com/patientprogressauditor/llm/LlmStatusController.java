@@ -16,13 +16,20 @@ public class LlmStatusController {
             String agentModel) {
     }
 
-    public record LlmStatus(boolean available, ProviderStatus primary, ProviderStatus fallback, String warning) {
+    // El dictado por voz (RF-38): si se puede transcribir y con que modelo. La pantalla deshabilita el microfono sin llave.
+    public record TranscriptionStatus(String provider, boolean configured, String model) {
+    }
+
+    public record LlmStatus(boolean available, ProviderStatus primary, ProviderStatus fallback, String warning,
+            TranscriptionStatus transcription) {
     }
 
     private final LlmGateway gateway;
+    private final TranscriptionGateway transcription;
 
-    public LlmStatusController(LlmGateway gateway) {
+    public LlmStatusController(LlmGateway gateway, TranscriptionGateway transcription) {
         this.gateway = gateway;
+        this.transcription = transcription;
     }
 
     @GetMapping("/status")
@@ -39,7 +46,9 @@ public class LlmStatusController {
         } else if (!primary.configured()) {
             warning = "Falta " + providers.get(0).keyVariable() + ": se usa " + fallback.displayName() + ", el proveedor de respaldo.";
         }
-        return new LlmStatus(available, primary, fallback, warning);
+        Transcriber transcriber = transcription.transcriber();
+        return new LlmStatus(available, primary, fallback, warning,
+                new TranscriptionStatus(transcriber.id(), transcriber.configured(), transcriber.model()));
     }
 
     private static ProviderStatus view(LlmClient client) {

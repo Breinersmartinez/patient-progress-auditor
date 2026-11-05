@@ -40,6 +40,9 @@ class LlmStatusControllerTest {
                 .andExpect(jsonPath("$.primary.structuringModel").value("openai/gpt-oss-120b"))
                 .andExpect(jsonPath("$.fallback.provider").value("gemini"))
                 .andExpect(jsonPath("$.fallback.agentModel").value("gemini-3.5-flash-lite"))
+                .andExpect(jsonPath("$.transcription.provider").value("groq"))
+                .andExpect(jsonPath("$.transcription.configured").value(true))
+                .andExpect(jsonPath("$.transcription.model").value("whisper-large-v3-turbo"))
                 .andExpect(content().string(not(containsString("secreta"))));
     }
 
@@ -54,7 +57,14 @@ class LlmStatusControllerTest {
         properties.setPrimary(primary);
         properties.setFallback(fallback);
         List<LlmClient> clients = List.of(new GroqClient(properties, MAPPER), new GeminiClient(properties, MAPPER));
-        return new LlmStatusController(new LlmGateway(clients, properties, d -> { }, MAPPER)).status();
+        return new LlmStatusController(new LlmGateway(clients, properties, d -> { }, MAPPER),
+                new TranscriptionGateway(new GroqTranscriber(properties, MAPPER), properties, d -> { })).status();
+    }
+
+    @Test
+    void withoutTheGroqKeyDictationIsReportedAsUnavailable() {
+        assertThat(statusWith("", "AIza_x", "groq", "gemini").transcription().configured()).isFalse();
+        assertThat(statusWith("gsk_x", "", "groq", "gemini").transcription().configured()).isTrue();
     }
 
     @Test

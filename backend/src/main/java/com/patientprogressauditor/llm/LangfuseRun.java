@@ -23,7 +23,8 @@ public record LangfuseRun(UUID runId, String type, String status, String stopRea
         return attempts.stream().filter(Attempt::succeeded).mapToInt(Attempt::tokensOut).sum();
     }
 
-    // La suma del costo de lista de las llamadas que respondieron, la misma que guarda el agente en agent_runs.cost_usd. Es
+    // La suma del costo de lista de las llamadas que respondieron (por tokens, o por tiempo si fue una transcripcion), la
+    // misma que guarda la aplicacion en agent_runs.cost_usd. Es
     // null si ninguna respondio o si alguna usa un modelo sin precio conocido: vacio, no cero.
     public BigDecimal costUsd() {
         BigDecimal total = BigDecimal.ZERO;
@@ -32,7 +33,7 @@ public record LangfuseRun(UUID runId, String type, String status, String stopRea
             if (!attempt.succeeded()) {
                 continue;
             }
-            BigDecimal cost = LlmPricing.cost(attempt.provider(), attempt.model(), attempt.tokensIn(), attempt.tokensOut());
+            BigDecimal cost = LlmPricing.cost(attempt);
             if (cost == null) {
                 return null;
             }

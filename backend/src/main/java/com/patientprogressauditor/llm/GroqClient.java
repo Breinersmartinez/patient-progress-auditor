@@ -120,25 +120,10 @@ public class GroqClient implements LlmClient {
     }
 
     private LlmException failure(JsonHttp.Result result) {
-        int status = result.status();
-        String code = errorCode(result.body());
-        String detail = "HTTP " + status + " " + JsonHttp.snippet(result.body());
-        if (status == 429) {
-            return new LlmException(Kind.RATE_LIMIT, ID, JsonHttp.retryAfter(result), detail);
+        if (result.status() == 400 && ("json_validate_failed".equals(errorCode(result.body())) || result.body().contains("failed_generation"))) {
+            return new LlmException(Kind.INVALID_OUTPUT, ID, "HTTP 400 " + JsonHttp.snippet(result.body()));
         }
-        if (status == 401 || status == 403) {
-            return new LlmException(Kind.AUTH, ID, detail);
-        }
-        if (status == 408 || status == 504) {
-            return new LlmException(Kind.TIMEOUT, ID, detail);
-        }
-        if (status == 400 && ("json_validate_failed".equals(code) || result.body().contains("failed_generation"))) {
-            return new LlmException(Kind.INVALID_OUTPUT, ID, detail);
-        }
-        if (status >= 400 && status < 500) {
-            return new LlmException(Kind.BAD_REQUEST, ID, detail);
-        }
-        return new LlmException(Kind.UNAVAILABLE, ID, detail);
+        return JsonHttp.httpFailure(ID, result);
     }
 
     private String errorCode(String body) {

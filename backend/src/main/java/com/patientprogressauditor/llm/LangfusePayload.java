@@ -94,7 +94,15 @@ final class LangfusePayload {
         attrs.put(META + "provider", attempt.provider());
         attrs.put(META + "attempt", String.valueOf(attempt.number()));
         Kind failure = attempt.failure();
-        if (failure == null) {
+        if (failure == null && attempt.audioSeconds() > 0) {
+            // Transcripcion (RF-38): el uso es tiempo de audio, no tokens. Solo se manda el total del costo, que Langfuse respeta.
+            attrs.put(META + "audio_seconds", String.valueOf(attempt.audioSeconds()));
+            attrs.put("langfuse.observation.usage_details", "{\"audio_seconds\":%d}".formatted((long) Math.ceil(attempt.audioSeconds())));
+            BigDecimal total = LlmPricing.cost(attempt);
+            if (total != null) {
+                attrs.put("langfuse.observation.cost_details", "{\"total\":%s}".formatted(total.toPlainString()));
+            }
+        } else if (failure == null) {
             attrs.put("langfuse.observation.usage_details", "{\"input\":%d,\"output\":%d}".formatted(attempt.tokensIn(), attempt.tokensOut()));
             BigDecimal total = LlmPricing.cost(attempt.provider(), attempt.model(), attempt.tokensIn(), attempt.tokensOut());
             // Sin precio conocido no se manda costo: Langfuse lo muestra vacio, no en cero.
@@ -156,6 +164,7 @@ final class LangfusePayload {
             case "INFORME" -> "informe-semanal";
             case "MENSUAL" -> "informe-mensual";
             case "ESTRUCTURACION" -> "estructuracion";
+            case "TRANSCRIPCION" -> "transcripcion";
             default -> type.toLowerCase();
         };
     }

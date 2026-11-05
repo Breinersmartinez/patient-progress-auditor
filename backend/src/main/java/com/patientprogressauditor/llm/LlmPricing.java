@@ -17,7 +17,31 @@ final class LlmPricing {
             "groq/openai/gpt-oss-20b", new Price("0.075", "0.30"),
             "gemini/gemini-3.5-flash-lite", new Price("0.30", "2.50"));
 
+    // Voz a texto: USD por hora de audio, verificado el 2026-11-05 en console.groq.com/docs/speech-to-text. Groq cobra al
+    // menos 10 s por peticion.
+    private static final Map<String, String> AUDIO_PER_HOUR = Map.of(
+            "groq/whisper-large-v3-turbo", "0.04",
+            "groq/whisper-large-v3", "0.111");
+    static final int MIN_BILLED_AUDIO_SECONDS = 10;
+
     private LlmPricing() {
+    }
+
+    // El costo de un intento que respondio: por tiempo si fue una transcripcion, por tokens si fue texto. null si no se sabe.
+    static BigDecimal cost(Attempt attempt) {
+        return attempt.audioSeconds() > 0 ? audioCost(attempt.provider(), attempt.model(), attempt.audioSeconds())
+                : cost(attempt.provider(), attempt.model(), attempt.tokensIn(), attempt.tokensOut());
+    }
+
+    // Lo que cuesta transcribir `seconds` de audio a precio de lista, con el minimo que cobra el proveedor. null si el modelo
+    // no tiene precio conocido o si no se sabe la duracion.
+    static BigDecimal audioCost(String provider, String model, double seconds) {
+        String perHour = AUDIO_PER_HOUR.get(provider + "/" + model);
+        if (perHour == null || !(seconds > 0) || Double.isInfinite(seconds)) {
+            return null;
+        }
+        BigDecimal billed = BigDecimal.valueOf(Math.max(seconds, MIN_BILLED_AUDIO_SECONDS));
+        return new BigDecimal(perHour).multiply(billed).divide(BigDecimal.valueOf(3600), 6, RoundingMode.HALF_UP);
     }
 
     static BigDecimal cost(String provider, String model, int tokensIn, int tokensOut) {
