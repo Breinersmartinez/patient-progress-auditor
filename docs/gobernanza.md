@@ -2,7 +2,7 @@
 
 > **Estado:** v0.1 para revisión · **Fecha:** 2026-11-03 · **Equipo:** Breiner Martinez Muñoz y Andres Felipe Lopez Vivas · **Entregable:** Momento 3, OBJ-14 **[Curso]**
 >
-> **Qué describe.** El sistema como está hoy: el módulo de enfermería del Momento 2, **sin autenticación** (usuarios de demostración, D26), más la integración opcional de Langfuse (D28), ya escrita en el código (pasos 4 y 5 de `docs/PLAN_M3.md`) y **todavía sin comprobar contra Langfuse Cloud** (paso 6). Cada afirmación sin etiqueta se verificó en el código o en una prueba, y la ruta va entre paréntesis. Lo que es decisión del equipo lleva **[Equipo]** y lo que es propuesta, **[Propuesta]**. Lo que cambia con el Momento 3 va marcado «M3».
+> **Qué describe.** El sistema como está hoy: el módulo de enfermería del Momento 2, **sin autenticación** (usuarios de demostración, D26), más la integración opcional de Langfuse (D28), ya escrita en el código (pasos 4 y 5 de `docs/PLAN_M3.md`) y **todavía sin comprobar contra Langfuse Cloud** (paso 6). Cada afirmación sin etiqueta se verificó en el código o en una prueba, y la ruta va entre paréntesis. Lo que es decisión del equipo lleva **[Equipo]** y lo que es propuesta, **[Propuesta]**. Lo que cambia con el Momento 3 va marcado «M3». **Decidido el 2026-11-07 y todavía por construir:** «Enviar al médico» y el estado `ENVIADO` (D29, Pieza 3 de `docs/PLAN_M3.md`); donde lo cambia se dice qué hace el código hoy y qué hará.
 >
 > **Qué no es.** No es el modelo de amenazas: `docs/seguridad.md` no existe todavía (Momento 3) y esta ficha se debe reescribir sobre él. El curso pide una página; esta versión la supera porque también dice lo que falta, y se compacta al cerrar el Momento 3 **[Propuesta]**.
 
@@ -29,8 +29,9 @@ El sistema es apoyo al seguimiento documental: no diagnostica, no receta y no su
 | Qué necesita un humano | Quién | Cómo lo exige el sistema |
 |---|---|---|
 | **Aprobar o rechazar un informe** | Una persona con el rol **ENFERMERIA** | `@PreAuthorize("hasAuthority('REPORTS_APPROVE')")` en `approve` y `reject` (`report/ReportController.java`). Ese permiso solo lo tiene ENFERMERIA en la matriz sembrada (`V4__seed_domain_rbac.sql`) |
-| Que el informe sea aprobable | — | `ReportTransitions` solo deja pasar de `PENDIENTE_REVISION` a `APROBADO` o `RECHAZADO`; los demás estados son finales. El servidor lo decide, no la pantalla |
-| Que el médico no vea un borrador | — | `ReportVisibility`: el médico solo ve `APROBADO`; para él, un informe sin aprobar «parece no existir» |
+| **Enviar al médico (D29, por construir)** | Una persona con el rol **ENFERMERIA** | Decidido el 2026-11-07, todavía no está en el código: un permiso nuevo `REPORTS_SEND`, solo de ENFERMERIA, y el servidor solo deja enviar un informe `APROBADO`. Aprobar guarda el informe; enviarlo es lo que lo hace llegar al médico **[Equipo]** |
+| Que el informe sea aprobable | — | `ReportTransitions` solo deja pasar de `PENDIENTE_REVISION` a `APROBADO` o `RECHAZADO`; los demás estados son finales. Con D29 se suma `APROBADO` a `ENVIADO`, y `ENVIADO` será final (por construir). El servidor lo decide, no la pantalla |
+| Que el médico no vea un borrador | — | `ReportVisibility`: hoy el médico solo ve `APROBADO`; con D29 (por construir) solo verá `ENVIADO`, y un informe sin enviar «parecerá no existir» |
 | **Confirmar los eventos al registrar** | Quien registra (enfermería o médico) | La IA propone síntomas, intensidad y veces; no se guarda nada hasta confirmarlos o editarlos. «Descartar» no guarda (RN-11, D27) |
 | Contrastar el informe con los registros | La persona de enfermería que lo revisa | Cada afirmación lleva sus citas a los registros originales y la traza está a un clic (RF-22) |
 
@@ -38,7 +39,7 @@ La supervisión es **exigida por el sistema**, no una costumbre del operador: si
 
 **Lo que hoy no se puede afirmar: quién es la persona.** El sistema exige el *rol*, pero no verifica la *identidad*. El usuario viaja en la cabecera `X-Demo-User` y el propio filtro lo dice: «No es autenticación: cualquiera puede mandar un id» (`session/DemoUserFilter.java`). Quien conozca el id de un usuario de enfermería puede aprobar como esa persona. Es la decisión del equipo (D23, D26) y se cierra con RF-31, que es del M3: hasta entonces la ficha no puede decir que el aprobador es quien dice ser **[Equipo]**.
 
-**Hueco conocido:** un informe aprobado no se puede retirar ni anular; solo se emite uno nuevo (`ReportTransitions`). Si hace falta un estado «retirado», es una decisión por tomar, y hoy no está en `docs/REQUISITOS.md`.
+**Hueco conocido:** un informe aprobado, y con D29 uno enviado, no se puede retirar ni anular; solo se emite uno nuevo (`ReportTransitions`). Si hace falta un estado «retirado», es una decisión por tomar, y hoy no está en `docs/REQUISITOS.md`.
 
 ## 3. ¿Qué queda registrado, dónde y por cuánto tiempo?
 
@@ -78,8 +79,8 @@ Daños que consideramos: **a)** un informe con una afirmación falsa o un diagn�
 | **¿Quién se entera?** | Hoy, **nadie de forma automática**: no hay alertas, correo ni monitor. Se entera la persona de enfermería al revisar, o el equipo al mirar la traza o los registros. **[Propuesta]** responsables: las dos personas del equipo; quien detecte avisa a la otra de inmediato |
 | **¿Cómo se apaga?** | **Solo la IA** (los registros siguen): quitar `GROQ_API_KEY` y `GEMINI_API_KEY` del `.env` y ejecutar `docker compose up -d backend`; registrar entradas sigue funcionando (RF-41). **Todo:** `docker compose stop backend`; los datos permanecen en el volumen. **Langfuse:** quitar `LANGFUSE_PUBLIC_KEY` y `LANGFUSE_SECRET_KEY`, o revocarlas en su panel. **Una llave filtrada:** revocarla en la consola del proveedor; borrarla del historial no basta |
 | **Lo que NO existe** | Un botón o endpoint para cancelar una ejecución en curso (`RunController` solo crea, consulta y sigue el progreso). La ejecución termina sola por sus límites o se corta al detener el backend; al reiniciar queda `FALLIDA` |
-| **¿Qué se revisa?** | El informe afectado: su traza (herramienta, parámetros, resultado, ms y tokens), sus versiones (la del modelo y las de enfermería), quién lo aprobó y cuándo, y si ya llegó al médico (estado `APROBADO`). Para un fallo del proveedor, `agent_runs` dice el motivo de parada |
-| **¿Cómo se corrige?** | Un informe aprobado no se modifica ni se retira: se pide uno nuevo, que pasa de nuevo por enfermería. Avisar al médico que lo recibió se hace **fuera del sistema** (hoy no envía mensajes) |
+| **¿Qué se revisa?** | El informe afectado: su traza (herramienta, parámetros, resultado, ms y tokens), sus versiones (la del modelo y las de enfermería), quién lo aprobó y cuándo, y si ya llegó al médico (hoy el estado `APROBADO`; con D29, `ENVIADO`, con quién y cuándo lo envió). Para un fallo del proveedor, `agent_runs` dice el motivo de parada |
+| **¿Cómo se corrige?** | Un informe aprobado o enviado no se modifica ni se retira: se pide uno nuevo, que pasa de nuevo por enfermería. Avisar al médico que lo recibió se hace **fuera del sistema** (hoy no envía mensajes) |
 | **¿A quién se avisa?** | **[Propuesta]** a la persona de enfermería que aprobó, al médico que recibió el informe, al profesor del curso mientras sea una entrega, y al proveedor si hubo una fuga. Con datos reales, a la institución y a quien exija la normativa aplicable, que el equipo debe confirmar antes de usarlos |
 
 ## Lo que esta ficha todavía no puede decir

@@ -79,7 +79,7 @@ Se guardan como `VARCHAR` con `CHECK`, no como `ENUM` de PostgreSQL, para poder 
 | Código | Qué es | Hito | Origen |
 |---|---|---|---|
 | `ENFERMERIA` | Registra, genera, revisa, corrige y aprueba o rechaza | M2-N | RF-32, RN-02 |
-| `MEDICO` | Consulta informes `APROBADO` y registra entradas | M2-N | RF-28, RF-30, D12 |
+| `MEDICO` | Consulta informes `ENVIADO` y registra entradas | M2-N | RF-28, RF-30, D12 |
 | `ADMIN` | Gestiona usuarios y roles; no lee datos clínicos | M3 | RF-33, RF-34 |
 | `AGENTE` | Rol técnico del agente: lectura y guardar el borrador; sin usuario ni contraseña | M2-N | RF-09, RF-32 |
 
@@ -87,7 +87,7 @@ Se guardan como `VARCHAR` con `CHECK`, no como `ENUM` de PostgreSQL, para poder 
 
 | Campo | Valores | Notas | Origen |
 |---|---|---|---|
-| `reports.status` | `PENDIENTE_REVISION`, `INCOMPLETO`, `APROBADO`, `RECHAZADO` | Valor inicial `PENDIENTE_REVISION`, o `INCOMPLETO` si se agotó un límite. Transiciones en §5 | RF-17, RF-23 |
+| `reports.status` | `PENDIENTE_REVISION`, `INCOMPLETO`, `APROBADO`, `ENVIADO`, `RECHAZADO` | Valor inicial `PENDIENTE_REVISION`, o `INCOMPLETO` si se agotó un límite. `ENVIADO` es M3 (D29). Transiciones en §5 | RF-17, RF-23, RF-44 |
 | `reports.report_type` | `SEMANAL`, `MENSUAL` | | RF-08, RF-36 |
 | `report_versions.origin` | `MODELO`, `ENFERMERIA` | La versión 1 es siempre `MODELO` | RF-25 |
 | `entries.source` | `TEXTO`, `VOZ` | `VOZ` solo si entra el dictado | RF-38 |
@@ -100,7 +100,7 @@ Se guardan como `VARCHAR` con `CHECK`, no como `ENUM` de PostgreSQL, para poder 
 | `agent_runs.status` | `EN_COLA`, `EN_CURSO`, `COMPLETADA`, `INCOMPLETA`, `FALLIDA` | **[Propuesta]**: el estado de la ejecución vive en la BD para poder consultarlo y reanudar | D24 |
 | `agent_runs.stop_reason` | `EXITO`, `MAX_ITERACIONES`, `MAX_TOKENS`, `TIMEOUT_HERRAMIENTA`, `SALIDA_INVALIDA`, `PROVEEDOR_NO_DISPONIBLE` | **[Propuesta]**: el motivo con el que termina | RF-16, RF-17, RF-19 |
 | `agent_steps.step_type` | `ESTADO`, `LLAMADA_LLM`, `HERRAMIENTA`, `VALIDACION`, `LIMITE`, `FALLBACK`, `ERROR` | **[Propuesta]** | RF-22, D24 |
-| `audit_logs.action` | `APROBAR_INFORME`, `RECHAZAR_INFORME`, `EDITAR_INFORME`, `EDITAR_ENTRADA`, `REGISTRAR_ENTRADA_MEDICO`, `CAMBIAR_PERMISOS` | `CAMBIAR_PERMISOS` es del Momento 3 | RF-35 |
+| `audit_logs.action` | `APROBAR_INFORME`, `ENVIAR_INFORME` (M3, D29), `RECHAZAR_INFORME`, `EDITAR_INFORME`, `EDITAR_ENTRADA`, `REGISTRAR_ENTRADA_MEDICO`, `CAMBIAR_PERMISOS` | `CAMBIAR_PERMISOS` es del Momento 3 | RF-35 |
 
 ### 3.3 Catálogo de permisos del dominio
 
@@ -114,11 +114,12 @@ V2 dejó los permisos del dominio «hasta que la especificación cierre sus nomb
 | `ENTRIES_READ` | Ver entradas y eventos | Sí | Sí | — | Sí | M2-N | SPEC §4 |
 | `ENTRIES_CREATE` | Registrar entradas y confirmar sus eventos | Sí | Sí | — | — | M2-N | RF-02, RF-40, D12 |
 | `ENTRIES_UPDATE` | Corregir una entrada con versión | Sí | — | — | — | M2-S | RF-03 |
-| `REPORTS_READ` | Ver informes; para el médico solo `APROBADO`, regla de estado en la consulta | Sí | Sí | — | — | M2-N | RN-01, RF-28 |
+| `REPORTS_READ` | Ver informes; para el médico solo `ENVIADO` (hasta D29, `APROBADO`), regla de estado en la consulta | Sí | Sí | — | — | M2-N | RN-01, RF-28 |
 | `REPORTS_REQUEST` | Pedir la generación de un informe | Sí | — | — | — | M2-N | RF-08, **[Propuesta]** |
 | `REPORTS_CREATE_DRAFT` | Guardar el borrador en `PENDIENTE_REVISION` | — | — | — | Sí | M2-N | RF-09, SPEC §4 |
 | `REPORTS_UPDATE` | Editar el borrador antes de aprobar | Sí | — | — | — | M2-N | RF-25 |
 | `REPORTS_APPROVE` | Aprobar o rechazar un informe; fijo para enfermería | Sí | — | — | — | M2-N | RN-02, RF-26, RF-27, RF-34 |
+| `REPORTS_SEND` | Enviar al médico un informe aprobado; solo enfermería **[Propuesta]** | Sí | — | — | — | M3 | RN-02, RF-44, D29 |
 | `TRACES_READ` | Ver el módulo de trazas | — | — | Sí | — | M3 | SPEC §4; ver punto 1 de §8 |
 | `USERS_CREATE`, `USERS_READ`, `USERS_UPDATE`, `USERS_DELETE` | Administrar usuarios | — | — | Sí | — | M3 | V2, RF-33 |
 | `ROLES_READ`, `ROLES_UPDATE` | Ver y editar roles y permisos | — | — | Sí | — | M3 | V2, RF-34 |
@@ -239,15 +240,18 @@ Un informe de un paciente y un período. Lo que el modelo redactó y lo que enfe
 | `model` | Modelo | `VARCHAR(100)` | Sí | — | Modelo que redactó el borrador | RF-37, D15 |
 | `reviewed_by` | Revisó | `UUID` | Sí | FK → `app_users` | Quién aprobó o rechazó. Debe tener el rol `ENFERMERIA`: lo valida el servidor, no la BD | RN-02, RF-26 |
 | `reviewed_at` | Revisado | `TIMESTAMPTZ` | Sí | — | Cuándo se aprobó o rechazó | RF-26 |
-| `approved_version_no` | Versión aprobada | `INTEGER` | Sí | — | Qué versión de `report_versions` se aprobó; es la que ve el médico | RF-25, RF-28 |
+| `approved_version_no` | Versión aprobada | `INTEGER` | Sí | — | Qué versión de `report_versions` se aprobó; es la que imprime el PDF y la que ve el médico una vez enviado. Se conserva en `ENVIADO` | RF-25, RF-28 |
+| `sent_by` | Envió | `UUID` | Sí | FK → `app_users` | Nueva (M3, D29). Quién envió el informe al médico. Debe tener el rol `ENFERMERIA`: lo valida el servidor, no la BD. Vacío salvo en `ENVIADO` | RN-02, RF-44 |
+| `sent_at` | Enviado | `TIMESTAMPTZ` | Sí | — | Nueva (M3, D29). Cuándo se envió; es lo que el médico ve como «Recibido». Vacío salvo en `ENVIADO` | RF-44 |
 | `created_at` | Creado | `TIMESTAMPTZ` | No | — | | V1 |
 | `updated_at` | Actualizado | `TIMESTAMPTZ` | No | — | | V1 |
 
 **Restricciones:**
-- `CHECK ((status IN ('APROBADO','RECHAZADO')) = (reviewed_by IS NOT NULL AND reviewed_at IS NOT NULL))`.
-- `CHECK (status <> 'APROBADO' OR approved_version_no IS NOT NULL)`.
+- `CHECK ((status IN ('APROBADO','ENVIADO','RECHAZADO')) = (reviewed_by IS NOT NULL AND reviewed_at IS NOT NULL))`: un enviado conserva quién y cuándo lo aprobó (M3, D29; `V3` solo decía `APROBADO` y `RECHAZADO`, y `V10` la reemplaza).
+- `CHECK (status NOT IN ('APROBADO','ENVIADO') OR approved_version_no IS NOT NULL)`.
+- `CHECK ((status = 'ENVIADO') = (sent_by IS NOT NULL AND sent_at IS NOT NULL))` (M3, D29).
 - `CHECK (status NOT IN ('INCOMPLETO','RECHAZADO') OR status_reason IS NOT NULL)`.
-- Índice único parcial `(patient_id, report_type, period_start) WHERE status IN ('PENDIENTE_REVISION','APROBADO')`: a lo sumo un informe vigente por paciente y período; uno `RECHAZADO` o `INCOMPLETO` no bloquea pedir uno nuevo **[Propuesta]**.
+- Índice único parcial `(patient_id, report_type, period_start) WHERE status IN ('PENDIENTE_REVISION','APROBADO','ENVIADO')`: a lo sumo un informe vigente por paciente y período; uno `RECHAZADO` o `INCOMPLETO` no bloquea pedir uno nuevo **[Propuesta]**.
 - Índices: `(patient_id, period_start DESC)` para la consulta del médico y `(status)`.
 
 ### 4.8 `report_versions` — Versiones del informe (M2-N)
@@ -296,9 +300,9 @@ Deja a la vista de qué cuatro informes semanales sale un mensual.
 |---|---|---|---|---|---|---|
 | `monthly_report_id` | Informe mensual | `UUID` | No | PK, FK → `reports` | Un informe con `report_type = 'MENSUAL'` | RF-36 |
 | `week_no` | Semana | `SMALLINT` | No | PK | De 1 a 4: `CHECK (week_no BETWEEN 1 AND 4)` | RN-10 |
-| `weekly_report_id` | Informe semanal | `UUID` | No | FK → `reports` | Un informe `SEMANAL` en estado `APROBADO`, de las cuatro semanas consecutivas. `UNIQUE (monthly_report_id, weekly_report_id)` | RN-10 |
+| `weekly_report_id` | Informe semanal | `UUID` | No | FK → `reports` | Un informe `SEMANAL` aprobado (`APROBADO` o `ENVIADO`, D29), de las cuatro semanas consecutivas. `UNIQUE (monthly_report_id, weekly_report_id)` | RN-10 |
 
-Que los cuatro semanales estén `APROBADO` y sean consecutivos lo valida el servidor antes de generar el mensual; la BD no lo puede expresar (§5).
+Que los cuatro semanales estén aprobados (`APROBADO` o `ENVIADO`) y sean consecutivos lo valida el servidor antes de generar el mensual; la BD no lo puede expresar (§5).
 
 ### 4.11 `agent_runs` — Ejecuciones (M2-N)
 
@@ -372,8 +376,9 @@ Una fila por acción sensible. Solo se agregan filas; nunca se actualizan ni se 
 
 | Regla | Dónde se garantiza | Cómo | Origen |
 |---|---|---|---|
-| Solo enfermería aprueba o rechaza | Servidor y BD | El servidor comprueba el rol de `reviewed_by` y valida la transición; la BD exige `reviewed_by` y `reviewed_at` en `APROBADO` y `RECHAZADO` | RN-02, RF-26 |
-| El médico solo ve informes `APROBADO` | Servidor | Es una regla de estado: va en la consulta (`status = 'APROBADO'` y la versión de `approved_version_no`), no en un permiso | RN-01, RF-28 |
+| Solo enfermería aprueba o rechaza | Servidor y BD | El servidor comprueba el rol de `reviewed_by` y valida la transición; la BD exige `reviewed_by` y `reviewed_at` en `APROBADO`, `ENVIADO` y `RECHAZADO` | RN-02, RF-26 |
+| Solo enfermería envía, y solo un informe `APROBADO` (M3, D29) | Servidor y BD | El servidor exige `REPORTS_SEND`, comprueba el rol de `sent_by` y valida la transición (otro estado, 409); la BD exige `sent_by` y `sent_at` exactamente en `ENVIADO` | RN-02, RF-44 |
+| El médico solo ve informes `ENVIADO` | Servidor | Es una regla de estado: va en la consulta (`status = 'ENVIADO'` y la versión de `approved_version_no`; hasta D29, `APROBADO`), no en un permiso | RN-01, RF-28 |
 | Una semana va de lunes a domingo; el mensual son 28 días | BD | `CHECK` sobre `period_start` y `period_end` en `reports` | RN-06, RN-10 |
 | El mensual solo se genera con cuatro semanas consecutivas y aprobadas | Servidor y `monthly_report_weeks` | El servidor verifica las cuatro semanas antes de pedir el informe y, si falta una, no lo genera e indica cuál | RN-10, RF-36 |
 | Toda afirmación cita al menos una entrada | Servidor | El validador exige una fila en `report_citations` por cada `claim_key` y que las entradas sean del mismo paciente | RN-05, RF-12 |
@@ -382,7 +387,7 @@ Una fila por acción sensible. Solo se agregan filas; nunca se actualizan ni se 
 | Ningún evento se guarda sin confirmación | BD y servidor | `confirmed_by` y `confirmed_at` son `NOT NULL`; la entrada y sus eventos confirmados se guardan en una sola transacción, y descartar no guarda nada | RN-11, RF-40 |
 | Las entradas y los informes no se borran | BD | Ninguna clave foránea del dominio usa `ON DELETE CASCADE` y no hay operación de borrado | RNF-10 |
 | Orden de las entradas del mismo día | BD | `created_at`, con el índice `(patient_id, entry_date, created_at)` | RN-09 |
-| La semilla es idempotente y nunca corre en producción | Servidor | UUID fijos y `ON CONFLICT DO NOTHING`; solo con `APP_SEED_DEMO=true`; el perfil `prod` la rechaza | RF-05, RF-39, D23 |
+| La semilla es idempotente y nunca corre en producción | Servidor | UUID fijos y `ON CONFLICT DO NOTHING`; solo con `APP_SEED_DEMO=true`; el perfil `prod` la rechaza. Desde D29 también reconcilia: avanza `APROBADO` a `ENVIADO` solo en los informes que ella declara enviados, nunca al revés ni en otro informe | RF-05, RF-39, D23 |
 
 ### 5.2 Transiciones del estado del informe
 
@@ -393,7 +398,8 @@ Una fila por acción sensible. Solo se agregan filas; nunca se actualizan ni se 
 | `PENDIENTE_REVISION` | `APROBADO` | Enfermería | M2-N | RN-02, RF-26 |
 | `PENDIENTE_REVISION` | `RECHAZADO` | Enfermería, con motivo; después se pide un informe nuevo | M2-S | RF-27 |
 | `INCOMPLETO` | por definir | No está decidido si puede aprobarse, rechazarse o solo regenerarse | — | Ver punto 8 de §8 |
-| `APROBADO`, `RECHAZADO` | ninguna | Estados finales: un cambio se hace con un informe nuevo **[Propuesta]** | — | RF-23 |
+| `APROBADO` | `ENVIADO` | Enfermería con `REPORTS_SEND`; guarda `sent_by` y `sent_at`. Lo que lo hace llegar al médico (D29) | M3 | RF-44 |
+| `ENVIADO`, `RECHAZADO` | ninguna | Estados finales: un cambio se hace con un informe nuevo **[Propuesta]** | — | RF-23, RF-44 |
 
 ## 6. Qué sale al proveedor del LLM y qué no se guarda
 
@@ -405,7 +411,7 @@ Una fila por acción sensible. Solo se agregan filas; nunca se actualizan ni se 
 | `app_users.password_hash` | No | | RNF-01 |
 | Audio de dictado | No se guarda | Solo queda el texto transcrito, con `source = 'VOZ'` | RF-38, RNF-02 |
 | Métricas calculadas | No se guardan | Se calculan al pedirlas; el informe guarda una copia de las que usó | RF-07 |
-| PDF exportado | No se guarda | Se genera al vuelo desde un informe `APROBADO` | RF-37 |
+| PDF exportado | No se guarda | Se genera al vuelo desde un informe `APROBADO` o `ENVIADO` | RF-37 |
 | Propuesta descartada de eventos | Solo en la traza | Lo que no se confirma no es un evento; queda en `agent_steps.result` de la estructuración | RN-11, RF-22 |
 
 Lo que sale a terceros se declara en `docs/gobernanza.md` (Momento 3).
@@ -458,6 +464,7 @@ Cada punto cambia una columna, un valor o un permiso de este diccionario; ningun
 | RF-15, RF-21 | Ninguna: son reglas del prompt, de la validación y de las herramientas disponibles |
 | RF-18 | `report_versions.plain_text` |
 | RF-23, RF-26, RF-27, RF-28 | `reports` (`status`, `status_reason`, `reviewed_by`, `reviewed_at`, `approved_version_no`) |
+| RF-44 (M3) | `reports` (`status`, `sent_by`, `sent_at`) y el permiso `REPORTS_SEND` |
 | RF-25 | `report_versions` |
 | RF-30 | `entries.author_id` y el permiso `ENTRIES_CREATE` del médico |
 | RF-31, RF-33 | `app_users` (`password_hash`, `active`) |
