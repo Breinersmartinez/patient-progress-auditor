@@ -120,6 +120,65 @@ class DomainSchemaTest {
                 .isInstanceOf(DataIntegrityViolationException.class);
     }
 
+    // V10 (D29): un enviado conserva quien y cuando lo aprobo, y ademas quien y cuando lo envio, y solo el enviado.
+    private void insertSent(String status, UUID reviewer, Integer approvedVersion, UUID sender, OffsetDateTime sentAt) {
+        jdbc.update("INSERT INTO reports (id, patient_id, report_type, period_start, period_end, status, requested_by, reviewed_by,"
+                + " reviewed_at, approved_version_no, sent_by, sent_at) VALUES (?, ?, 'SEMANAL', ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                UUID.randomUUID(), patient, MONDAY, MONDAY.plusDays(6), status, nurse, reviewer,
+                reviewer == null ? null : OffsetDateTime.now(), approvedVersion, sender, sentAt);
+    }
+
+    @Test
+    void aSentReportKeepsItsApprovalAndNamesWhoSentItAndWhen() {
+        assertThatCode(() -> insertSent("ENVIADO", nurse, 1, nurse, OffsetDateTime.now())).doesNotThrowAnyException();
+    }
+
+    // Un solo INSERT que falla por prueba: tras el primero PostgreSQL aborta la transaccion.
+    @Test
+    void aSentReportNeedsWhoSentIt() {
+        assertThatThrownBy(() -> insertSent("ENVIADO", nurse, 1, null, OffsetDateTime.now())).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void aSentReportNeedsWhenItWasSent() {
+        assertThatThrownBy(() -> insertSent("ENVIADO", nurse, 1, nurse, null)).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void aSentReportNeedsWhoApprovedIt() {
+        assertThatThrownBy(() -> insertSent("ENVIADO", null, 1, nurse, OffsetDateTime.now())).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void aSentReportNeedsAnApprovedVersion() {
+        assertThatThrownBy(() -> insertSent("ENVIADO", nurse, null, nurse, OffsetDateTime.now())).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void anApprovedReportCannotHaveBeenSent() {
+        assertThatThrownBy(() -> insertSent("APROBADO", nurse, 1, nurse, OffsetDateTime.now())).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void aPendingReportCannotHaveBeenSent() {
+        assertThatThrownBy(() -> insertSent("PENDIENTE_REVISION", null, null, nurse, OffsetDateTime.now())).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void aSentReportIsStillTheCurrentOneOfItsPeriod() {
+        insertSent("ENVIADO", nurse, 1, nurse, OffsetDateTime.now());
+
+        assertThatThrownBy(() -> insertReport("SEMANAL", MONDAY, MONDAY.plusDays(6), "PENDIENTE_REVISION", null, null, null))
+                .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void twoSentReportsOfTheSamePeriodAreRejected() {
+        insertSent("ENVIADO", nurse, 1, nurse, OffsetDateTime.now());
+
+        assertThatThrownBy(() -> insertSent("ENVIADO", nurse, 1, nurse, OffsetDateTime.now())).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
     @Test
     void incompleteReportNeedsReason() {
         assertThatThrownBy(() -> insertReport("SEMANAL", MONDAY, MONDAY.plusDays(6), "INCOMPLETO", null, null, null))
@@ -158,6 +217,16 @@ class DomainSchemaTest {
         List<String> roles = jdbc.queryForList(
                 "SELECT r.code FROM app_role_permissions rp JOIN app_roles r ON r.id = rp.role_id"
                         + " JOIN app_permissions p ON p.id = rp.permission_id WHERE p.code = 'REPORTS_APPROVE'",
+                String.class);
+
+        assertThat(roles).containsExactly("ENFERMERIA");
+    }
+
+    @Test
+    void onlyNursingCanSendAReportToTheDoctor() {
+        List<String> roles = jdbc.queryForList(
+                "SELECT r.code FROM app_role_permissions rp JOIN app_roles r ON r.id = rp.role_id"
+                        + " JOIN app_permissions p ON p.id = rp.permission_id WHERE p.code = 'REPORTS_SEND'",
                 String.class);
 
         assertThat(roles).containsExactly("ENFERMERIA");

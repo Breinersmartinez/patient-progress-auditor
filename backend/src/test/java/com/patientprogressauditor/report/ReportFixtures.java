@@ -42,16 +42,18 @@ final class ReportFixtures {
         List<Entry> week = weekEntries(patient, monday);
         UUID id = UUID.randomUUID();
         UUID version = UUID.randomUUID();
-        boolean reviewed = status.equals("APROBADO") || status.equals("RECHAZADO");
+        boolean sent = status.equals("ENVIADO");
+        boolean approved = status.equals("APROBADO") || sent;
+        boolean reviewed = approved || status.equals("RECHAZADO");
         Instant now = Instant.now();
         jdbc.update("""
                 INSERT INTO reports (id, patient_id, report_type, period_start, period_end, status, status_reason, requested_by,
-                    reviewed_by, reviewed_at, approved_version_no)
-                VALUES (?, ?, 'SEMANAL', ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    reviewed_by, reviewed_at, approved_version_no, sent_by, sent_at)
+                VALUES (?, ?, 'SEMANAL', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 id, patient, monday, monday.plusDays(6), status,
                 status.equals("INCOMPLETO") ? "Se agotó el límite de 5 llamadas al modelo." : status.equals("RECHAZADO") ? "No concuerda con los registros." : null,
                 UUID.fromString(NURSE), reviewed ? UUID.fromString(NURSE) : null, reviewed ? java.sql.Timestamp.from(now) : null,
-                status.equals("APROBADO") ? 1 : null);
+                approved ? 1 : null, sent ? UUID.fromString(NURSE) : null, sent ? java.sql.Timestamp.from(now) : null);
         jdbc.update("INSERT INTO report_versions (id, report_id, version_no, origin, content) VALUES (?, ?, 1, 'MODELO', ?::jsonb)",
                 version, id, content(monday, week.get(0).getId(), week.get(1).getId()).toString());
         jdbc.update("INSERT INTO report_citations (report_version_id, claim_key, entry_id) VALUES (?, 'c1', ?), (?, 'c2', ?)",

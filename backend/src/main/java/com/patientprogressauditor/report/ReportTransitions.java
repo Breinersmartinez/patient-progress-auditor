@@ -9,14 +9,15 @@ import com.patientprogressauditor.report.Report.Status;
 import com.patientprogressauditor.web.FieldException;
 
 // Las transiciones del estado de un informe (DICCIONARIO_DATOS_M2 §5.2, RF-23), decididas aqui y no en la pantalla.
-// Solo un borrador pendiente de revision se edita, se aprueba o se rechaza; los demas estados son finales: un cambio se
-// hace con un informe nuevo.
+// Solo un borrador pendiente de revision se edita, se aprueba o se rechaza; un aprobado solo se envia al medico (D29);
+// los demas estados son finales: un cambio se hace con un informe nuevo.
 public final class ReportTransitions {
 
     private static final Map<Status, Set<Status>> ALLOWED = Map.of(
             Status.PENDIENTE_REVISION, Set.of(Status.APROBADO, Status.RECHAZADO),
             Status.INCOMPLETO, Set.of(),
-            Status.APROBADO, Set.of(),
+            Status.APROBADO, Set.of(Status.ENVIADO),
+            Status.ENVIADO, Set.of(),
             Status.RECHAZADO, Set.of());
 
     private ReportTransitions() {
@@ -33,7 +34,11 @@ public final class ReportTransitions {
     // 409 con una frase que la persona entienda, no el nombre tecnico del estado.
     public static void require(Report report, Status to) {
         if (!allowed(report.getStatus(), to)) {
-            throw conflict(report, to == Status.APROBADO ? "aprobar" : "rechazar");
+            throw conflict(report, switch (to) {
+                case APROBADO -> "aprobar";
+                case ENVIADO -> "enviar";
+                default -> "rechazar";
+            });
         }
     }
 
@@ -47,8 +52,11 @@ public final class ReportTransitions {
         String why = switch (report.getStatus()) {
             case INCOMPLETO -> "está incompleto (" + report.getStatusReason() + "). Pida un informe nuevo.";
             case APROBADO -> "ya fue aprobado y no se modifica. Para un cambio, pida un informe nuevo.";
+            case ENVIADO -> "ya fue enviado al médico y no se modifica. Para un cambio, pida un informe nuevo.";
             case RECHAZADO -> "ya fue rechazado. Pida un informe nuevo.";
-            default -> "no está pendiente de revisión.";
+            default -> "enviar".equals(action)
+                    ? "todavía no fue aprobado. Apruébelo antes de enviarlo."
+                    : "no está pendiente de revisión.";
         };
         return new FieldException(HttpStatus.CONFLICT, "status", "No se puede " + action + " este informe: " + why);
     }

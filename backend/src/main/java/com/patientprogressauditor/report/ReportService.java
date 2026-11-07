@@ -41,7 +41,7 @@ import com.patientprogressauditor.web.FieldException;
 import com.patientprogressauditor.web.NotFoundException;
 
 // Lo que se hace con un informe despues de que el agente lo deja: verlo con su evidencia, corregirlo, aprobarlo o
-// rechazarlo. Las reglas (quien ve que, que transiciones existen, que se puede editar) se deciden AQUI, en el servidor.
+// rechazarlo, y enviarlo al medico. Las reglas (quien ve que, que transiciones existen, que se puede editar) se deciden AQUI, en el servidor.
 @Service
 public class ReportService {
 
@@ -49,7 +49,7 @@ public class ReportService {
 
     public record Summary(UUID id, UUID patientId, String patientAlias, Report.Type reportType, LocalDate periodStart,
             LocalDate periodEnd, Report.Status status, String statusReason, Instant generatedAt, String reviewedBy,
-            Instant reviewedAt, String provider, String model) {
+            Instant reviewedAt, String sentBy, Instant sentAt, String provider, String model) {
     }
 
     public record VersionMeta(int versionNo, ReportVersion.Origin origin, String editedBy, Instant createdAt) {
@@ -197,6 +197,20 @@ public class ReportService {
         return detail(id, principal);
     }
 
+    // Enviar al medico (RF-44, D29): solo un aprobado, solo quien tiene REPORTS_SEND (lo exige el controlador). Guarda quien y
+    // cuando; lo aprobado (version, revisor) no cambia.
+    @Transactional
+    public Detail send(UUID id, DemoPrincipal principal) {
+        Report report = locked(id);
+        ReportTransitions.require(report, Report.Status.ENVIADO);
+        report.setStatus(Report.Status.ENVIADO);
+        report.setSentBy(principal.id());
+        report.setSentAt(clock.instant());
+        report.setUpdatedAt(clock.instant());
+        reports.saveAndFlush(report);
+        return detail(id, principal);
+    }
+
     @Transactional
     public Detail reject(UUID id, String reason, DemoPrincipal principal) {
         Report report = locked(id);
@@ -230,7 +244,7 @@ public class ReportService {
         List<WeekOption> out = new ArrayList<>();
         perWeek.forEach((monday, count) -> {
             Optional<Report> current = weekly.stream().filter(r -> r.getPeriodStart().equals(monday))
-                    .filter(r -> r.getStatus() == Report.Status.PENDIENTE_REVISION || r.getStatus() == Report.Status.APROBADO).findFirst();
+                    .filter(r -> r.getStatus().current()).findFirst();
             Optional<AgentRun> live = runs.findFirstByPatientIdAndPeriodStartAndRunTypeAndStatusIn(patientId, monday,
                     AgentRun.Type.INFORME, List.of(AgentRun.Status.EN_COLA, AgentRun.Status.EN_CURSO));
             String reason = current.isPresent() ? "Ya hay un informe de esta semana." : live.isPresent() ? "Ya se está generando." : null;
@@ -268,10 +282,12 @@ public class ReportService {
     private List<Summary> summaries(List<Report> found) {
         Map<UUID, String> aliases = patients.findAllById(found.stream().map(Report::getPatientId).collect(Collectors.toSet())).stream()
                 .collect(Collectors.toMap(Patient::getId, Patient::getAlias));
-        Map<UUID, String> reviewers = names(found.stream().map(Report::getReviewedBy).filter(java.util.Objects::nonNull).collect(Collectors.toSet()));
+        Map<UUID, String> reviewers = names(found.stream().flatMap(r -> java.util.stream.Stream.of(r.getReviewedBy(), r.getSentBy()))
+                .filter(java.util.Objects::nonNull).collect(Collectors.toSet()));
         return found.stream().map(r -> new Summary(r.getId(), r.getPatientId(), aliases.get(r.getPatientId()), r.getReportType(),
                 r.getPeriodStart(), r.getPeriodEnd(), r.getStatus(), r.getStatusReason(), r.getCreatedAt(),
-                r.getReviewedBy() == null ? null : name(reviewers, r.getReviewedBy()), r.getReviewedAt(), r.getProvider(), r.getModel())).toList();
+                r.getReviewedBy() == null ? null : name(reviewers, r.getReviewedBy()), r.getReviewedAt(),
+                r.getSentBy() == null ? null : name(reviewers, r.getSentBy()), r.getSentAt(), r.getProvider(), r.getModel())).toList();
     }
 
     private Set<UUID> users(Report report, List<ReportVersion> all) {

@@ -150,8 +150,9 @@ class PatientsApiTest {
     }
 
     @Test
-    void theLastReportIsTheMostRecentPeriodAndTheDoctorOnlySeesApprovedOnes() throws Exception {
-        // El aprobado del 12 de octubre ya viene sembrado (E14): solo se agrega el pendiente de la semana siguiente.
+    void theLastReportIsTheMostRecentPeriodAndTheDoctorOnlySeesSentOnes() throws Exception {
+        // Ya vienen sembrados (E14, D29) tres enviados (21-sep, 28-sep y 5-oct) y el aprobado del 12 de octubre, que enfermeria
+        // todavia no envio: solo se agrega el pendiente de la semana siguiente.
         insertReport("P-014", "2026-10-19", "PENDIENTE_REVISION");
 
         mockMvc.perform(asNurse(get("/api/patients/" + patientId("P-014"))))
@@ -159,8 +160,8 @@ class PatientsApiTest {
                 .andExpect(jsonPath("$.lastReport.periodStart").value("2026-10-19"))
                 .andExpect(jsonPath("$.lastReport.periodEnd").value("2026-10-25"));
         mockMvc.perform(get("/api/patients/" + patientId("P-014")).header("X-Demo-User", DOCTOR))
-                .andExpect(jsonPath("$.lastReport.status").value("APROBADO"))
-                .andExpect(jsonPath("$.lastReport.periodStart").value("2026-10-12"));
+                .andExpect(jsonPath("$.lastReport.status").value("ENVIADO"))
+                .andExpect(jsonPath("$.lastReport.periodStart").value("2026-10-05"));
     }
 
     @Test

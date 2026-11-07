@@ -33,7 +33,8 @@ import com.patientprogressauditor.entry.Intensity;
 import com.patientprogressauditor.entry.Symptom;
 import com.patientprogressauditor.user.AppRole;
 
-// Carga el conjunto sintetico de demostracion (D11, RF-05, RF-39). Idempotente: ids deterministas y ON CONFLICT DO NOTHING.
+// Carga el conjunto sintetico de demostracion (D11, RF-05, RF-39). Idempotente: ids deterministas y ON CONFLICT DO NOTHING;
+// lo unico que reconcilia es un informe sembrado que declara ENVIADO y la base trae APROBADO (D29).
 // No llama al LLM: los eventos vienen ya confirmados. Solo existe con app.seed.demo=true y nunca corre con el perfil prod.
 @Component
 @ConditionalOnProperty(prefix = "app.seed", name = "demo", havingValue = "true")
@@ -69,8 +70,8 @@ public class DemoDataSeeder implements ApplicationRunner {
     }
 
     record SeedReport(String alias, LocalDate weekStart, String status, String requestedBy, OffsetDateTime generatedAt,
-            String reviewer, OffsetDateTime reviewedAt, String summary, List<SeedClaim> claims,
-            List<String> changesVsPrevious, List<String> recurringPatterns) {
+            String reviewer, OffsetDateTime reviewedAt, String sentBy, OffsetDateTime sentAt, String summary,
+            List<SeedClaim> claims, List<String> changesVsPrevious, List<String> recurringPatterns) {
     }
 
     record SeedClaim(String claimKey, String text, String criterion, List<LocalDate> entryDates, List<SeedFigure> figures) {
@@ -176,14 +177,24 @@ public class DemoDataSeeder implements ApplicationRunner {
 
             UUID reportId = reportId(report.alias(), report.weekStart());
             UUID versionId = nameBased("version|" + reportId + "|1");
-            boolean approved = "APROBADO".equals(report.status());
+            boolean sent = "ENVIADO".equals(report.status());
+            boolean approved = sent || "APROBADO".equals(report.status());
             jdbc.update("INSERT INTO reports (id, patient_id, report_type, period_start, period_end, status, requested_by,"
-                    + " reviewed_by, reviewed_at, approved_version_no, provider, model, created_at, updated_at)"
-                    + " VALUES (?, ?, 'SEMANAL', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING",
+                    + " reviewed_by, reviewed_at, approved_version_no, sent_by, sent_at, provider, model, created_at, updated_at)"
+                    + " VALUES (?, ?, 'SEMANAL', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING",
                     reportId, patient.id(), report.weekStart(), report.weekStart().plusDays(6), report.status(),
                     users.get(report.requestedBy()).id(), approved ? users.get(report.reviewer()).id() : null,
-                    approved ? report.reviewedAt() : null, approved ? 1 : null, REPORT_PROVIDER, REPORT_MODEL,
-                    report.generatedAt(), approved ? report.reviewedAt() : report.generatedAt());
+                    approved ? report.reviewedAt() : null, approved ? 1 : null,
+                    sent ? users.get(report.sentBy()).id() : null, sent ? report.sentAt() : null,
+                    REPORT_PROVIDER, REPORT_MODEL, report.generatedAt(),
+                    sent ? report.sentAt() : approved ? report.reviewedAt() : report.generatedAt());
+            if (sent) {
+                // Una base ya sembrada trae este informe APROBADO (ON CONFLICT DO NOTHING no lo cambia): la semilla lo
+                // avanza a ENVIADO, y solo ese paso; nunca retrocede un estado ni toca otro informe (D29).
+                jdbc.update("UPDATE reports SET status = 'ENVIADO', sent_by = ?, sent_at = ?, updated_at = ?"
+                        + " WHERE id = ? AND status = 'APROBADO'", users.get(report.sentBy()).id(), report.sentAt(),
+                        report.sentAt(), reportId);
+            }
             jdbc.update("INSERT INTO report_versions (id, report_id, version_no, origin, content, created_at)"
                     + " VALUES (?, ?, 1, 'MODELO', ?::jsonb, ?) ON CONFLICT DO NOTHING",
                     versionId, reportId, content.toString(), report.generatedAt());

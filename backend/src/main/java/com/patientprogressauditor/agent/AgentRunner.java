@@ -153,7 +153,7 @@ public class AgentRunner {
         }
         boolean current = reports.findByPatientIdOrderByPeriodStartDesc(patientId).stream()
                 .anyMatch(r -> r.getReportType() == Report.Type.SEMANAL && r.getPeriodStart().equals(weekStart)
-                        && (r.getStatus() == Report.Status.PENDIENTE_REVISION || r.getStatus() == Report.Status.APROBADO));
+                        && r.getStatus().current());
         return current ? "Ya hay un informe vigente de esa semana." : null;
     }
 

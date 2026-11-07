@@ -393,7 +393,7 @@ class DraftValidatorTest {
     @Test
     void theMonthlyContentHasTheCodeFiguresOfEachWeekTheSourcesAndWhatIsMissingPerWeek() throws Exception {
         AgentRunContext month = monthlyContext();
-        List<UUID> weekly = jdbc.queryForList("SELECT id FROM reports WHERE patient_id = ? AND report_type = 'SEMANAL' AND status = 'APROBADO' ORDER BY period_start", UUID.class, month.patientId());
+        List<UUID> weekly = jdbc.queryForList("SELECT id FROM reports WHERE patient_id = ? AND report_type = 'SEMANAL' AND status IN ('APROBADO', 'ENVIADO') ORDER BY period_start", UUID.class, month.patientId());
         month.setWeeklyReports(approvedWeekly.load(weekly.subList(0, 4)));
         ObjectNode model = mapper.createObjectNode().put("summary", "Resumen");
         model.putArray("claims");
@@ -417,7 +417,7 @@ class DraftValidatorTest {
     @Test
     void theMonthlyToolReturnsTheApprovedReportsWithCitableAliasesAndRefusesToRunInAWeeklyTask() throws Exception {
         AgentRunContext month = monthlyContext();
-        List<UUID> weekly = jdbc.queryForList("SELECT id FROM reports WHERE patient_id = ? AND report_type = 'SEMANAL' AND status = 'APROBADO' ORDER BY period_start", UUID.class, month.patientId());
+        List<UUID> weekly = jdbc.queryForList("SELECT id FROM reports WHERE patient_id = ? AND report_type = 'SEMANAL' AND status IN ('APROBADO', 'ENVIADO') ORDER BY period_start", UUID.class, month.patientId());
         month.setWeeklyReports(approvedWeekly.load(weekly.subList(0, 4)));
 
         JsonNode out = mapper.readTree(approvedTool.execute(month, mapper.createObjectNode()));

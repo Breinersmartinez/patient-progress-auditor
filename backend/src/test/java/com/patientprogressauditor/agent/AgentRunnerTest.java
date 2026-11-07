@@ -290,7 +290,9 @@ class AgentRunnerTest {
                 (Object) linked.stream().map(UUID::toString).toArray(String[]::new));
         assertThat(linkedStarts).containsExactly("2026-09-21", "2026-09-28", "2026-10-05", "2026-10-12");
         assertThat(jdbc.queryForList("SELECT status FROM reports WHERE id = ANY(?::uuid[])", String.class,
-                (Object) linked.stream().map(UUID::toString).toArray(String[]::new))).containsOnly("APROBADO");
+                (Object) linked.stream().map(UUID::toString).toArray(String[]::new)))
+                .as("el mensual acepta los enviados como aprobados (D29): tres enviados y uno aprobado, como la semilla")
+                .containsExactlyInAnyOrder("ENVIADO", "ENVIADO", "ENVIADO", "APROBADO");
 
         JsonNode content = mapper.readTree(jdbc.queryForObject("SELECT content::text FROM report_versions WHERE report_id = ?", String.class, outcome.reportId()));
         assertThat(content.path("period").path("weeks")).hasSize(4);

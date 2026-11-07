@@ -63,7 +63,7 @@ class MonthlyReportsApiTest {
         jdbc.update("INSERT INTO report_versions (id, report_id, version_no, origin, content) VALUES (?, ?, 1, 'MODELO', ?::jsonb)",
                 version, monthly, content().toString());
         jdbc.update("INSERT INTO report_citations (report_version_id, claim_key, entry_id) VALUES (?, 'c1', ?)", version, first.get(0).getId());
-        List<UUID> weekly = jdbc.queryForList("SELECT id FROM reports WHERE patient_id = ? AND report_type = 'SEMANAL' AND status = 'APROBADO' ORDER BY period_start", UUID.class, p014);
+        List<UUID> weekly = jdbc.queryForList("SELECT id FROM reports WHERE patient_id = ? AND report_type = 'SEMANAL' AND status IN ('APROBADO', 'ENVIADO') ORDER BY period_start", UUID.class, p014);
         for (int i = 0; i < 4; i++) {
             jdbc.update("INSERT INTO monthly_report_weeks (monthly_report_id, week_no, weekly_report_id) VALUES (?, ?, ?)", monthly, i + 1, weekly.get(i));
         }
@@ -101,7 +101,7 @@ class MonthlyReportsApiTest {
     }
 
     @Test
-    void theMonthlyIsVisibleToNursingFilterableByTypeAndHiddenFromTheDoctorUntilApproved() throws Exception {
+    void theMonthlyIsVisibleToNursingFilterableByTypeAndHiddenFromTheDoctorUntilSent() throws Exception {
         mockMvc.perform(get("/api/reports?type=MENSUAL&patientId=" + p014).header("X-Demo-User", NURSE))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].reportType").value("MENSUAL"))
                 .andExpect(jsonPath("$[0].periodEnd").value("2026-10-18"));
@@ -114,6 +114,10 @@ class MonthlyReportsApiTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.report.status").value("APROBADO"))
                 .andExpect(jsonPath("$.report.reviewedBy").value("Camilo Torres"));
 
+        // Aprobado no es enviado: el medico todavia no lo ve (D29). Cuando enfermeria lo envia, si.
+        mockMvc.perform(get("/api/reports/" + monthly).header("X-Demo-User", DOCTOR)).andExpect(status().isNotFound());
+        mockMvc.perform(post("/api/reports/" + monthly + "/send").header("X-Demo-User", NURSE)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.report.status").value("ENVIADO"));
         mockMvc.perform(get("/api/reports/" + monthly).header("X-Demo-User", DOCTOR)).andExpect(status().isOk());
         putContent(NURSE, edit("Las náuseas aparecen 3 días en la primera semana.", first.get(0).getId())).andExpect(status().isConflict());
     }

@@ -65,7 +65,7 @@ class RunSaturationTest {
         var row = jdbc.queryForMap("""
                 SELECT e.patient_id, date_trunc('week', e.entry_date)::date AS week FROM entries e
                 WHERE e.patient_id <> ? AND NOT EXISTS (SELECT 1 FROM reports r WHERE r.patient_id = e.patient_id
-                    AND r.period_start = date_trunc('week', e.entry_date)::date AND r.status IN ('PENDIENTE_REVISION', 'APROBADO'))
+                    AND r.period_start = date_trunc('week', e.entry_date)::date AND r.status IN ('PENDIENTE_REVISION', 'APROBADO', 'ENVIADO'))
                 LIMIT 1""", first);
         other = (UUID) row.get("patient_id");
         String otherWeek = row.get("week").toString();

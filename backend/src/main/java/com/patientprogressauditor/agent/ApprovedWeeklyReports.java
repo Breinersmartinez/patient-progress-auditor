@@ -13,7 +13,7 @@ import com.patientprogressauditor.report.ReportRepository;
 import com.patientprogressauditor.report.ReportVersion;
 import com.patientprogressauditor.report.ReportVersionRepository;
 
-// Lee los informes semanales APROBADOS de los que sale un mensual (RN-10): la version que enfermeria aprobo, no la del modelo.
+// Lee los informes semanales aprobados (APROBADO o ENVIADO) de los que sale un mensual (RN-10): la version que enfermeria aprobo, no la del modelo.
 // Es solo lectura. Lo usan la herramienta del agente y quien arma el contenido mensual.
 @Component
 public class ApprovedWeeklyReports {
@@ -38,7 +38,7 @@ public class ApprovedWeeklyReports {
         int weekNo = 1;
         for (UUID id : reportIds) {
             Report report = reports.findById(id).orElseThrow(() -> new IllegalStateException("No existe el informe semanal " + id));
-            if (report.getStatus() != Report.Status.APROBADO || report.getApprovedVersionNo() == null) {
+            if (!report.getStatus().approved() || report.getApprovedVersionNo() == null) {
                 throw new IllegalStateException("El informe semanal " + id + " no está aprobado");
             }
             ReportVersion version = versions.findByReportIdOrderByVersionNoAsc(id).stream()

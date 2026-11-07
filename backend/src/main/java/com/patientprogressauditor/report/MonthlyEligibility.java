@@ -12,7 +12,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Component;
 
 // La regla del informe mensual (RN-10, D4), decidida por el CODIGO y no por el modelo: un mes son cuatro semanas completas
-// consecutivas (lunes a domingo) y solo se genera si cada una tiene su informe semanal APROBADO. Si falta alguna, dice cual y
+// consecutivas (lunes a domingo) y solo se genera si cada una tiene su informe semanal aprobado (APROBADO o ENVIADO, D29). Si falta alguna, dice cual y
 // en que estado esta.
 @Component
 public class MonthlyEligibility {
@@ -56,7 +56,7 @@ public class MonthlyEligibility {
         }
         LocalDate end = start.plusDays(7L * WEEKS - 1);
         Report current = all.stream().filter(r -> r.getReportType() == Report.Type.MENSUAL && r.getPeriodStart().equals(start))
-                .filter(r -> r.getStatus() == Report.Status.PENDIENTE_REVISION || r.getStatus() == Report.Status.APROBADO)
+                .filter(r -> r.getStatus().current())
                 .findFirst().orElse(null);
         return new Window(start, end, weeks, current == null ? null : current.getId(), current == null ? null : current.getStatus(),
                 problem(start, end, weeks, current));
@@ -92,16 +92,17 @@ public class MonthlyEligibility {
             case RECHAZADO -> "su informe fue rechazado";
             case INCOMPLETO -> "su informe quedó incompleto";
             case APROBADO -> "aprobado";
+            case ENVIADO -> "enviado";
         };
     }
 
-    // El aprobado si hay; si no, el vigente (pendiente); si no, el mas reciente de los demas (rechazado o incompleto).
+    // El aprobado (o enviado) si hay; si no, el vigente (pendiente); si no, el mas reciente de los demas (rechazado o incompleto).
     private static WeekState weekState(List<Report> all, int weekNo, LocalDate week) {
         List<Report> weekly = all.stream().filter(r -> r.getReportType() == Report.Type.SEMANAL && r.getPeriodStart().equals(week)).toList();
-        Report best = weekly.stream().filter(r -> r.getStatus() == Report.Status.APROBADO).findFirst()
+        Report best = weekly.stream().filter(r -> r.getStatus().approved()).findFirst()
                 .or(() -> weekly.stream().filter(r -> r.getStatus() == Report.Status.PENDIENTE_REVISION).findFirst())
                 .or(() -> weekly.stream().sorted(Comparator.comparing(Report::getCreatedAt, Comparator.nullsFirst(Comparator.<java.time.Instant>naturalOrder())).reversed()).findFirst()).orElse(null);
         return new WeekState(weekNo, week, week.plusDays(6), best == null ? null : best.getId(), best == null ? null : best.getStatus(),
-                best != null && best.getStatus() == Report.Status.APROBADO);
+                best != null && best.getStatus().approved());
     }
 }

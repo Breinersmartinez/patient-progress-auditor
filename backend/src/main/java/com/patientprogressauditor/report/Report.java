@@ -15,7 +15,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-// Guarda estado y revision; lo que redacto el modelo y lo que edito enfermeria vive en ReportVersion.
+// Guarda estado, revision y envio; lo que redacto el modelo y lo que edito enfermeria vive en ReportVersion.
 @Entity
 @Table(name = "reports")
 @Getter
@@ -25,7 +25,19 @@ public class Report {
 
     public enum Type { SEMANAL, MENSUAL }
 
-    public enum Status { PENDIENTE_REVISION, INCOMPLETO, APROBADO, RECHAZADO }
+    public enum Status {
+        PENDIENTE_REVISION, INCOMPLETO, APROBADO, ENVIADO, RECHAZADO;
+
+        // Un enviado cuenta como aprobado para el mensual, el PDF y el agente: enviar no cambia lo aprobado (D29).
+        public boolean approved() {
+            return this == APROBADO || this == ENVIADO;
+        }
+
+        // Los estados que ocupan el periodo (indice uq_reports_current_period): un rechazado o incompleto no lo bloquea.
+        public boolean current() {
+            return this == PENDIENTE_REVISION || approved();
+        }
+    }
 
     @Id
     private UUID id = UUID.randomUUID();
@@ -70,6 +82,13 @@ public class Report {
 
     @Column(name = "approved_version_no")
     private Integer approvedVersionNo;
+
+    // Quien y cuando lo envio al medico (D29); solo existen en ENVIADO.
+    @Column(name = "sent_by")
+    private UUID sentBy;
+
+    @Column(name = "sent_at")
+    private Instant sentAt;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();

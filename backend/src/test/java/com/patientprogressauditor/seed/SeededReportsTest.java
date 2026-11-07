@@ -60,26 +60,35 @@ class SeededReportsTest {
     }
 
     @Test
-    void thereAreFiveSeededReportsAsD11Says() {
+    void thereAreFiveSeededReportsAsD11SaysThreeSentOneApprovedAndOnePending() {
         List<Seeded> reports = seeded();
         assertThat(reports).extracting(r -> r.alias() + " " + r.start() + " " + r.status()).containsExactly(
-                "P-014 2026-09-21 APROBADO", "P-014 2026-09-28 APROBADO", "P-014 2026-10-05 APROBADO", "P-014 2026-10-12 APROBADO",
+                "P-014 2026-09-21 ENVIADO", "P-014 2026-09-28 ENVIADO", "P-014 2026-10-05 ENVIADO", "P-014 2026-10-12 APROBADO",
                 "P-021 2026-10-12 PENDIENTE_REVISION");
     }
 
     @Test
-    void theApprovedOnesNameWhoApprovedAndWhenAndTheVersionIsTheModelsOne() {
-        List<Map<String, Object>> rows = jdbc.queryForList("SELECT r.status, r.reviewed_by, r.reviewed_at, r.approved_version_no, r.created_at, v.origin, u.display_name"
-                + " FROM reports r JOIN report_versions v ON v.report_id = r.id LEFT JOIN app_users u ON u.id = r.reviewed_by WHERE r." + SEEDED);
+    void theApprovedAndSentOnesNameWhoApprovedAndSentAndWhenAndTheVersionIsTheModelsOne() {
+        List<Map<String, Object>> rows = jdbc.queryForList("SELECT r.status, r.reviewed_by, r.reviewed_at, r.approved_version_no, r.sent_by, r.sent_at,"
+                + " r.created_at, v.origin, u.display_name, s.display_name AS sender"
+                + " FROM reports r JOIN report_versions v ON v.report_id = r.id LEFT JOIN app_users u ON u.id = r.reviewed_by"
+                + " LEFT JOIN app_users s ON s.id = r.sent_by WHERE r." + SEEDED);
         assertThat(rows).hasSize(5);
         for (Map<String, Object> row : rows) {
             assertThat(row.get("origin")).isEqualTo("MODELO");
-            if ("APROBADO".equals(row.get("status"))) {
+            if ("APROBADO".equals(row.get("status")) || "ENVIADO".equals(row.get("status"))) {
                 assertThat(row.get("display_name")).isEqualTo("Marcela Rojas");
                 assertThat(row.get("reviewed_at")).isNotNull();
                 assertThat(row.get("approved_version_no")).isEqualTo(1);
             } else {
                 assertThat(row.get("reviewed_by")).isNull();
+            }
+            if ("ENVIADO".equals(row.get("status"))) {
+                assertThat(row.get("sender")).isEqualTo("Marcela Rojas");
+                assertThat(((java.sql.Timestamp) row.get("sent_at")).toInstant()).isAfter(((java.sql.Timestamp) row.get("reviewed_at")).toInstant());
+            } else {
+                assertThat(row.get("sent_by")).isNull();
+                assertThat(row.get("sent_at")).isNull();
             }
         }
         assertThat(jdbc.queryForObject("SELECT count(*) FROM reports WHERE " + SEEDED + " AND model = 'plantilla sin modelo'", Integer.class))
@@ -175,20 +184,60 @@ class SeededReportsTest {
     }
 
     @Test
-    void theDoctorSeesTheFourApprovedAndNotThePendingOne() throws Exception {
+    void theDoctorSeesTheThreeSentAndNeitherTheApprovedOneNorThePendingOne() throws Exception {
         String list = mockMvc.perform(get("/api/reports").header("X-Demo-User", DOCTOR)).andReturn().getResponse().getContentAsString();
         JsonNode reports = mapper.readTree(list);
         List<String> seededIds = jdbc.queryForList("SELECT id::text FROM reports WHERE " + SEEDED, String.class);
         long visibleSeeded = 0;
         for (JsonNode r : reports) {
-            assertThat(r.path("status").asText()).isEqualTo("APROBADO");
+            assertThat(r.path("status").asText()).isEqualTo("ENVIADO");
             if (seededIds.contains(r.path("id").asText())) {
                 visibleSeeded++;
             }
         }
-        assertThat(visibleSeeded).isEqualTo(4);
+        assertThat(visibleSeeded).isEqualTo(3);
+        // El cuarto sigue aprobado: enfermeria todavia no lo envio, asi que para el medico no existe (D29).
+        UUID approved = DemoDataSeeder.reportId("P-014", LocalDate.of(2026, 10, 12));
+        assertThat(mockMvc.perform(get("/api/reports/" + approved).header("X-Demo-User", DOCTOR)).andReturn().getResponse().getStatus()).isEqualTo(404);
+        assertThat(mockMvc.perform(get("/api/reports/" + approved).header("X-Demo-User", NURSE)).andReturn().getResponse().getStatus()).isEqualTo(200);
         UUID pending = DemoDataSeeder.reportId("P-021", LocalDate.of(2026, 10, 12));
         assertThat(mockMvc.perform(get("/api/reports/" + pending).header("X-Demo-User", DOCTOR)).andReturn().getResponse().getStatus()).isEqualTo(404);
         assertThat(mockMvc.perform(get("/api/reports/" + pending).header("X-Demo-User", NURSE)).andReturn().getResponse().getStatus()).isEqualTo(200);
+    }
+
+    // Una base ya sembrada (el volumen de quien ya corrio ./run.sh, o la de pruebas) trae los cuatro de P-014 APROBADO:
+    // ON CONFLICT DO NOTHING no los cambia, asi que la semilla los reconcilia (D29) y solo en ese sentido.
+    @Test
+    void anAlreadySeededDatabaseWithFourApprovedReportsEndsWithThreeSentAndRepeatingItChangesNothing() {
+        List<UUID> firstThree = List.of(LocalDate.of(2026, 9, 21), LocalDate.of(2026, 9, 28), LocalDate.of(2026, 10, 5)).stream()
+                .map(week -> DemoDataSeeder.reportId("P-014", week)).toList();
+        UUID fourth = DemoDataSeeder.reportId("P-014", LocalDate.of(2026, 10, 12));
+        try {
+            // Como estaba antes de V10: los cuatro aprobados, sin envio.
+            jdbc.update("UPDATE reports SET status = 'APROBADO', sent_by = NULL, sent_at = NULL WHERE " + SEEDED + " AND patient_id ="
+                    + " (SELECT id FROM patients WHERE alias = 'P-014')");
+            assertThat(jdbc.queryForList("SELECT status FROM reports WHERE id = ANY(?::uuid[])", String.class, ids(firstThree))).containsOnly("APROBADO");
+
+            seeder.seed();
+
+            assertThat(jdbc.queryForList("SELECT status FROM reports WHERE id = ANY(?::uuid[])", String.class, ids(firstThree))).containsOnly("ENVIADO");
+            assertThat(jdbc.queryForObject("SELECT status FROM reports WHERE id = ?", String.class, fourth)).isEqualTo("APROBADO");
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM reports WHERE id = ANY(?::uuid[]) AND sent_by IS NOT NULL AND sent_at IS NOT NULL",
+                    Integer.class, ids(firstThree))).isEqualTo(3);
+            List<Object> sentAt = jdbc.queryForList("SELECT sent_at FROM reports WHERE id = ANY(?::uuid[]) ORDER BY id", Object.class, ids(firstThree));
+
+            // Repetirla no cambia nada, y nunca retrocede ni toca un informe que enfermeria ya envio por su cuenta (el cuarto).
+            jdbc.update("UPDATE reports SET status = 'ENVIADO', sent_by = reviewed_by, sent_at = now() WHERE id = ?", fourth);
+            seeder.seed();
+            assertThat(jdbc.queryForList("SELECT sent_at FROM reports WHERE id = ANY(?::uuid[]) ORDER BY id", Object.class, ids(firstThree))).isEqualTo(sentAt);
+            assertThat(jdbc.queryForObject("SELECT status FROM reports WHERE id = ?", String.class, fourth)).isEqualTo("ENVIADO");
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM reports WHERE " + SEEDED, Integer.class)).isEqualTo(5);
+        } finally {
+            jdbc.update("UPDATE reports SET status = 'APROBADO', sent_by = NULL, sent_at = NULL WHERE id = ?", fourth);
+        }
+    }
+
+    private static Object[] ids(List<UUID> ids) {
+        return new Object[] { ids.stream().map(UUID::toString).toArray(String[]::new) };
     }
 }
