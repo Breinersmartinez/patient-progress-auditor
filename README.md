@@ -130,7 +130,8 @@ Si después de `down -v` se borra también `.env` (o se clona de nuevo) pero que
 La interfaz de esta entrega es la de **enfermería**; el selector solo ofrece a Marcela y a Camilo. **No hay pantalla del médico** (decisión del equipo, E12c fuera de esta entrega). La regla del médico sí está en el servidor y se comprueba por la API enviando su identificador en la cabecera `X-Demo-User`:
 
 ```bash
-# El médico solo recibe informes APROBADOS (los 4 sembrados); un informe pendiente le responde 404.
+# El médico solo recibe informes ENVIADOS (3 de los 4 sembrados; el cuarto queda aprobado, para enviarlo en vivo);
+# un informe pendiente, incompleto, rechazado o aprobado sin enviar le responde 404, como si no existiera.
 curl -s -H 'X-Demo-User: 20000000-0000-0000-0000-000000000003' http://localhost:8080/api/reports
 ```
 
@@ -140,7 +141,7 @@ Fechas fijas: los registros terminan el domingo 25-oct-2026 y el reloj de la apl
 
 | Paciente | Semanas con registros | Para qué sirve en la demostración |
 |---|---|---|
-| P-014 | 5 (21-sep a 25-oct) | Tiene 4 informes aprobados sembrados; la semana del 19-oct no tiene informe: es la que se genera. Permite el mensual |
+| P-014 | 5 (21-sep a 25-oct) | Tiene 4 informes sembrados: 3 ya enviados al médico y 1 aprobado sin enviar, para enviarlo en vivo; la semana del 19-oct no tiene informe: es la que se genera. Permite el mensual |
 | P-021 | 4 | Tiene 1 informe sembrado pendiente de revisión (semana del 12-oct) |
 | P-007 | 3 | Pocos registros: el informe dice «sin información suficiente» en vez de rellenar |
 | P-033 | 4 | Solo negaciones («sin vómito», «sin dolor»): el informe no inventa síntomas |
@@ -151,10 +152,10 @@ Fechas fijas: los registros terminan el domingo 25-oct-2026 y el reloj de la apl
 1. Elija **Marcela Rojas**. En **Nuevo registro diario**, elija un paciente, escriba por ejemplo `Hoy vomitó dos veces, dolor de cabeza leve, no tuvo fiebre.`, pulse **Enviar** y revise los eventos que sugiere la IA (síntoma, intensidad, veces). Arriba verá el **Texto corregido** (su nota con ortografía, tildes y puntuación arregladas, en oraciones cortas), que puede editar; se guarda aparte como una versión y **el texto original se guarda tal como lo escribió** (los informes citan el original). Pruebe con `dolor de cabeza intenso desde la mañana tuvo diarea dos veces comio poko`. Nada se guarda hasta pulsar **Aprobar y guardar**; **Descartar** cierra la vista previa sin guardar. No hay lista cerrada de síntomas: pruebe también `Le duele la garganta y tiene tos seca. Sin dolor de cabeza.` y verá «Dolor de garganta» y «Tos seca» como síntomas propuestos (con la frase de la nota que los respalda), o escriba cualquier síntoma a mano con **Agregar síntoma**.
 2. En **Generar informe**, elija **P-014**, la semana del **19-oct** y pulse **Generar con IA**. La pantalla muestra los pasos reales del agente a medida que ocurren (consulta de registros, métricas, validación). No bloquea la página: la ejecución corre en segundo plano.
 3. Se abre el informe pendiente de revisión. Cada afirmación lleva un número `[n]` que lleva al registro original (fecha y texto) y el criterio de comparación; **Ver cómo se generó** muestra la herramienta, los parámetros, el resultado, los milisegundos y los tokens de cada paso.
-4. **Editar** (crea la versión 2; la versión 1 de la IA no se toca), **Rechazar** (con motivo) o **Aprobar informe**. Solo un informe aprobado llega al médico.
-5. En **Informes aprobados** están los 4 sembrados de P-014 y el que acaba de aprobar.
+4. **Editar** (crea la versión 2; la versión 1 de la IA no se toca), **Rechazar** (con motivo) o **Aprobar informe**. Aprobar guarda el informe, pero todavía no lo hace llegar al médico.
+5. En **Informes aprobados** están los 4 sembrados de P-014 (3 «Enviado», 1 «Aprobado») y el que acaba de aprobar. Ábralo y pulse **Enviar al médico**: pasa a «Enviado», con la nota «Enviado al médico el …», y solo entonces lo recibe el médico (RF-44, D29).
 6. **Informe mensual.** En **Generar informe**, elija **P-014**, el período **Un mes (cuatro semanas)** y la ventana **del 21 de septiembre al 18 de octubre** (sus cuatro semanas ya tienen informe semanal aprobado). El agente lee los cuatro informes y las cifras de cada semana y redacta la evolución; la hoja muestra la tabla **Evolución semana a semana**, enlaza los cuatro informes de origen y pasa por la misma revisión (editar, rechazar, aprobar). Con **P-021** la ventana no se puede generar: la pantalla dice qué semanas faltan y en qué estado está su informe (regla RN-10, decidida por el código y no por el modelo).
-7. **Imprimir.** En cualquier informe **aprobado** (semanal o mensual) pulse **Descargar PDF**: el servidor lo arma con JasperReports y trae el aprobador, la fecha de aprobación, el id del informe, el resumen con sus `[n]`, las cifras, las fuentes con el texto original y la nota de asistencia de IA. Solo se imprime lo aprobado: un informe pendiente responde 409, y para el médico «no existe». Por API: `curl -s -H 'X-Demo-User: 20000000-0000-0000-0000-000000000003' -o informe.pdf http://localhost:8080/api/reports/<id>/pdf` (el `<id>` sale de `GET /api/reports?status=APROBADO`).
+7. **Imprimir.** En cualquier informe **aprobado** (semanal o mensual) pulse **Descargar PDF**: el servidor lo arma con JasperReports y trae el aprobador, la fecha de aprobación, el id del informe, el resumen con sus `[n]`, las cifras, las fuentes con el texto original y la nota de asistencia de IA. Se imprime lo aprobado o lo enviado: un informe pendiente responde 409. Lo que el rol no puede ver «no existe» (404): el médico solo descarga un informe ya enviado. Por API: `curl -s -H 'X-Demo-User: 20000000-0000-0000-0000-000000000003' -o informe.pdf http://localhost:8080/api/reports/<id>/pdf` (el `<id>` sale de `GET /api/reports?status=ENVIADO`, con el mismo `X-Demo-User` del médico).
 
 Sin llave (ver §3) los pasos 1, 2 y 6 muestran un aviso claro; todo lo demás (pacientes, historial, informes sembrados, revisión, aprobación, rechazo) funciona.
 
