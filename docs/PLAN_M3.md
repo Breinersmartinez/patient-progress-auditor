@@ -1,6 +1,6 @@
 # PLAN — Momento 3 (semana 14, aplicación completa con autenticación)
 
-> **Estado:** en construcción. Trae dos piezas opcionales: Langfuse (aprobada el 2026-11-03) y el dictado por voz (aprobada el 2026-11-05). El resto del Momento 3 (autenticación y JWT RF-31, credenciales y administrador RF-33, tablero de permisos RF-34, `docs/seguridad.md` y `docs/respuesta_auditoria.md`) todavía no está especificado ni planeado; sin su plan aprobado no se escribe código de esas piezas. **[Equipo]**
+> **Estado:** en construcción. Trae dos piezas opcionales: Langfuse (aprobada el 2026-11-03) y el dictado por voz (aprobada el 2026-11-05), y las cuatro del módulo del médico: «Enviar al médico» (Pieza 3), pantallas y registro (Pieza 4), notificaciones (Pieza 5) y «Armar informe» (Pieza 6), escritas el 2026-11-05 y revisadas el 2026-11-07 (estado `ENVIADO` y fuente de la consulta del médico), **pendientes de aprobación**; sin aprobarlas no se escribe su código. El resto del Momento 3 (autenticación y JWT RF-31, credenciales y administrador RF-33, tablero de permisos RF-34, `docs/seguridad.md` y `docs/respuesta_auditoria.md`) todavía no está especificado ni planeado; sin su plan aprobado no se escribe código de esas piezas. **[Equipo]**
 > **Fecha:** 2026-11-03 · **Rama:** `develop_BSMartinez` · **Plan del Momento 2:** `docs/PLAN.md` (E1 a E19, cerrado).
 
 ## Pieza 1 — Langfuse: trazas de las consultas al modelo y costo por consulta
@@ -221,3 +221,304 @@ El **paso 2**. Si Groq no acepta el webm de Chrome, o el precio y los límites n
 | 6 | Safari no se puede probar en Linux | El criterio 1 queda sin verificar para Safari hasta que el equipo lo pruebe |
 | 4 | El costo por audio no cabe en la ruta del costo por tokens de `LangfuseRun` | El costo en Langfuse queda vacío o en cero |
 
+
+## Pieza 3 — «Enviar al médico» y el estado `ENVIADO` (enfermería, como el mockup)
+
+**Origen:** en el mockup vA, el informe aprobado de enfermería tiene el botón «Enviar al médico» y hay un estado más, «Enviado»: aprobar guarda el informe y enviarlo es lo que lo hace llegar al médico. En E12b se quitó y se decidió que aprobar bastaba (`docs/decisiones.md`); el equipo pidió el 2026-11-07 que la aplicación sea lo más fiel posible a los mockups y que se implemente. **[Equipo]**
+
+**Cómo se reparte el módulo del médico:** en cuatro piezas, en este orden: «Enviar al médico» (esta), las pantallas del médico y su registro (Pieza 4), las notificaciones (Pieza 5) y «Armar informe» (Pieza 6). Juntas pasan de siete pasos, y `planea-trabajo` pide partir el encargo en ese caso. Esta va primero porque decide qué informes ve el médico; las piezas 5 y 6 se montan sobre el menú, las rutas y la ficha de la 4. **[Propuesta]**
+
+### Encargo
+Que enfermería, en un informe aprobado, pulse «Enviar al médico» y el informe pase a `ENVIADO` con quién y cuándo lo envió; que el médico vea solo informes `ENVIADO`; y que los textos, botones y estados de las pantallas de enfermería que hablan del médico queden como en el mockup.
+
+### Qué falta en enfermería frente al mockup (análisis del 2026-11-07)
+Se revisaron las pantallas de enfermería del mockup vA (`docs/07-mockups/mockups-vA/mockups/auditor.fuente.html`) contra las construidas, buscando todo lo que tiene que ver con el médico. **[Propuesta]**
+
+| Pantalla del mockup | Elemento | Hoy en la aplicación | Qué se hace | Pieza |
+|---|---|---|---|---|
+| Informe en revisión | Aviso «Esta es la vista previa tal como la verá el médico…» | Igual | Nada | — |
+| Informe en revisión | Nota «Revise el texto y las fuentes. Al aprobar, el informe queda guardado, pero todavía no llega al médico.» | Cambiada en E12b a «…y el médico podrá consultarlo.» | Volver al texto del mockup | 3 |
+| Informe aprobado | Nota «Informe guardado. Puede descargarlo o enviarlo al médico.» | «Informe aprobado y guardado. Ya puede consultarlo el médico y descargarlo en PDF.» | Volver al texto del mockup | 3 |
+| Informe aprobado | «Enviar al médico» (primario, «Enviando», ícono de enviar) junto a «Descargar PDF» (secundario) | Solo «Descargar PDF» | Agregar el botón | 3 |
+| Informe enviado | Estado «Enviado» (chip verde), nota «Enviado al médico el …» y solo «Descargar PDF» | No existe | Agregar el estado, la nota y el chip | 3 |
+| Hoja del informe | «Aprobado por: …» en la cabecera | Solo con `APROBADO` | Mostrarlo también con `ENVIADO` | 3 |
+| Lista «Aprobados», lista de pacientes y ficha | Chip «Enviado» | La lista ya muestra todo lo que no está en revisión; falta la etiqueta | Etiqueta y color del mockup | 3 |
+| Al enviar | Aviso «Informe enviado. Se notificó al médico» y notificación «Informe recibido» al médico | No existe | En esta pieza, «Informe enviado al médico.»; la frase del mockup llega con las notificaciones, cuando sea cierta | 3 y 5 |
+| Nuevo registro | Aviso «Registro guardado. Se notificó al médico.» | «Registro guardado.» | Con las notificaciones | 5 |
+| No encontrado | «Volver al inicio» lleva al inicio del rol | Fijo a enfermería | Con las pantallas del médico | 4 |
+| Encabezado | Selector de rol (Enfermería, Médico, Administrador) | «Ver como» solo con enfermeras | Con las pantallas del médico; el administrador, con RF-33 | 4 |
+
+Lo demás del mockup de enfermería que no coincide (por ejemplo, generar un informe de un mes calendario, de un rango de fechas o comparado con otro período) no tiene que ver con el médico y no entra en estas piezas.
+
+### Decisiones del encargo
+| Duda | Decisión | Por qué |
+|---|---|---|
+| Implementar «Enviar al médico» y `ENVIADO` | Sí, como el mockup **[Equipo, 2026-11-07]** | Fidelidad al mockup. Reemplaza la decisión de E12b (aprobar bastaba), que queda como alternativa descartada en `docs/decisiones.md` |
+| Qué ve el médico (RN-01, D6) | Solo informes `ENVIADO` **[Equipo, 2026-11-07]** | En el mockup el médico solo ve «Enviado» (`vInfVer` y `vInfLista`). La supervisión humana queda en dos pasos de enfermería: aprobar y enviar |
+| Transiciones | `APROBADO → ENVIADO` es la única nueva; `ENVIADO` es final **[Propuesta]** | Un enviado no se retira ni se reabre, igual que hoy un aprobado: un cambio se hace con un informe nuevo |
+| Quién envía | Cualquier usuario de enfermería, con un permiso nuevo `REPORTS_SEND` **[Propuesta]** | En el mockup lo hace enfermería. Un permiso propio deja al tablero de permisos (RF-34) separarlo de aprobar |
+| Qué se guarda | Quién y cuándo envió (`sent_by`, `sent_at`) **[Propuesta]** | La nota «Enviado al médico el …» y la columna «Recibido» del médico salen de ahí; RF-35 pide saber quién hizo cada acción sensible |
+| Un enviado para las demás reglas | Cuenta como aprobado: vale para el mensual (RN-10), es el informe vigente de su semana, se imprime en PDF y el agente lo lee como aprobado **[Propuesta]** | Enviar no cambia el contenido aprobado |
+| ¿Es un envío automático o por correo? | No: lo pulsa una persona y el médico lo ve dentro de la aplicación **[Propuesta]** | El envío automático y por correo siguen fuera del alcance (SPEC §3) y la pata de salida de la tríada sigue cerrada: el agente no tiene herramienta para enviar |
+| Semilla | De los cuatro aprobados de P-014, las tres primeras semanas quedan `ENVIADO` y la cuarta `APROBADO`, para enviarla en vivo **[Propuesta]** | El médico abre la demo con informes recibidos y enfermería tiene uno para enviar. Cambia el reparto de D11 |
+| La columna «Generado» de la lista de enfermería | Muestra la fecha de generación **[Propuesta]** | El mockup pone ahí la de envío cuando existe, que no coincide con el título de la columna |
+
+### Fuera del alcance
+Las pantallas del médico (Pieza 4) · las notificaciones y las frases «Se notificó al médico» (Pieza 5) · retirar o reenviar un informe enviado · enviar a un médico en particular · envío por correo o mensaje · envío automático al aprobar.
+
+### Supuestos
+- Lo que hoy decide por `APROBADO` está en estos lugares, encontrados el 2026-11-07 con una búsqueda: en el backend, `Report.Status`, `ReportTransitions`, `ReportVisibility`, `ReportService` (aprobar y el informe vigente), `MonthlyEligibility`, `ApprovedWeeklyReports`, `AgentRunner` (informe vigente), `ReportPdfService`, `DemoDataSeeder` y las restricciones y el índice de `reports` en `V3`; en el frontend, `ReportStatus`, `report-view`, `status-chip` y `report-list`; y en `eval/`, `checks.py`, `monthly.py` y `test_eval.py`. **Se confirma en el paso 1.**
+- Las pruebas que hoy fijan «el médico ve los aprobados» cambian a propósito; las demás no cambian.
+
+### Pasos
+- [ ] 1. **Mirar** el punto de partida: línea base de pruebas (backend, frontend y `eval/` sin llave), cada lugar que decide por `APROBADO` con archivo y línea, y las pruebas que lo fijan.
+  - **Produce:** la línea base y la lista de enganches y de pruebas que cambian.
+  - **Se mira:** `mvn -B verify`, `ng test` y `python3 eval/run_eval.py --baseline-only` en verde con el número anotado.
+- [ ] 2. **Registrar** antes de programar: D29 en la SPEC §7, RN-01 y D6 reescritas, D11 (el reparto de la semilla) y la tabla de autonomía de §4; RF-44 (enviar al médico, hito M3), y RF-28 y CU-05 con «enviado», en los requisitos; el estado, las columnas, la transición y el permiso en los dos diccionarios; `docs/decisiones.md` (el cambio frente a E12b, con la alternativa descartada), `docs/gobernanza.md` y `AGENTS.md`.
+  - **Se mira:** sin IDs inexistentes, tablas cuadradas, conteos por hito sumados y ninguna frase que diga que el médico ve los aprobados.
+- [ ] 3. **Construir el backend:** la migración (`V10`: estado, columnas, restricciones, índice del informe vigente y permiso), la transición y la ruta de enviar, la visibilidad del médico, que el enviado cuente como aprobado en el mensual, el informe vigente, el PDF y el agente, y la semilla.
+  - **Se mira:** pruebas verdes que cubren que solo enfermería envía (el médico, 403), que solo un aprobado se envía (los demás, 409), que el médico no ve un aprobado sin enviar (404), que un mes con semanas enviadas se puede generar y que la semilla es idempotente.
+- [ ] 4. **Construir la pantalla de enfermería:** «Enviar al médico» con su proceso y su aviso, el estado y el chip «Enviado», las tres notas y «Aprobado por» como en el mockup.
+  - **Se mira:** `ng test` verde con las pruebas nuevas; las de enfermería cambian solo donde cambia el texto.
+- [ ] 5. **Ajustar** `eval/` a los estados nuevos y volver a correr la suite sin llave; con llave, solo el mensual, que lee los aprobados.
+  - **Se mira:** los casos dorados dan el mismo resultado que antes del cambio.
+- [ ] 6. **Verificar en vivo** con `./run.sh`: enfermería aprueba y envía, el médico (por la API, hasta la Pieza 4) recibe solo los enviados, y el PDF de un enviado; el `README.md` con el paso de enviar.
+  - **Se mira:** los criterios 1 a 4 con evidencia.
+- [ ] 7. **Comprobar** el criterio de aceptación, punto por punto, y dejar la evidencia.
+
+### Criterio de aceptación
+1. En un informe aprobado, enfermería ve «Descargar PDF» y «Enviar al médico»; al enviarlo pasa a «Enviado», con la nota «Enviado al médico el …» y solo «Descargar PDF», como el mockup.
+2. Solo enfermería envía, y solo un informe aprobado; cualquier otro intento se rechaza en el servidor con un mensaje claro.
+3. El médico no ve un informe aprobado sin enviar en la lista, el detalle, el PDF ni el último informe de un paciente, en pantalla ni por la API; un enviado sí.
+4. Un enviado cuenta como aprobado para el mensual, el PDF y el informe vigente de su semana.
+5. Las notas y los botones de enfermería que hablan del médico dicen lo que dice el mockup, salvo las frases de notificación, que llegan con la Pieza 5.
+6. Las pruebas y los casos de `eval/` siguen en verde, más las nuevas, y `./run.sh` en un clon limpio sigue levantando todo.
+
+### El paso más riesgoso
+El **paso 3**: el estado `APROBADO` decide en una decena de lugares del backend, y olvidar uno deja al médico sin ver un enviado o permite generar dos informes de la misma semana. La lista del paso 1 se recorre entera y cada lugar lleva su prueba; si una prueba anterior cambia de resultado sin estar en esa lista, se para y se revisa.
+
+### Dónde se puede caer
+| Paso | Qué puede salir mal | Cómo se nota |
+|---|---|---|
+| 3 | El índice de «un informe vigente por semana» no incluye `ENVIADO` | Se puede generar un segundo informe de una semana ya enviada |
+| 3 | El mensual solo acepta `APROBADO` | P-014 deja de poder generar su mensual con la semilla nueva |
+| 3 | Las restricciones de `reviewed_by` o de `approved_version_no` no admiten `ENVIADO` | La migración o el envío fallan en la base |
+| 4 | La pantalla decide los botones por estado y no por permiso | El médico vería «Enviar al médico» si llegara al informe |
+| 5 | Un caso dorado del mensual fija el estado de los informes sembrados | El caso falla sin que haya cambiado el contenido |
+
+### Qué se entrega al final
+- `V10`, la transición, la ruta y la visibilidad en el backend, la semilla con enviados, y el botón, el estado y los textos del mockup en la pantalla de enfermería.
+- D29, RN-01, D6, D11, RF-44, RF-28 y CU-05 al día, los dos diccionarios, `docs/decisiones.md`, `docs/gobernanza.md`, el `README.md` y `AGENTS.md`.
+- Cambios sin commit: el equipo los verifica y los sube.
+
+## Pieza 4 — Pantallas del médico: pacientes, informes recibidos y registro (RF-28, RF-29, RF-30)
+
+**Origen:** RF-28 es del núcleo del Momento 2 (M2-N) y la puerta de la SPEC §6 pide trabajar con un usuario de enfermería y uno de médico; la pantalla del médico (E12c) quedó fuera del Momento 2 por decisión del equipo del 28-oct (`docs/PLAN.md`). RF-29 y RF-30 son M2-S. El equipo pidió el 2026-11-05 construir el módulo del médico, fiel al mockup vA. **[Equipo]** Depende de la Pieza 3, que decide qué informes ve el médico.
+
+### Encargo
+Que un usuario de demostración con rol de médico, elegido en «Ver como», trabaje con las pantallas del mockup vA: «Mis pacientes», la ficha del paciente con el último informe recibido y los registros recientes, «Informes → Recibidos» y el informe enviado con su evidencia y su PDF; y que desde la ficha registre una entrada diaria con la misma pantalla de enfermería, que queda con su autoría. Lo que ve el médico lo sigue decidiendo el servidor: solo informes `ENVIADO` (Pieza 3).
+
+### Decisiones del encargo
+| Duda | Decisión | Por qué |
+|---|---|---|
+| Qué informes ve el médico (D6) | Solo los `ENVIADO` **[Equipo, 2026-11-07]** (Pieza 3) | Es lo que hace el mockup |
+| Cómo registra el médico (RF-30, D12) | Un botón «Nuevo registro» en la ficha del paciente, con el estilo y el lugar del de la ficha de enfermería, que abre la misma pantalla de registro en `#/med/registro/nuevo/:id` **[Equipo, 2026-11-05]** | El mockup vA no le da registro al médico; el equipo eligió el cambio más pequeño, con el diseño del mockup |
+| Quiénes son «Mis pacientes» | Todos los pacientes **[Propuesta]** | No hay asignación de pacientes a médicos en el diccionario ni en los requisitos |
+| Qué evidencia ve el médico (RF-29) | La hoja del informe enviado con sus citas a las entradas originales y la traza a un clic, sin versiones, edición, aprobación, rechazo ni envío **[Equipo]** (ya decidido en E12a, `docs/decisiones.md`: «el médico recibe solo la aprobada y la traza del informe aprobado») | RF-29 pide llegar a las entradas citadas; «fuente y criterio visibles» también vale para el médico |
+| «Informes recibidos» | Las columnas del mockup (Paciente, Período, Recibido y Estado), con «Recibido» como la fecha de envío, ordenadas por período del más reciente al más antiguo y con búsqueda; vacío: «Aún no ha recibido informes. Cuando enfermería envíe un informe aparecerá aquí.» **[Propuesta]** | Es lo del mockup (`vInfLista`) y lo que pide RF-28. La invitación a armar uno propio llega con la Pieza 6 |
+| Quién aparece en «Ver como» | Las dos enfermeras y los dos médicos sembrados; al cambiar de usuario se vuelve al inicio de su rol (`#/enf/pacientes` o `#/med/pacientes`) **[Propuesta]** | Hoy solo ofrece enfermeras «hasta que existan las pantallas del médico» (`session.service.ts`); el mockup también vuelve al inicio del rol |
+| Una ruta de otro rol | Si el usuario elegido no es del rol de la ruta (un médico en `#/enf/…`), se lleva al inicio de su rol **[Propuesta]** | En el mockup el rol sale de la URL; aquí sale del usuario elegido, que es el que usa el servidor. La pantalla no decide permisos: si se fuerza, el servidor responde 403 o 404 |
+| «No encontrado» | «Volver al inicio» lleva al inicio del rol, como el mockup **[Propuesta]** | Hoy lleva siempre a enfermería |
+| «Armar informe» en el menú | No aparece hasta la Pieza 6 **[Propuesta]** | Un enlace a una pantalla que no existe es un callejón sin salida en la demo |
+
+### Fuera del alcance
+Notificaciones y el punto de «registros nuevos» (Pieza 5) · «Armar informe» (Pieza 6) · historial de registros del médico (el mockup no lo tiene) · que el médico edite, apruebe, rechace, envíe o vea versiones · asignar pacientes a médicos · crear o editar pacientes · inicio de sesión (RF-31) y administrador (RF-33) · auditoría (RF-35).
+
+### Supuestos
+- Con la Pieza 3 hecha, el backend le da al médico lo que necesita: `PATIENTS_READ`, `ENTRIES_READ`, `ENTRIES_CREATE` y `REPORTS_READ` (`V4`), la lista y el detalle filtrados por `ReportVisibility` a `ENVIADO`, la traza y el PDF. **Se confirma en el paso 1 con llamadas reales como médico.**
+- Las pantallas de enfermería se pueden reutilizar en modo médico cambiando el prefijo de las rutas y ocultando lo que el rol no puede hacer, sin copiar componentes. **Se confirma en el paso 1:** hoy hay unas 40 líneas con `/enf` fijo en el frontend.
+- Las piezas 3 a 6 se construyen sobre la sesión de demostración (D26). Cuando llegue el inicio de sesión (RF-31), cambia de dónde sale el usuario, no las reglas.
+
+### Pasos
+- [ ] 1. **Mirar** el punto de partida: backend y frontend en verde como línea base; los enlaces y textos con `/enf` fijo; y, con `curl` como médico contra la semilla, la lista de pacientes, la ficha, los informes (por período, del más reciente al más antiguo), el detalle, la traza y el PDF de un enviado, y el 404 de un aprobado sin enviar.
+  - **Produce:** la línea base, los enganches con archivo y línea, y lo que el backend no da, si falta algo.
+  - **Se mira:** `mvn -B verify` y `ng test` en verde con el número anotado; las respuestas como médico cumplen RF-28 y RF-29.
+- [ ] 2. **Registrar** antes de programar: D12 con la decisión de interfaz en la SPEC §7 y en los requisitos (§8), `docs/decisiones.md` (sección «Módulo del médico») y `AGENTS.md`.
+  - **Se mira:** sin IDs inexistentes, tablas cuadradas y conteos por hito sin cambio (esta pieza no trae RF nuevo).
+- [ ] 3. **Construir el armazón por rol:** «Ver como» con los médicos, el menú del médico del mockup («Mis pacientes» e «Informes → Recibidos»), las rutas `med/…`, la vuelta al inicio del rol, «No encontrado» según el rol y los enlaces internos según el rol en vez de `/enf` fijo.
+  - **Se mira:** `ng test` verde con pruebas nuevas del menú, las rutas y la guarda; las pruebas de enfermería siguen verdes sin cambiarlas.
+- [ ] 4. **Construir** «Mis pacientes», la ficha del médico (último informe recibido, registros recientes y el botón «Nuevo registro») y el registro en `#/med/registro/nuevo/:id`, con la estructuración, la vista previa y el dictado de siempre.
+  - **Se mira:** pruebas verdes que cubren que el médico no ve «Nuevo paciente» ni «Generar informe», que el último informe es el enviado y que la entrada creada queda con el médico como autor.
+- [ ] 5. **Construir** «Informes recibidos» (las columnas, el orden y el vacío del mockup) y el informe del médico: la hoja con sus citas, la traza a un clic y «Descargar PDF» (primario, como el mockup), sin editar, aprobar, rechazar ni enviar; un informe que no puede ver muestra «No encontrado».
+  - **Se mira:** pruebas verdes; desde una cita el médico llega a la entrada (RF-29).
+- [ ] 6. **Verificar en vivo** con `./run.sh` y la semilla: el recorrido completo como médico, un aprobado sin enviar y un pendiente que no aparecen en ninguna pantalla ni por la API, una entrada del médico con su autoría, el PDF y el recorrido de enfermería sin cambios; el recorrido del médico en el `README.md`.
+  - **Se mira:** los criterios 1 a 5 con evidencia (capturas o salidas de `curl`).
+- [ ] 7. **Comprobar** el criterio de aceptación, punto por punto, y dejar la evidencia.
+
+### Criterio de aceptación
+1. Con un médico elegido en «Ver como», el menú, los títulos y las pantallas son los del mockup vA («Mis pacientes», «Informes → Recibidos»), y una ruta de enfermería lo lleva al inicio de su rol.
+2. Un informe `PENDIENTE_REVISION`, `INCOMPLETO`, `RECHAZADO` o `APROBADO` sin enviar no le aparece al médico en la lista de pacientes, la ficha, «Recibidos», el detalle ni el PDF, en pantalla ni por la API.
+3. Desde un informe enviado, semanal o mensual, el médico llega a las entradas citadas y descarga el PDF.
+4. Desde la ficha, el médico crea una entrada, confirma sus eventos y la entrada queda con su autoría (RF-30).
+5. El recorrido de enfermería no cambia: sus pruebas siguen verdes y su demo funciona igual.
+6. Las pruebas existentes siguen en verde, más las nuevas, y `./run.sh` en un clon limpio sigue levantando todo.
+
+### El paso más riesgoso
+El **paso 3**. Cambiar los enlaces fijos puede romper pantallas de enfermería que hoy funcionan. Por eso sus pruebas se corren antes y después sin tocarlas; si alguna cambia de resultado, se para y se revisa.
+
+### Dónde se puede caer
+| Paso | Qué puede salir mal | Cómo se nota |
+|---|---|---|
+| 3 | Un enlace queda con `/enf` en modo médico | El médico cae en una pantalla de enfermería, o la guarda lo devuelve al inicio sin razón |
+| 3 | La guarda se evalúa antes de que cargue la sesión | Al recargar `#/med/…` se salta a `#/enf/pacientes` |
+| 4 | La pantalla de registro supone enfermería (textos, enlaces, «Ver ficha del paciente») | Mensajes de enfermería o enlaces a `#/enf/…` después de guardar como médico |
+| 5 | La vista del informe muestra las acciones por estado y no por permiso | Botones de editar, aprobar o enviar visibles al médico (el servidor los rechaza, pero la pantalla confunde) |
+| 5 | «Recibidos» no sigue el orden del mockup (por período, del más reciente al más antiguo) | Un informe de una semana vieja enviado hoy sale arriba |
+
+### Qué se entrega al final
+- El menú, las rutas y las pantallas del médico en el frontend, reutilizando las de enfermería; sin cambios en el backend salvo lo que el paso 1 encuentre que falta.
+- D12 al día en la SPEC y los requisitos, la sección en `docs/decisiones.md`, el recorrido del médico en el `README.md` y `AGENTS.md` al día (E12c deja de estar fuera).
+- Cambios sin commit: el equipo los verifica y los sube.
+
+## Pieza 5 — Notificaciones al médico (requisito nuevo)
+
+**Origen:** el mockup vA trae para el médico una campana con «Nuevo registro…» e «Informe … recibido», y un punto de «registros nuevos» junto al paciente en «Mis pacientes». No estaba en los requisitos; el equipo decidió el 2026-11-05 incluirla como requisito nuevo. **[Equipo]** Depende de la Pieza 4.
+
+### Encargo
+Que cada médico vea en el encabezado una campana con sus notificaciones (un registro nuevo de un paciente y un informe recibido), con un punto cuando hay alguna sin leer y otro junto al paciente en «Mis pacientes»; que se marquen leídas al abrir la ficha o la notificación; y que los avisos de enfermería del mockup al guardar un registro («Registro guardado. Se notificó al médico.») y al enviar un informe («Informe enviado. Se notificó al médico») sean ciertos.
+
+### Decisiones del encargo
+| Duda | Decisión | Por qué |
+|---|---|---|
+| Requisito | Incluirla **[Equipo, 2026-11-05]**; como D30 en la SPEC y RF-45 en los requisitos, hito M3 **[Propuesta]** (los IDs se confirman libres en el paso 2) | No se agregan funcionalidades sin requisito (`CLAUDE.md`) |
+| Qué notifica | Una entrada guardada de un paciente («Nuevo registro del domingo 25 de octubre») y un informe enviado, semanal o mensual («Informe semanal recibido» o «Informe mensual recibido») **[Propuesta]** | Son los dos tipos del mockup, y en el mockup el aviso del informe sale al enviarlo. Aprobar sin enviar no notifica (RN-01) |
+| A quién | A todos los médicos activos, menos al autor de la entrada **[Propuesta]** | «Mis pacientes» son todos (Pieza 4). Avisarle al médico de su propia nota es ruido |
+| Dónde vive | Una tabla `notifications` (destinatario, paciente, tipo, entrada o informe, creada, leída), escrita en la misma transacción que guarda la entrada o envía el informe **[Propuesta]** | El mockup lleva leídas y sin leer por notificación; en la misma transacción no se pierde ni sobra ninguna |
+| Qué texto guarda | Ninguno: la frase se arma al leerla con el tipo y la fecha **[Propuesta]** | No copia texto clínico a otra tabla (RNF-02) |
+| Cuándo se marca leída | Al abrir la ficha del paciente (las de registro de ese paciente, como el mockup), al pulsar la notificación y al abrir el informe que avisa **[Propuesta]** | El mockup hace las dos primeras; la tercera evita que quede sin leer un informe ya leído |
+| Cómo se actualiza | Al navegar entre pantallas, como el mockup; sin sondeo ni SSE **[Propuesta]** | Basta para la demo y no suma conexiones abiertas |
+| Permiso | `NOTIFICATIONS_READ`, solo para `MEDICO` **[Propuesta]** | El mockup no tiene campana para enfermería |
+| Semilla | Como el mockup: dos registros recientes sin leer (P-014 y P-021) y el último informe enviado de P-014 ya leído, para cada médico **[Propuesta]** | El médico abre la demo con algo que mostrar; P-021 no tiene informe enviado (D11) |
+| Tríada | Es un aviso dentro de la aplicación: no sale correo ni mensaje, y el agente no tiene herramienta para notificar **[Propuesta]** | La pata de salida se mantiene cerrada |
+
+### Fuera del alcance
+Correo, mensajes o notificaciones del navegador · notificaciones para enfermería o administración · preferencias por usuario · borrar notificaciones · tiempo real (sondeo, SSE o WebSocket) · notificar la consulta del médico (Pieza 6).
+
+### Supuestos
+- Guardar una entrada y enviar un informe ocurren cada uno en una transacción a la que se puede sumar la notificación. **Se confirma en el paso 1.**
+- Los estilos del mockup para la campana, su panel y los puntos (`.campana`, `.campana-panel`, `.notif`, `.punto-notif`, `.punto-lista`) se pueden portar sin tocar el mockup. **Se confirma en el paso 1.**
+
+### Pasos
+- [ ] 1. **Mirar** el punto de partida: línea base de pruebas, las transacciones de guardar una entrada y de enviar un informe, el encabezado donde va la campana, los estilos del mockup y los avisos actuales de enfermería al guardar y al enviar.
+  - **Produce:** la línea base y los enganches con archivo y línea.
+  - **Se mira:** `mvn -B verify` y `ng test` en verde con el número anotado.
+- [ ] 2. **Registrar** antes de programar: D30 en la SPEC §7, RF-45 y los conteos en los requisitos, la tabla y el permiso en el diccionario, `docs/decisiones.md`, `docs/gobernanza.md` y `AGENTS.md`.
+  - **Se mira:** sin IDs inexistentes, tablas cuadradas y conteos por hito sumados.
+- [ ] 3. **Construir el backend:** la migración (`V11`: tabla y permiso), la creación al guardar una entrada y al enviar un informe, la lista del usuario, las rutas para marcar leídas y la semilla.
+  - **Se mira:** pruebas verdes que cubren que el autor no recibe la suya, que enfermería no tiene notificaciones (403), que enviar notifica y aprobar no, que la estructuración y el dictado no notifican, que un médico no lee ni marca las de otro (404) y que la semilla es idempotente.
+- [ ] 4. **Construir la pantalla:** la campana con su panel en el encabezado, solo para el médico; el punto en «Mis pacientes»; marcar leídas al abrir la ficha, la notificación o el informe; y los avisos de enfermería al guardar y al enviar, con las frases del mockup.
+  - **Se mira:** `ng test` verde con las pruebas nuevas; enfermería no ve la campana.
+- [ ] 5. **Verificar en vivo** con `./run.sh`: enfermería guarda una entrada y envía un informe, y un médico ve las dos notificaciones y el punto, y cómo desaparecen al leerlas.
+  - **Se mira:** los criterios 1 a 5 con evidencia.
+- [ ] 6. **Comprobar** el criterio de aceptación, punto por punto, y dejar la evidencia.
+
+### Criterio de aceptación
+1. Al guardar una entrada, cada médico activo menos el autor recibe «Nuevo registro del …» de ese paciente, y el paciente muestra su punto en «Mis pacientes».
+2. Al enviar un informe, cada médico recibe «Informe semanal recibido» (o mensual), que lleva al informe; aprobarlo sin enviarlo no genera ninguna.
+3. Abrir la ficha o la notificación la marca leída, y los puntos de la campana y de la lista se apagan cuando no queda ninguna sin leer.
+4. Enfermería no ve la campana ni puede leer notificaciones por la API, y un médico no ve las de otro.
+5. Los avisos de enfermería al guardar un registro y al enviar un informe dicen «Se notificó al médico», como el mockup.
+6. Las pruebas existentes siguen en verde, más las nuevas, y `./run.sh` en un clon limpio sigue levantando todo.
+
+### El paso más riesgoso
+El **paso 3**: sumar la notificación a la transacción de guardar una entrada toca el flujo central de enfermería, y si falla la notificación falla el guardado. Se prueba que una entrada válida siempre se guarda con sus notificaciones y que las pruebas de registro siguen verdes; si no, se para y se revisa antes de seguir.
+
+### Dónde se puede caer
+| Paso | Qué puede salir mal | Cómo se nota |
+|---|---|---|
+| 3 | La notificación se crea fuera de la transacción | Una entrada que no se guardó deja notificación, o una guardada queda sin ella |
+| 3 | La estructuración o el dictado crean notificaciones | Notificaciones sin entrada guardada |
+| 3 | La semilla duplica notificaciones al reiniciar | El contador crece con cada arranque |
+| 4 | La campana no se refresca al volver de la ficha | El punto sigue encendido con todo leído |
+
+### Qué se entrega al final
+- `V11` con la tabla `notifications` y el permiso, el servicio y las rutas en el backend, la campana, el punto y los avisos en el frontend, y la semilla.
+- D30 y RF-45 en la SPEC y los requisitos, el diccionario, `docs/decisiones.md`, `docs/gobernanza.md` y `AGENTS.md` al día.
+- Cambios sin commit: el equipo los verifica y los sube.
+
+## Pieza 6 — Consulta del médico: «Armar informe» (requisito nuevo)
+
+**Origen:** el mockup vA trae para el médico «Informes → Armar informe»: elige paciente y período, y la IA arma un «Informe de consulta» solo para él, que «no se guarda en el historial ni se envía a nadie». No estaba en los requisitos y, leído rápido, choca con RN-01 (al médico solo llega lo que enfermería aprobó y envió) y con que solo enfermería pide ejecuciones (`docs/decisiones.md`, E11). El equipo decidió el 2026-11-05 incluirlo «de forma coherente, pero fiel a los mockups»: el médico recibe informes aprobados y escribe notas diarias. **[Equipo]** Depende de la Pieza 4.
+
+### Encargo
+Que un médico arme desde «Armar informe», con el formulario del mockup (paciente; una semana, un mes o un rango de fechas; y comparar o no con otro período), una consulta redactada por el agente con las mismas reglas del informe: cifras calculadas por el código, cada afirmación con su cita, sin diagnóstico, con los cuatro límites y en segundo plano con progreso real. La consulta se muestra como «Informe de consulta» con la marca «Consulta del médico», no entra al historial ni a ninguna lista, solo la ve quien la pidió y queda con su traza.
+
+### Cómo queda coherente con RN-01 **[Propuesta]**
+RN-01 dice que un *informe* solo llega al médico cuando enfermería lo aprobó y lo envió (Pieza 3). La consulta no es un informe del historial: no tiene estado, no la revisa enfermería, no aparece en «Recibidos» ni en la ficha, no notifica y no la ve nadie más que el médico que la pidió. Solo resume registros que el médico ya puede leer (la SPEC §4 le da ver y crear registros diarios): no le llega ningún dato nuevo, solo redactado. Y lo que ve lleva siempre la marca que pide la regla del producto para lo que el médico vea sin aprobación (`AGENTS.md`): «Consulta del médico» en la cabecera, y en el pie «Generado con IA a partir de los registros del período. No pasó por la revisión de enfermería ni forma parte del historial oficial. No contiene diagnóstico ni recomendación de tratamiento.» Se escribe como regla nueva (RN-12) junto a RN-01.
+
+### Decisiones del encargo
+| Duda | Decisión | Por qué |
+|---|---|---|
+| De qué se arma | De las entradas del período con sus eventos confirmados, como el informe semanal **[Equipo, 2026-11-07]** (el equipo pidió la opción más recomendable, alineada con la SPEC, los requisitos y el mockup) | Solo resume lo que el médico ya puede leer: la matriz de la SPEC §4 le da ver los registros y la ficha del mockup ya le muestra los recientes, así que no le llega ningún dato que hoy no vea. Es la única fuente que permite el formulario del mockup (un mes calendario o un rango de fechas no coinciden con semanas aprobadas) y que incluye los días más recientes, que todavía no tienen informe aprobado. Cita las entradas originales (RN-05) con cifras del código (RN-04). **Descartada:** armarla solo de los informes semanales aprobados, como el mensual; es la más cercana a la letra del pie del mockup, pero recorta el formulario a semanas completas con informe aprobado y deja fuera la última semana |
+| Requisito | Incluirlo **[Equipo, 2026-11-05]**; como D31 en la SPEC, RF-46 (hito M3), RN-12 y CU-11 en los requisitos **[Propuesta]** (los IDs se confirman libres en el paso 2) | No se agregan funcionalidades sin requisito (`CLAUDE.md`) |
+| Los textos de la pantalla | Los del mockup, con dos frases corregidas para que sean ciertas: el pie (arriba) y la introducción del formulario, que queda «Arme su propio informe de un paciente para el período que elija. Se hace con los registros del período y es solo para su consulta: no pasa por la revisión de enfermería ni se guarda en el historial.» **[Propuesta]** | El mockup dice «registros que enfermería ya aprobó», y las entradas no las aprueba enfermería: sus eventos los confirma quien registra, también el médico (RN-11) |
+| Períodos | Los del mockup: una semana (lunes a domingo), un mes calendario hasta hoy o un rango de fechas; y comparar con nada, con el período anterior de igual duración o con otro que no se cruce **[Equipo]** (fiel al mockup) | |
+| Tope del rango | El mockup pone un año; el tope real sale del presupuesto de 30 000 tokens y de la cuota por minuto de Groq, **medidos en el paso 1**. Si el medido es menor, el mensaje lo dice con el estilo del mockup **[Propuesta]** | Un rango largo puede no caber en el presupuesto del agente |
+| Dónde se guarda | Una tabla aparte (`doctor_consultations`: médico, paciente, período, comparación, contenido validado y ejecución) que solo lee su autor; nunca en `reports` **[Propuesta]** | «No se guarda en el historial» y, a la vez, ninguna acción sin traza (SPEC §4). Separada, ninguna consulta de informes la puede devolver por error |
+| La ejecución | Tipo nuevo `CONSULTA` en `agent_runs`, con la cola, el SSE, la traza y Langfuse de siempre **[Propuesta]** | Es una llamada al modelo como las demás (RF-22, RF-43). D24: nada síncrono bloqueante |
+| Permiso | `CONSULTATIONS_REQUEST`, solo para `MEDICO`; las rutas de ejecuciones aceptan al médico solo para sus consultas **[Propuesta]** | Hoy solo enfermería pide ejecuciones (`REPORTS_REQUEST`) |
+| Herramientas | Las de lectura con período en vez de semana, el historial de un síntoma y una sola escritura que guarda la consulta; cada ruta del agente ve solo las suyas, sin pasar de 7 **[Propuesta]** | Pocas, atómicas y con mínimo privilegio (`AGENTS.md`); la herramienta del mensual ya existe solo para su ruta |
+| Cifras | Las calcula el código para cualquier período y para su comparación **[Propuesta]** | RN-04 |
+| PDF | «Descargar PDF», como en el mockup, con la marca «Consulta del médico» en la cabecera y en el pie **[Propuesta]** | Fiel al mockup, y la marca viaja con el archivo. Alternativa: sin PDF, porque RF-37 solo habla de informes aprobados |
+| Quién la ve | Solo el médico que la pidió, por su enlace; a los demás, 404 **[Propuesta]** | Como en RN-01: lo que no se puede ver no existe |
+| Lista de consultas | No hay, como en el mockup **[Propuesta]** | «No se guarda en el historial» |
+| Solicitud adicional | No hay campo de texto libre, como en el mockup **[Propuesta]** | El formulario del mockup no lo tiene |
+
+### Fuera del alcance
+Que la consulta pase a enfermería o se convierta en informe · que aparezca en «Recibidos», la ficha o las notificaciones · una lista de consultas · comparar más de dos períodos · un campo de texto libre · rangos por encima del tope medido · cambiar el informe semanal o el mensual de enfermería.
+
+### Supuestos
+- El agente, los validadores y las métricas se pueden generalizar de una semana a un período sin cambiar lo que hacen en el semanal y el mensual: sus pruebas y sus casos de `eval/` lo vigilan. **Se confirma en el paso 1.**
+- La hoja del mockup para la consulta (resumen, cifras, patrón a destacar y fuentes) cabe en el esquema de salida del agente. **Se confirma en el paso 1.**
+
+### Pasos
+- [ ] 1. **Mirar** el punto de partida: línea base de pruebas y de `eval/`; cómo calculan hoy por semana `MetricsCalculator` y las herramientas; los tokens que gastan las entradas de una semana, de un mes y del rango más largo de la semilla, para fijar el tope del rango; y la plantilla del PDF.
+  - **Produce:** la línea base, los enganches con archivo y línea, y el tope del rango medido.
+  - **Se mira:** `mvn -B verify`, `ng test` y `python3 eval/run_eval.py --baseline-only` en verde; el tope sale de una medición, no de una estimación.
+- [ ] 2. **Registrar** antes de programar: D31 y RN-12 en la SPEC y los requisitos, RF-46 (hito M3) y CU-11, los casos borde (período sin registros, comparación que se cruza, rango sobre el tope), el diccionario (tabla, tipo `CONSULTA` y permiso), `docs/decisiones.md` («por qué la consulta no pasa por enfermería y cómo se marca», que el profesor puede preguntar), `docs/gobernanza.md` y `AGENTS.md`.
+  - **Se mira:** sin IDs inexistentes, tablas cuadradas y conteos por hito sumados.
+- [ ] 3. **Construir** las cifras de cualquier período y de su comparación, las herramientas de lectura por período y la escritura que guarda la consulta (`V12`: tabla, tipo y permiso).
+  - **Se mira:** pruebas verdes; las cifras de una semana pedida como período son iguales a las del semanal; las pruebas del semanal y del mensual siguen verdes sin cambiarlas.
+- [ ] 4. **Construir la ruta del agente:** el prompt de la consulta, sus validadores, la ejecución `CONSULTA` con los cuatro límites, las rutas para pedirla, leerla y seguir su progreso, y el PDF con la marca.
+  - **Se mira:** pruebas verdes que cubren que la consulta no aparece en ninguna lista de informes ni para enfermería, que otro médico o enfermería reciben 404, que se cumplen los límites y que una afirmación sin cita o con una cifra que no sale del código se rechaza.
+- [ ] 5. **Construir la pantalla:** «Armar informe» en el menú del médico, el formulario del mockup con sus validaciones, el progreso real y el «Informe de consulta» con su marca, su nota y «Descargar PDF».
+  - **Se mira:** `ng test` verde con las pruebas nuevas.
+- [ ] 6. **Medir:** casos dorados de consulta en `eval/` (una semana comparada con la anterior, un rango sin comparación, un período con días sin registro y la nota de P-040 que trae una orden) contra la solución convencional, y las cuatro cifras con fecha y método en `docs/decisiones/semana14.md`.
+  - **Se mira:** los casos verificados a mano contra los datos; tasa de éxito, costo por consulta, mediana de latencia y recuperación anotados.
+- [ ] 7. **Comprobar** en vivo con `./run.sh` el criterio de aceptación, punto por punto, y dejar la evidencia.
+
+### Criterio de aceptación
+1. Un médico arma una consulta de una semana, de un mes y de un rango, con y sin comparación, y la ve como «Informe de consulta» con la marca «Consulta del médico», en pantalla y en el PDF.
+2. La consulta corre en segundo plano con progreso real, cumple los cuatro límites, sus cifras son las del código y cada afirmación cita entradas del período.
+3. La consulta no aparece en «Recibidos», la ficha, las notificaciones ni ninguna lista de enfermería; otro médico o enfermería reciben 404 al abrirla.
+4. Un período sin registros o un rango sobre el tope se rechaza con un mensaje claro, sin crear ejecución.
+5. Los casos de consulta de `eval/` pasan y las cuatro cifras quedan con fecha y método; los del semanal y el mensual no empeoran.
+6. Las pruebas existentes siguen en verde, más las nuevas, y `./run.sh` en un clon limpio sigue levantando todo.
+
+### El paso más riesgoso
+El **paso 1**, por el tope del rango. Si un mes de entradas no cabe en el presupuesto de tokens o en la cuota por minuto de Groq, el formulario del mockup no se puede cumplir entero. Si pasa, se propone el tope medido, o que el agente lea el período por semanas con varias llamadas dentro del límite de iteraciones, y se pregunta antes de seguir.
+
+### Dónde se puede caer
+| Paso | Qué puede salir mal | Cómo se nota |
+|---|---|---|
+| 3 | Generalizar las cifras cambia las del semanal | Fallan las pruebas o los casos dorados del semanal |
+| 4 | La consulta se cuela en una consulta de informes | Aparece en «Recibidos», en la ficha o en las listas de enfermería |
+| 4 | Una consulta larga pasa de la cuota por minuto de Groq | 429 y respaldo en casi todas las consultas largas |
+| 4 | El validador de cifras supone una semana | Rechaza números válidos de un mes o de un rango |
+| 6 | La suite de `eval/` gasta la cuota diaria | La medición queda a medias; se corre en una base desechable y en tandas |
+
+### Qué se entrega al final
+- `V12`, las cifras por período, la ruta del agente con su prompt, sus herramientas y sus validadores, las rutas, el PDF con la marca y la pantalla «Armar informe» con el «Informe de consulta».
+- Los casos de consulta en `eval/` y las cuatro cifras en `docs/decisiones/semana14.md`.
+- D31, RN-12, RF-46 y CU-11 en la SPEC y los requisitos, el diccionario, `docs/decisiones.md`, `docs/gobernanza.md` y `AGENTS.md` al día.
+- Cambios sin commit: el equipo los verifica y los sube.
