@@ -4,6 +4,7 @@ import { Component, computed, input } from '@angular/core';
 const COLOR_ESTADO: Record<string, string> = {
   'En revisión': '#7F77DD',
   Aprobado: '#1D9E75',
+  Enviado: '#1D9E75',
   Incompleto: '#E24B4A',
   Rechazado: '#E24B4A',
 };
@@ -12,6 +13,7 @@ const COLOR_ESTADO: Record<string, string> = {
 export const REPORT_STATUS_LABELS: Record<string, string> = {
   PENDIENTE_REVISION: 'En revisión',
   APROBADO: 'Aprobado',
+  ENVIADO: 'Enviado',
   INCOMPLETO: 'Incompleto',
   RECHAZADO: 'Rechazado',
 };

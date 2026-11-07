@@ -3,6 +3,8 @@ import { HttpTestingController, TestRequest, provideHttpClientTesting } from '@a
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 
+import { SessionService } from '../core/session.service';
+import { ToastService } from '../core/toast.service';
 import { ReportViewComponent } from './report-view.component';
 
 const CONTENT = {
@@ -69,12 +71,14 @@ describe('ReportViewComponent (vInfVer y hojaHTML del mockup)', () => {
   let root: HTMLElement;
   let settle: () => Promise<void>;
 
-  async function open(answer: object | 404 = detail()) {
+  // Por defecto, la sesion de una enfermera (puede enviar); el medico no tiene REPORTS_SEND.
+  async function open(answer: object | 404 = detail(), permissions: string[] = ['REPORTS_READ', 'REPORTS_APPROVE', 'REPORTS_SEND']) {
     TestBed.configureTestingModule({
       providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([]),
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: 'rep1' }) } } }],
     });
     http = TestBed.inject(HttpTestingController);
+    TestBed.inject(SessionService).session.set({ id: 'n1', displayName: 'Camilo Torres', role: 'ENFERMERIA', permissions });
     const fixture = TestBed.createComponent(ReportViewComponent);
     fixture.detectChanges();
     const request = http.expectOne('/api/reports/rep1');
@@ -144,7 +148,9 @@ describe('ReportViewComponent (vInfVer y hojaHTML del mockup)', () => {
   it('en revision ofrece rechazar, editar y aprobar, y avisa que es la vista previa del medico', async () => {
     await open();
     expect(Array.from(root.querySelectorAll('.acciones [data-a]')).map((b) => b.getAttribute('data-a'))).toEqual(['traza', 'rechazar', 'editar', 'aprobar']);
-    expect(text('.acciones .nota')).toContain('Revise el texto y las fuentes.');
+    // El texto del mockup (vInfVer): aprobar guarda, pero todavia no llega al medico.
+    expect(text('.acciones .nota')).toBe('Revise el texto y las fuentes. Al aprobar, el informe queda guardado, pero todavía no llega al médico.');
+    expect(root.querySelector('[data-a="enviar"]')).toBeNull();
     expect(root.querySelector('.aviso')!.textContent).toContain('Esta es la vista previa tal como la verá el médico.');
   });
 
@@ -157,15 +163,74 @@ describe('ReportViewComponent (vInfVer y hojaHTML del mockup)', () => {
     await settle();
 
     expect(text('.acciones .est')).toBe('Aprobado');
-    expect(text('.acciones .nota')).toBe('Informe aprobado y guardado. Ya puede consultarlo el médico y descargarlo en PDF.');
+    expect(text('.acciones .nota')).toBe('Informe guardado. Puede descargarlo o enviarlo al médico.');
     expect(text('.hoja .meta')).toContain('Aprobado por: Camilo Torres');
     expect(root.querySelector('[data-a="aprobar"]')).toBeNull();
     expect(root.querySelector('[data-a="editar"]')).toBeNull();
     expect(root.querySelector('[data-a="descargar"]')).toBeTruthy();
+    expect(root.querySelector('[data-a="enviar"]')).toBeTruthy();
     expect(root.textContent).not.toContain('vista previa tal como la verá el médico');
   });
 
   const APPROVED = () => detail({ approvedVersionNo: 1 }, { status: 'APROBADO', reviewedBy: 'Camilo Torres', reviewedAt: '2026-10-29T16:00:00Z' });
+
+  const SENT = () => detail({ approvedVersionNo: 1 }, { status: 'ENVIADO', reviewedBy: 'Camilo Torres', reviewedAt: '2026-10-29T16:00:00Z',
+    sentBy: 'Camilo Torres', sentAt: '2026-10-30T15:00:00Z' });
+
+  it('un informe aprobado ofrece «Descargar PDF» y «Enviar al médico», como el mockup (D29)', async () => {
+    await open(APPROVED());
+    expect(Array.from(root.querySelectorAll('.acciones [data-a]')).map((b) => b.getAttribute('data-a'))).toEqual(['traza', 'descargar', 'enviar']);
+    // El boton de proceso lleva en el DOM su texto y el de «en curso» («Enviando»), como en el mockup.
+    expect(text('[data-a="descargar"]')).toBe('Descargar PDFDescargando');
+    expect(text('[data-a="enviar"]')).toBe('Enviar al médicoEnviando');
+    expect(root.querySelector('[data-a="enviar"]')!.classList).toContain('btn--primary');
+    expect(root.querySelector('[data-a="descargar"]')!.classList).toContain('btn--sec');
+  });
+
+  it('enviar llama al servidor y deja el informe «Enviado», con su nota y solo «Descargar PDF»', async () => {
+    await open(APPROVED());
+    const toast = TestBed.inject(ToastService);
+    await click('[data-a="enviar"]');
+    const request = http.expectOne('/api/reports/rep1/send');
+    expect(request.request.method).toBe('POST');
+    request.flush(SENT());
+    await settle();
+
+    expect(text('.acciones .est')).toBe('Enviado');
+    expect(text('.acciones .nota')).toBe('Enviado al médico el 30 de octubre de 2026.');
+    expect(text('.hoja .meta')).toContain('Aprobado por: Camilo Torres');
+    expect(root.querySelector('[data-a="enviar"]')).toBeNull();
+    expect(root.querySelector('[data-a="descargar"]')).toBeTruthy();
+    expect(root.textContent).not.toContain('Generar de nuevo');
+    // Hasta las notificaciones (Pieza 5) el aviso no dice «Se notificó al médico»: no seria cierto.
+    expect(toast.toasts().map((t) => t.text)).toEqual(['Informe enviado al médico.']);
+  });
+
+  it('un informe enviado abierto de nuevo muestra «Enviado», «Aprobado por» y no se puede volver a enviar', async () => {
+    await open(SENT());
+    expect(text('.acciones .est')).toBe('Enviado');
+    expect(text('.acciones .nota')).toBe('Enviado al médico el 30 de octubre de 2026.');
+    expect(text('.hoja .meta')).toContain('Aprobado por: Camilo Torres');
+    expect(Array.from(root.querySelectorAll('.acciones [data-a]')).map((b) => b.getAttribute('data-a'))).toEqual(['traza', 'descargar']);
+    expect(root.textContent).not.toContain('Generar de nuevo');
+  });
+
+  it('si el servidor no deja enviar (409), lo explica en un aviso y el informe sigue aprobado', async () => {
+    await open(APPROVED());
+    await click('[data-a="enviar"]');
+    http.expectOne('/api/reports/rep1/send').flush({ message: 'No se puede enviar este informe: ya fue enviado al médico y no se modifica.' },
+      { status: 409, statusText: 'Conflict' });
+    await settle();
+    expect(root.querySelector('[role="alert"]')!.textContent).toContain('No se puede enviar este informe');
+    expect(text('.acciones .est')).toBe('Aprobado');
+    expect(root.querySelector('[data-a="enviar"]')).toBeTruthy();
+  });
+
+  it('sin el permiso REPORTS_SEND (p. ej. el médico) no sale «Enviar al médico», aunque el informe esté aprobado', async () => {
+    await open(APPROVED(), ['REPORTS_READ']);
+    expect(root.querySelector('[data-a="enviar"]')).toBeNull();
+    expect(root.querySelector('[data-a="descargar"]')).toBeTruthy();
+  });
 
   it('«Descargar PDF» solo existe en un informe aprobado', async () => {
     await open();

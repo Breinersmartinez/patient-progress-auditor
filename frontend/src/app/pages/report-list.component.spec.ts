@@ -50,6 +50,15 @@ describe('ReportListComponent (vInfLista del mockup)', () => {
     expect(rowsOf(root).join('|')).toContain('Rechazado');
   });
 
+  it('un informe enviado sale en «Aprobados» con el estado «Enviado» y «Generado» sigue siendo la fecha de generacion (D29)', async () => {
+    const sent = { ...base, id: 'e', patientAlias: 'P-014', periodStart: '2026-10-05', periodEnd: '2026-10-11', status: 'ENVIADO',
+      reviewedBy: 'Marcela Rojas', sentBy: 'Marcela Rojas', sentAt: '2026-10-31T15:00:00Z' };
+    const root = await open('aprobados', [...REPORTS, sent]);
+    expect(rowsOf(root)).toContain('P-014 5 al 11 de octubre de 2026 28 de octubre de 2026 Enviado');
+    expect(rowsOf(root).join('|')).not.toContain('31 de octubre');
+    expect(Array.from(root.querySelectorAll('.est')).some((chip) => chip.textContent!.trim() === 'Enviado')).toBeTrue();
+  });
+
   it('sin informes muestra el estado vacio con el camino a generar', async () => {
     const root = await open('revision', []);
     expect(root.textContent).toContain('No hay informes por revisar');

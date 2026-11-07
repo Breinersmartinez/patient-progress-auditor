@@ -7,6 +7,7 @@ import { EntriesService } from '../core/entries.service';
 import { IconComponent } from '../core/icon.component';
 import { MenuMarkService } from '../core/menu-mark.service';
 import { Claim, CitedEntry, MonthlyMetrics, ReportContent, ReportDetail, ReportMetrics, ReportsService, TraceStep, VersionView } from '../core/reports.service';
+import { SessionService } from '../core/session.service';
 import { symptomName } from '../core/symptoms';
 import { ToastService } from '../core/toast.service';
 import { EmptyStateComponent } from '../ui/empty-state.component';
@@ -81,11 +82,15 @@ const SHORT = 90;
             <button appProcessButton #approve="processButton" label="Aprobar informe" busyLabel="Aprobando" icon="aprobar"
                     class="btn--primary" data-a="aprobar" (click)="approve_(approve)"></button>
           }
-        } @else if (d.report.status !== 'APROBADO') {
+        } @else if (!approved()) {
           <a class="btn btn--sec" [routerLink]="['/enf/informes/generar', d.report.patientId]">Generar de nuevo</a>
         } @else {
           <button appProcessButton #download="processButton" label="Descargar PDF" busyLabel="Descargando" icon="descargar"
                   class="btn--sec" data-a="descargar" (click)="downloadPdf(download)"></button>
+          @if (d.report.status === 'APROBADO' && canSend()) {
+            <button appProcessButton #send="processButton" label="Enviar al médico" busyLabel="Enviando" icon="enviar"
+                    class="btn--primary" data-a="enviar" (click)="send_(send)"></button>
+          }
         }
         @if (note(); as text) { <p class="nota">{{ text }}</p> }
       </div>
@@ -176,7 +181,7 @@ const SHORT = 90;
               <span><b>Registros revisados:</b> {{ c.metrics.days_with_entry }} de 7 días</span>
             }
             <span><b>Generado:</b> {{ generated() }}</span>
-            <span><b>Aprobado por:</b> {{ d.report.status === 'APROBADO' && d.report.reviewedBy ? d.report.reviewedBy : 'pendiente de aprobación' }}</span>
+            <span><b>Aprobado por:</b> {{ approved() && d.report.reviewedBy ? d.report.reviewedBy : 'pendiente de aprobación' }}</span>
           </div>
           <h2>Resumen de la evolución</h2>
           @if (editing()) {
@@ -289,6 +294,7 @@ export class ReportViewComponent implements OnInit, OnDestroy {
   private readonly reports = inject(ReportsService);
   private readonly entriesService = inject(EntriesService);
   private readonly toast = inject(ToastService);
+  private readonly sessionService = inject(SessionService);
   private readonly menuMark = inject(MenuMarkService);
 
   protected readonly detail = signal<ReportDetail | null>(null);
@@ -316,6 +322,10 @@ export class ReportViewComponent implements OnInit, OnDestroy {
 
   protected readonly content = computed<ReportContent | undefined>(() => this.detail()?.version.content);
   protected readonly pending = computed(() => this.detail()?.report.status === 'PENDIENTE_REVISION');
+  // Aprobado o enviado: enviar no cambia lo aprobado (D29), asi que el PDF y «Aprobado por» valen para los dos.
+  protected readonly approved = computed(() => ['APROBADO', 'ENVIADO'].includes(this.detail()?.report.status ?? ''));
+  // El boton sale por permiso y no solo por estado: el servidor decide, la pantalla solo lo refleja.
+  protected readonly canSend = computed(() => this.sessionService.session()?.permissions.includes('REPORTS_SEND') ?? false);
   protected readonly statusLabel = computed(() => REPORT_STATUS_LABELS[this.detail()?.report.status ?? ''] ?? '');
   protected readonly period = computed(() => {
     const report = this.detail()?.report;
@@ -333,9 +343,13 @@ export class ReportViewComponent implements OnInit, OnDestroy {
   protected readonly note = computed(() => {
     switch (this.detail()?.report.status) {
       case 'PENDIENTE_REVISION':
-        return 'Revise el texto y las fuentes. Al aprobar, el informe queda guardado y el médico podrá consultarlo.';
+        return 'Revise el texto y las fuentes. Al aprobar, el informe queda guardado, pero todavía no llega al médico.';
       case 'APROBADO':
-        return 'Informe aprobado y guardado. Ya puede consultarlo el médico y descargarlo en PDF.';
+        return 'Informe guardado. Puede descargarlo o enviarlo al médico.';
+      case 'ENVIADO': {
+        const sentAt = this.detail()?.report.sentAt;
+        return `Enviado al médico el ${dFull(bogotaDay(sentAt ?? ''))}.`;
+      }
       default:
         return null;
     }
@@ -491,6 +505,23 @@ export class ReportViewComponent implements OnInit, OnDestroy {
       try {
         this.show(await this.reports.approve(d.report.id));
         this.toast.show('Informe aprobado y guardado');
+      } catch (e) {
+        this.formError.set(apiFailure(e).message);
+      }
+    });
+  }
+
+  // RF-44: enviar al medico. Hasta las notificaciones (Pieza 5) el aviso no dice que se notifico: no seria cierto.
+  protected async send_(button: ProcessButtonComponent): Promise<void> {
+    const d = this.detail();
+    if (!d) {
+      return;
+    }
+    this.formError.set(null);
+    await button.run(async () => {
+      try {
+        this.show(await this.reports.send(d.report.id));
+        this.toast.show('Informe enviado al médico.');
       } catch (e) {
         this.formError.set(apiFailure(e).message);
       }

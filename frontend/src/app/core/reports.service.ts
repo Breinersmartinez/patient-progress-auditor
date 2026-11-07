@@ -2,7 +2,7 @@ import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http'
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
-export type ReportStatus = 'PENDIENTE_REVISION' | 'APROBADO' | 'INCOMPLETO' | 'RECHAZADO';
+export type ReportStatus = 'PENDIENTE_REVISION' | 'APROBADO' | 'ENVIADO' | 'INCOMPLETO' | 'RECHAZADO';
 
 // Los campos nulos no viajan en el JSON del API: todo lo opcional llega ausente (nunca null).
 export interface ReportSummary {
@@ -17,6 +17,9 @@ export interface ReportSummary {
   generatedAt: string;
   reviewedBy?: string;
   reviewedAt?: string;
+  // Quién y cuándo lo envió al médico (D29); solo existen en un informe ENVIADO.
+  sentBy?: string;
+  sentAt?: string;
   provider?: string;
   model?: string;
 }
@@ -213,6 +216,11 @@ export class ReportsService {
 
   approve(id: string): Promise<ReportDetail> {
     return firstValueFrom(this.http.post<ReportDetail>(`/api/reports/${encodeURIComponent(id)}/approve`, {}));
+  }
+
+  // Enviar al médico un informe aprobado (RF-44): lo hace llegar al médico; el servidor lo permite solo a enfermería.
+  send(id: string): Promise<ReportDetail> {
+    return firstValueFrom(this.http.post<ReportDetail>(`/api/reports/${encodeURIComponent(id)}/send`, {}));
   }
 
   reject(id: string, reason: string): Promise<ReportDetail> {
