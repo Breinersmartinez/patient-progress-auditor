@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Genera los cinco informes sembrados (D11, E14) con la plantilla sin modelo de eval/baseline.py.
+"""Genera los cinco informes sembrados (D11, E14; el estado de los de P-014 cambio con D29) con la plantilla sin modelo de eval/baseline.py.
 
 Lee solo la semilla de entradas y escribe backend/src/main/resources/seed/demo-reports.json. Las cifras NO se guardan
 aqui: el sembrador las calcula con el codigo al insertar el informe (`metrics`, `insufficient_data`), asi que no pueden
@@ -19,10 +19,11 @@ import baseline  # noqa: E402
 SEED = ROOT / "backend/src/main/resources/seed/demo-data.json"
 BOGOTA = timezone(timedelta(hours=-5))
 
-# alias, lunes de la semana, estado: 4 aprobados de P-014 (permiten el mensual, RN-10) y 1 pendiente de P-021 (RN-01, RN-02)
+# alias, lunes de la semana, estado: de P-014, tres enviados al medico y uno aprobado sin enviar (los cuatro permiten el
+# mensual, RN-10; el aprobado queda para enviarlo en vivo, D29) y 1 pendiente de P-021 (RN-01, RN-02)
 REPORTS = [
-    ("P-014", "2026-09-21", "APROBADO"), ("P-014", "2026-09-28", "APROBADO"),
-    ("P-014", "2026-10-05", "APROBADO"), ("P-014", "2026-10-12", "APROBADO"),
+    ("P-014", "2026-09-21", "ENVIADO"), ("P-014", "2026-09-28", "ENVIADO"),
+    ("P-014", "2026-10-05", "ENVIADO"), ("P-014", "2026-10-12", "APROBADO"),
     ("P-021", "2026-10-12", "PENDIENTE_REVISION"),
 ]
 
@@ -50,9 +51,13 @@ def main():
                        for c in model["claims"]],
             "changesVsPrevious": model["changes_vs_previous"], "recurringPatterns": model["recurring_patterns"],
         }
-        if status == "APROBADO":
+        if status in ("APROBADO", "ENVIADO"):
             report["reviewer"] = "marcela"
             report["reviewedAt"] = stamp(end + timedelta(days=1), 9)
+        if status == "ENVIADO":
+            # Quien y cuando lo envio (D29): la misma revisora, una hora despues de aprobarlo.
+            report["sentBy"] = "marcela"
+            report["sentAt"] = stamp(end + timedelta(days=1), 10)
         out.append(report)
     json.dump({"reports": out}, sys.stdout, ensure_ascii=False, indent=2)
     sys.stdout.write("\n")

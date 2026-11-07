@@ -168,11 +168,22 @@ class MonthlyCases(unittest.TestCase):
 
     def test_the_monthly_cases_use_four_weeks_of_the_seed(self):
         seeded = {(r["alias"], r["weekStart"]) for r in json.loads((ROOT / "backend/src/main/resources/seed/demo-reports.json").read_text(encoding="utf-8"))["reports"]
-                  if r["status"] == "APROBADO"}
-        # M1 y M3 piden los cuatro informes que la semilla ya trae aprobados: son su condicion
+                  if r["status"] in ("APROBADO", "ENVIADO")}
+        # M1 y M3 piden los cuatro informes que la semilla ya trae aprobados (tres enviados y uno aprobado, D29; un enviado
+        # cuenta como aprobado para el mensual): son su condicion
         for case in (c for c in MONTHLY if "days" in c["expect"]):
             for week in case["expect"]["days"]:
                 self.assertIn((case["patient"], week), seeded, case["id"])
+
+    def test_the_seed_has_three_sent_and_one_approved_weekly_report_of_p014_and_the_sender_is_the_reviewer(self):
+        reports = json.loads((ROOT / "backend/src/main/resources/seed/demo-reports.json").read_text(encoding="utf-8"))["reports"]
+        p014 = [r for r in reports if r["alias"] == "P-014"]
+        self.assertEqual([r["status"] for r in sorted(p014, key=lambda r: r["weekStart"])], ["ENVIADO", "ENVIADO", "ENVIADO", "APROBADO"])
+        for r in p014:
+            self.assertIn("reviewer", r)
+            self.assertEqual("sentBy" in r and "sentAt" in r, r["status"] == "ENVIADO", r["weekStart"])
+            if r["status"] == "ENVIADO":
+                self.assertGreater(r["sentAt"], r["reviewedAt"])
 
     def test_a_correct_template_passes_the_applicable_case(self):
         record = monthly.run_baseline(DATA, self.case)
