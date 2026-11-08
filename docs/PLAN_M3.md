@@ -330,7 +330,8 @@ Las pantallas del médico (Pieza 4) · las notificaciones y las frases «Se noti
   > **Decisiones que nadie pidió:** usar la semana del 19-oct (la única libre de P-014) para el informe semanal en vivo, en vez de inventar datos nuevos; dejar las cinco semanas de P-014 enviadas al terminar (antes había una sin enviar «para enviarla en vivo», y ya se envió: la demo del equipo puede volver a dejar una sin enviar borrando el volumen o con un informe nuevo).
   > **No verificado:** Firefox o Brave con la pantalla (solo Chrome headless); el recorrido físico de un clic de un ser humano en el botón «Enviar al médico» (lo hice por `curl` contra el mismo endpoint que llama el botón; el clic en sí ya lo prueban las 6 pruebas nuevas de Angular contra un backend simulado). El contenedor del backend quedó corriendo con datos reales de esta sesión (cinco informes de P-014 enviados, uno de ellos generado en vivo): si el equipo quiere la semilla original para la demo del profesor, `docker compose down -v` y `./run.sh` la deja como la describe el plan (3 enviados, 1 aprobado).
   - **Se mira:** los criterios 1 a 4 con evidencia.
-- [ ] 7. **Comprobar** el criterio de aceptación, punto por punto, y dejar la evidencia.
+- [x] 7. **Comprobar** el criterio de aceptación, punto por punto, y dejar la evidencia.
+  > Validado el 2026-11-07 con `valida-resultado`, en una sesión aparte (confirmado por el equipo): sirve con reservas, atendidas en `AGENTS.md` y `docs/gobernanza.md`. El detalle condición por condición quedó en esa sesión y no se copió aquí.
 
 ### Criterio de aceptación
 1. En un informe aprobado, enfermería ve «Descargar PDF» y «Enviar al médico»; al enviarlo pasa a «Enviado», con la nota «Enviado al médico el …» y solo «Descargar PDF», como el mockup.
