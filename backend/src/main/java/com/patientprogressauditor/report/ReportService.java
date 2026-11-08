@@ -24,6 +24,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.patientprogressauditor.agent.AgentRun;
 import com.patientprogressauditor.agent.AgentRunRepository;
 import com.patientprogressauditor.agent.AgentStepRepository;
@@ -309,8 +311,30 @@ public class ReportService {
         return new VersionMeta(v.getVersionNo(), v.getOrigin(), name(names, v.getEditedBy()), v.getCreatedAt());
     }
 
-    private static VersionView view(ReportVersion v, Map<UUID, String> names) {
-        return new VersionView(v.getVersionNo(), v.getOrigin(), name(names, v.getEditedBy()), v.getCreatedAt(), v.getContent(), v.getPlainText());
+    private VersionView view(ReportVersion v, Map<UUID, String> names) {
+        return new VersionView(v.getVersionNo(), v.getOrigin(), name(names, v.getEditedBy()), v.getCreatedAt(),
+                withWeeklySentFlags(v.getContent()), v.getPlainText());
+    }
+
+    // El mensual congela el resumen de sus cuatro semanas al generarse (ReportContentBuilder): no dice si una semana
+    // se envio por separado. Si una quedo APROBADO sin enviar, el enlace "Ver el informe de esa semana" no debe
+    // aparecerle al medico (extension de D29, decidida el 2026-11-07 con el dueño); por eso se consulta en vivo,
+    // nunca desde lo congelado.
+    private JsonNode withWeeklySentFlags(JsonNode content) {
+        if (content == null || !content.hasNonNull("weekly_reports")) {
+            return content;
+        }
+        ArrayNode weeks = ((ArrayNode) content.get("weekly_reports")).deepCopy();
+        for (JsonNode week : weeks) {
+            if (week.hasNonNull("report_id") && week instanceof ObjectNode weekNode) {
+                UUID weekReportId = UUID.fromString(week.get("report_id").asText());
+                boolean sent = reports.findById(weekReportId).map(r -> r.getStatus() == Report.Status.ENVIADO).orElse(false);
+                weekNode.put("sent", sent);
+            }
+        }
+        ObjectNode result = ((ObjectNode) content).deepCopy();
+        result.set("weekly_reports", weeks);
+        return result;
     }
 
     // Por afirmacion, los registros que cita con su fecha y su texto ORIGINAL (la fuente citable, RN-07).

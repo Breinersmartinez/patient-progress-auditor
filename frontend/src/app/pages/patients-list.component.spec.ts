@@ -4,6 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 
 import { Patient } from '../core/patients.service';
+import { SessionService } from '../core/session.service';
 import { PatientsListComponent } from './patients-list.component';
 
 const PATIENTS: Patient[] = [
@@ -21,6 +22,10 @@ describe('PatientsListComponent (vPacLista del mockup)', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({ providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])] });
     http = TestBed.inject(HttpTestingController);
+    TestBed.inject(SessionService).session.set({
+      id: 'n1', displayName: 'Camilo Torres', role: 'ENFERMERIA',
+      permissions: ['PATIENTS_READ', 'PATIENTS_CREATE', 'ENTRIES_READ', 'REPORTS_READ'],
+    });
   });
 
   afterEach(() => http.verify());
@@ -77,5 +82,16 @@ describe('PatientsListComponent (vPacLista del mockup)', () => {
 
     expect(root.querySelector('.aviso')?.textContent).toContain('El servidor no respondió.');
     expect(root.querySelector('table')).toBeNull();
+  });
+
+  it('con un médico (sin PATIENTS_CREATE), no ofrece "Nuevo paciente" y enlaza con su prefijo', async () => {
+    TestBed.inject(SessionService).session.set({
+      id: 'm1', displayName: 'Dr. Andrés Salazar', role: 'MEDICO',
+      permissions: ['PATIENTS_READ', 'ENTRIES_READ', 'ENTRIES_CREATE', 'REPORTS_READ'],
+    });
+    const root = await load(PATIENTS);
+
+    expect(root.querySelector('.cab a.btn--primary')).toBeNull();
+    expect(root.querySelectorAll('tbody tr')[1].getAttribute('data-href')).toBe('/med/pacientes/ficha/b');
   });
 });

@@ -168,6 +168,15 @@ describe('EntryNewComponent (vRegNuevo del mockup)', () => {
     expect(root.querySelector('.aviso a')?.getAttribute('href')).toBe('/enf/pacientes/ficha/p1');
   });
 
+  it('con una sesión de médico (D12), el enlace a la ficha tras guardar usa su propio prefijo', async () => {
+    await open();
+    TestBed.inject(SessionService).session.set({ id: 'm1', displayName: 'Dr. Andrés Salazar', role: 'MEDICO', permissions: ['ENTRIES_CREATE'] });
+    await send('Tuvo diarrea intensa dos veces. Comió poco.');
+    await save();
+
+    expect(root.querySelector('.aviso a')?.getAttribute('href')).toBe('/med/pacientes/ficha/p1');
+  });
+
   it('lo que la persona cambia sale como EDITADO, lo que agrega como MANUAL y lo que quita no se guarda', async () => {
     await open();
     await send('Tuvo diarrea. Comió poco. Mareo.');

@@ -1,7 +1,9 @@
 # REQUISITOS — Patient Progress Auditor
 
-> **Estado:** borrador v0.7 para aprobación · **Fase del ciclo de vida:** 2 — Análisis de requisitos · **Fecha:** 2026-11-07
-> **Base:** `docs/SPEC.md` v0.7 (§1–§3, objetivos OBJ-01 a OBJ-16), `AGENTS.md`, las rúbricas del curso *Ingeniería de Aplicaciones con IA* y lo dicho por el profesor en la clase del 24 de octubre de 2026.
+> **Estado:** borrador v0.8 para aprobación · **Fase del ciclo de vida:** 2 — Análisis de requisitos · **Fecha:** 2026-11-07
+> **Base:** `docs/SPEC.md` v0.11 (§1–§3, objetivos OBJ-01 a OBJ-16), `AGENTS.md`, las rúbricas del curso *Ingeniería de Aplicaciones con IA* y lo dicho por el profesor en la clase del 24 de octubre de 2026.
+>
+> **Cambios de la v0.8 (módulo del médico, pantallas, paso 2 de la Pieza 4 de `docs/PLAN_M3.md`, 7 de noviembre de 2026):** se precisa RF-30 y la fila de D12 en §8 con la interfaz decidida por el equipo el 2026-11-05 (botón «Nuevo registro» en la ficha del médico, ruta `#/med/registro/nuevo/:id`). No cambia ningún RF, RN ni CU, ni los conteos por hito: esta pieza no trae requisito nuevo.
 >
 > **Cambios de la v0.7 (decisión del equipo del 7 de noviembre de 2026):** se agrega RF-44 (enviar al médico un informe aprobado) con hito M3, por D29 y por fidelidad al mockup vA, y RN-01 se reescribe: un informe llega al médico en estado `ENVIADO`, no en `APROBADO`. RF-23 suma el estado `ENVIADO`; RF-28, RF-29, RF-37, RN-02, RN-10, CU-04, CU-05 y CU-09 se ajustan (un informe enviado cuenta como aprobado para el mensual y el PDF). Los RF pasan de 43 a 44 y los de hito M3 de 3 a 4 (RF-31, RF-33, RF-34 y RF-44); los M2-N (29), los M2-S (7) y los Opc (2) no cambian. RF-23 y RF-28 conservan su hito M2-N: lo que cambia en ellos (el estado `ENVIADO` y que el médico vea solo enviados) se construye en el Momento 3.
 >
@@ -149,7 +151,7 @@
 |---|---|---|---|---|
 | RF-28 | Permitir al médico listar pacientes y consultar los informes `ENVIADO` por paciente y período, del más reciente al más antiguo | M2-N | OBJ-05 | ¿Un informe pendiente, incompleto, rechazado o aprobado sin enviar NO aparece para el médico? |
 | RF-29 | Mostrar al médico, en un informe enviado, la evidencia que lo respalda | M2-S | OBJ-06 | ¿Desde un informe enviado el médico llega a las entradas citadas? |
-| RF-30 | Permitir al médico registrar entradas diarias (supuesto D12) | M2-S | OBJ-15 | ¿Un usuario médico crea una entrada y queda con su autoría? |
+| RF-30 | Permitir al médico registrar entradas diarias (D12, decidida; interfaz: botón «Nuevo registro» en la ficha, `#/med/registro/nuevo/:id`, módulo del médico Pieza 4) | M2-S | OBJ-15 | ¿Un usuario médico crea una entrada y queda con su autoría? |
 
 ### 3.6 Usuarios, roles y auditoría
 
@@ -265,7 +267,7 @@ Para poder avanzar, el análisis usa estos supuestos. Si cambian, se actualiza e
 | Origen de los registros | Captura mínima propia más datos sintéticos cargados por script | RF-02, RF-05 | D5 |
 | Visibilidad al médico | Decidido el 2026-11-07: solo ve informes `ENVIADO` (enfermería los aprueba y los envía); era supuesto `APROBADO` | RF-28, RF-44, RN-01 | D6, D29 |
 | Qué es una semana | Lunes a domingo; compara con la anterior y el agente decide cuántas más atrás, con tope | RN-06, RF-10 | D10 |
-| El médico registra | Sí | RF-30 | D12 |
+| El médico registra | Sí; interfaz decidida el 2026-11-05: botón «Nuevo registro» en su ficha, `#/med/registro/nuevo/:id`, misma pantalla que enfermería | RF-30 | D12 |
 | Catálogo de métricas | El de RF-07 es una propuesta; conviene validarlo con una persona de enfermería | RF-07, RF-11 | D18 |
 | Disparo de la generación | Manual (botón) en M2; programado al cierre de semana queda para M3 | RF-08 | D19 |
 | Consulta libre al pedir el informe | Sin campo libre en M2; el caso de rechazo se construye con una entrada que pide un diagnóstico | RF-15 | D20 |

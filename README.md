@@ -127,7 +127,7 @@ Si después de `down -v` se borra también `.env` (o se clona de nuevo) pero que
 | Dr. Andrés Salazar | Médico | `20000000-0000-0000-0000-000000000003` |
 | Dr. Julián Ortiz | Médico | `20000000-0000-0000-0000-000000000004` |
 
-La interfaz de esta entrega es la de **enfermería**; el selector solo ofrece a Marcela y a Camilo. **No hay pantalla del médico** (decisión del equipo, E12c fuera de esta entrega). La regla del médico sí está en el servidor y se comprueba por la API enviando su identificador en la cabecera `X-Demo-User`:
+**«Ver como»** ofrece los cuatro: las dos enfermeras y los dos médicos. Al elegir un médico la interfaz cambia a sus propias pantallas («Mis pacientes», «Informes → Recibidos»), reutilizando las de enfermería con lo que su rol puede hacer (D12, D26). La regla de qué ve el médico la decide el servidor, y se comprueba igual por la API, enviando su identificador en la cabecera `X-Demo-User`:
 
 ```bash
 # El médico solo recibe informes ENVIADOS (3 de los 4 sembrados; el cuarto queda aprobado, para enviarlo en vivo);
@@ -158,6 +158,15 @@ Fechas fijas: los registros terminan el domingo 25-oct-2026 y el reloj de la apl
 7. **Imprimir.** En cualquier informe **aprobado** (semanal o mensual) pulse **Descargar PDF**: el servidor lo arma con JasperReports y trae el aprobador, la fecha de aprobación, el id del informe, el resumen con sus `[n]`, las cifras, las fuentes con el texto original y la nota de asistencia de IA. Se imprime lo aprobado o lo enviado: un informe pendiente responde 409. Lo que el rol no puede ver «no existe» (404): el médico solo descarga un informe ya enviado. Por API: `curl -s -H 'X-Demo-User: 20000000-0000-0000-0000-000000000003' -o informe.pdf http://localhost:8080/api/reports/<id>/pdf` (el `<id>` sale de `GET /api/reports?status=ENVIADO`, con el mismo `X-Demo-User` del médico).
 
 Sin llave (ver §3) los pasos 1, 2 y 6 muestran un aviso claro; todo lo demás (pacientes, historial, informes sembrados, revisión, aprobación, rechazo) funciona.
+
+### Recorrido del médico (1 minuto)
+
+1. En **«Ver como»** elija **Dr. Andrés Salazar**. La interfaz cambia a sus pantallas: **Mis pacientes** y **Informes → Recibidos**; no hay «Nuevo paciente» ni «Generar informe» (no tiene esos permisos).
+2. Abra **P-014**: el último informe dice **«Último informe recibido»** y es el más reciente de los tres `ENVIADO` (la semana del 5 de octubre), nunca el `APROBADO` sin enviar del 12 de octubre, aunque sea más nuevo. Puede registrar con **Nuevo registro** (misma pantalla que enfermería, con estructuración, vista previa y texto corregido; necesita llave, ver §3); la entrada queda con su autoría.
+3. En **Informes → Recibidos** solo aparecen los informes `ENVIADO`, por período del más reciente al más antiguo, con la columna **Recibido** (la fecha de envío). Ábralo: tiene la misma hoja con sus citas, pero solo **Descargar PDF** (sin editar, aprobar, rechazar ni enviar). Los tres sembrados no traen **Ver cómo se generó** (los escribió una plantilla, sin pasar por el agente, D11); un informe que el médico vea y haya generado el agente sí lo trae, como para enfermería.
+4. El `APROBADO` sin enviar de P-014 (12-oct) y el `PENDIENTE_REVISION` de P-021 no aparecen en ninguna pantalla del médico ni por la API: `curl -s -H 'X-Demo-User: 20000000-0000-0000-0000-000000000003' http://localhost:8080/api/reports/<id-del-aprobado-sin-enviar>` responde 404, igual que si no existiera (D29).
+
+Sin llave (ver §3), el paso 2 (registrar) muestra un aviso claro; los pasos 1, 3 y 4 funcionan igual.
 
 ---
 
@@ -309,7 +318,9 @@ La suite rechaza cada informe que genera para poder repetir la semana: úsela en
 
 **Momento 2.** Está: registro con estructuración por IA y confirmación humana, agente con cuatro límites, informe semanal y mensual (cuatro semanas aprobadas, RN-10) con citas y traza, revisión (editar con versiones, aprobar, rechazar), PDF del informe aprobado (JasperReports), ejecución en segundo plano con progreso por SSE, semilla sin llamar al modelo, evaluación con cifras.
 
-**No está (decidido y declarado):** autenticación y credenciales (Momento 3, D23); pantalla del médico (E12c fuera; la regla se aplica en el servidor y se prueba por API); dictado por voz (opcional); fallos del proveedor forzables en vivo (se prueban con pruebas automáticas).
+**Momento 3 (en construcción).** Está: «Enviar al médico» y el estado `ENVIADO` (D29, RF-44); las pantallas del médico («Mis pacientes», «Informes → Recibidos», su registro), reutilizando las de enfermería (D12).
+
+**No está (decidido y declarado):** autenticación y credenciales (Momento 3, D23); dictado por voz (opcional); fallos del proveedor forzables en vivo (se prueban con pruebas automáticas).
 
 **Prueba del compañero.** El procedimiento (otra persona, sin el código, que solo lee este README en un clon limpio, con el tiempo medido desde `git clone` hasta ver la interfaz con los pacientes; meta: menos de 5 minutos) y su registro están en [docs/prueba_companero.md](docs/prueba_companero.md). **Estado al 30-oct: la plantilla está lista y todavía no la llenó una persona ajena al equipo.** Lo medido por el equipo (4 min 23 s, §1) no la sustituye.
 

@@ -5,11 +5,13 @@ import { apiFailure } from '../core/api-error';
 import { bogotaDay, dFull, periodoTxt } from '../core/date-es';
 import { IconComponent } from '../core/icon.component';
 import { ReportSummary, ReportsService } from '../core/reports.service';
+import { SessionService } from '../core/session.service';
 import { CellDirective, ListingComponent } from '../ui/listing.component';
 import { REPORT_STATUS_LABELS, StatusChipComponent } from '../ui/status-chip.component';
 
-// vInfLista() del mockup. «En revisión» son los pendientes; la otra lista es todo lo demás (`estado !== 'En revisión'` en
+// vInfLista() del mockup. «En revisión» son los pendientes; «aprobados» es todo lo demás (`estado !== 'En revisión'` en
 // el mockup): aprobados, y tambien rechazados e incompletos, que no tienen otra pantalla donde encontrarse.
+// «recibidos» es la lista del medico: el servidor ya la filtra a ENVIADO (ReportVisibility), sin filtro aquí.
 @Component({
   selector: 'app-report-list',
   standalone: true,
@@ -25,7 +27,7 @@ import { REPORT_STATUS_LABELS, StatusChipComponent } from '../ui/status-chip.com
           @switch (col) {
             @case (0) { <b>{{ r.patientAlias }}</b> }
             @case (1) { {{ period(r) }} }
-            @case (2) { {{ day(r.generatedAt) }} }
+            @case (2) { {{ day(r) }} }
             @case (3) { <app-status-chip [name]="label(r.status)" [dense]="true" /> }
           }
         </ng-template>
@@ -35,19 +37,23 @@ import { REPORT_STATUS_LABELS, StatusChipComponent } from '../ui/status-chip.com
 })
 export class ReportListComponent implements OnInit {
   private readonly service = inject(ReportsService);
+  private readonly session = inject(SessionService);
   private readonly view: string = inject(ActivatedRoute).snapshot.data['view'];
 
-  protected readonly cols = ['Paciente', 'Período', 'Generado', 'Estado'];
+  protected readonly cols = ['Paciente', 'Período', this.view === 'recibidos' ? 'Recibido' : 'Generado', 'Estado'];
   protected readonly reports = signal<ReportSummary[] | null>(null);
   protected readonly error = signal<string | null>(null);
 
   protected readonly searchText = (r: ReportSummary) => `${r.patientAlias} ${this.period(r)} ${this.label(r.status)}`;
-  protected readonly href = (r: ReportSummary) => `/enf/informes/ver/${r.id}`;
+  protected readonly href = (r: ReportSummary) => `/${this.session.prefix()}/informes/ver/${r.id}`;
   protected readonly label = (status: string) => REPORT_STATUS_LABELS[status] ?? status;
   protected readonly period = (r: ReportSummary) => (r.reportType === 'MENSUAL' ? 'Mensual: ' : '') + periodoTxt(r.periodStart, r.periodEnd);
-  protected readonly day = (instant: string) => dFull(bogotaDay(instant));
+  protected readonly day = (r: ReportSummary) => dFull(bogotaDay(this.view === 'recibidos' ? (r.sentAt ?? r.generatedAt) : r.generatedAt));
 
   protected empty() {
+    if (this.view === 'recibidos') {
+      return { title: 'Aún no ha recibido informes', text: 'Cuando enfermería envíe un informe aparecerá aquí.' };
+    }
     return {
       title: this.view === 'revision' ? 'No hay informes por revisar' : 'Aún no hay informes aprobados',
       text: 'Genere un informe y aparecerá aquí.',
@@ -58,7 +64,9 @@ export class ReportListComponent implements OnInit {
   async ngOnInit(): Promise<void> {
     try {
       const all = await this.service.list();
-      this.reports.set(all.filter((r) => (this.view === 'revision') === (r.status === 'PENDIENTE_REVISION')));
+      this.reports.set(
+        this.view === 'recibidos' ? all : all.filter((r) => (this.view === 'revision') === (r.status === 'PENDIENTE_REVISION')),
+      );
     } catch (e) {
       this.error.set(apiFailure(e).message);
     }

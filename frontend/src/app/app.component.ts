@@ -4,10 +4,10 @@ import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { filter, map, startWith } from 'rxjs';
 
 import { IconComponent } from './core/icon.component';
-import { NURSING_MENU } from './core/menu';
+import { DOCTOR_MENU, NURSING_MENU } from './core/menu';
 import { MenuMarkService } from './core/menu-mark.service';
 import { PageTitleService } from './core/page-title.service';
-import { roleLabel } from './core/roles';
+import { roleHome, roleLabel } from './core/roles';
 import { SessionService } from './core/session.service';
 import { ToastService } from './core/toast.service';
 import { SidebarComponent, SidebarUser } from './ui/sidebar.component';
@@ -26,7 +26,8 @@ export class AppComponent {
   private readonly router = inject(Router);
   private readonly menuMark = inject(MenuMarkService);
 
-  protected readonly menu = NURSING_MENU;
+  // El menu de cada rol (D26): el del medico aun no tiene «Armar informe» (Pieza 6).
+  protected readonly menu = computed(() => (this.session.session()?.role === 'MEDICO' ? DOCTOR_MENU : NURSING_MENU));
 
   // Ruta actual y opcion del menu que le corresponde.
   private readonly navigation = toSignal(
@@ -60,7 +61,7 @@ export class AppComponent {
 
   protected async choose(event: Event): Promise<void> {
     await this.session.select((event.target as HTMLSelectElement).value);
-    await this.router.navigateByUrl('/enf/pacientes'); // como el mockup, vuelve al inicio del rol
+    await this.router.navigateByUrl(roleHome(this.session.session()?.role)); // como el mockup, vuelve al inicio del rol
   }
 
   private deepestData(): Record<string, unknown> {

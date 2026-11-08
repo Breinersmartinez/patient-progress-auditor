@@ -1,5 +1,7 @@
-import { Component, OnDestroy, OnInit, computed, effect, inject, signal } from '@angular/core';
+import { Component, OnDestroy, computed, effect, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { map } from 'rxjs';
 
 import { apiFailure } from '../core/api-error';
 import { bogotaDay, dCorto, dFull, fechaCorta, periodoTxt, sumar } from '../core/date-es';
@@ -7,6 +9,7 @@ import { EntriesService } from '../core/entries.service';
 import { IconComponent } from '../core/icon.component';
 import { MenuMarkService } from '../core/menu-mark.service';
 import { Claim, CitedEntry, MonthlyMetrics, ReportContent, ReportDetail, ReportMetrics, ReportsService, TraceStep, VersionView } from '../core/reports.service';
+import { roleHome } from '../core/roles';
 import { SessionService } from '../core/session.service';
 import { symptomName } from '../core/symptoms';
 import { ToastService } from '../core/toast.service';
@@ -50,7 +53,7 @@ const SHORT = 90;
   template: `
     @if (missing()) {
       <app-empty-state title="No encontramos lo que busca" text="Puede que haya cambiado o que su rol no tenga acceso."
-                       [action]="{ text: 'Volver al inicio', path: '/enf/pacientes' }" />
+                       [action]="{ text: 'Volver al inicio', path: home() }" />
     }
     @if (loadError(); as message) {
       <div class="aviso"><svg appIcon="rechazar"></svg><span>{{ message }}</span></div>
@@ -66,7 +69,7 @@ const SHORT = 90;
             {{ traceOpen() ? 'Ocultar cómo se generó' : 'Ver cómo se generó' }}
           </button>
         }
-        @if (d.versions.length > 1) {
+        @if (d.versions.length > 1 && canEdit()) {
           <button class="btn btn--sec" type="button" data-a="ia" [attr.aria-expanded]="aiOpen()" (click)="toggleAi()">
             {{ aiOpen() ? 'Ocultar lo que escribió la IA' : 'Ver lo que escribió la IA' }}
           </button>
@@ -83,16 +86,19 @@ const SHORT = 90;
                     class="btn--primary" data-a="aprobar" (click)="approve_(approve)"></button>
           }
         } @else if (!approved()) {
+          <!-- Solo enfermeria llega aqui: el medico nunca ve un informe sin aprobar (approved() es siempre true para ENVIADO). -->
           <a class="btn btn--sec" [routerLink]="['/enf/informes/generar', d.report.patientId]">Generar de nuevo</a>
         } @else {
           <button appProcessButton #download="processButton" label="Descargar PDF" busyLabel="Descargando" icon="descargar"
-                  class="btn--sec" data-a="descargar" (click)="downloadPdf(download)"></button>
+                  [class]="isDoctor() ? 'btn--primary' : 'btn--sec'" data-a="descargar" (click)="downloadPdf(download)"></button>
           @if (d.report.status === 'APROBADO' && canSend()) {
             <button appProcessButton #send="processButton" label="Enviar al médico" busyLabel="Enviando" icon="enviar"
                     class="btn--primary" data-a="enviar" (click)="send_(send)"></button>
           }
         }
-        @if (note(); as text) { <p class="nota">{{ text }}</p> }
+        @if (!isDoctor()) {
+          @if (note(); as text) { <p class="nota">{{ text }}</p> }
+        }
       </div>
 
       @if (pending() && !editing()) {
@@ -251,7 +257,12 @@ const SHORT = 90;
             <ol data-t="origen">
               @for (source of c.weekly_reports; track source.report_id) {
                 <li>Semana {{ source.week_no }} ({{ weekRange(source.week_start) }}): {{ source.summary }}
-                  <a [routerLink]="['/enf/informes/ver', source.report_id]">Ver el informe de esa semana</a></li>
+                  @if (!isDoctor() || source.sent !== false) {
+                    <a [routerLink]="['/' + prefix(), 'informes', 'ver', source.report_id]">Ver el informe de esa semana</a>
+                  } @else {
+                    <span class="sec"> (no se envió por separado)</span>
+                  }
+                </li>
               }
             </ol>
           }
@@ -264,7 +275,7 @@ const SHORT = 90;
             @for (claim of c.claims; track claim.claim_key; let i = $index) {
               <li [id]="'fuente-' + (i + 1)">[{{ i + 1 }}]
                 @for (source of sources(claim); track source.id; let last = $last) {
-                  <a [routerLink]="['/enf/pacientes/ficha', d.report.patientId]" [attr.title]="'Ver la ficha del paciente'">{{ dCorto(source.date) }}: "{{ source.body }}"</a>@if (!last) { / }
+                  <a [routerLink]="['/' + prefix(), 'pacientes', 'ficha', d.report.patientId]" [attr.title]="'Ver la ficha del paciente'">{{ dCorto(source.date) }}: "{{ source.body }}"</a>@if (!last) { / }
                 }
               </li>
             }
@@ -289,7 +300,7 @@ const SHORT = 90;
     }
   `,
 })
-export class ReportViewComponent implements OnInit, OnDestroy {
+export class ReportViewComponent implements OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly reports = inject(ReportsService);
   private readonly entriesService = inject(EntriesService);
@@ -324,8 +335,12 @@ export class ReportViewComponent implements OnInit, OnDestroy {
   protected readonly pending = computed(() => this.detail()?.report.status === 'PENDIENTE_REVISION');
   // Aprobado o enviado: enviar no cambia lo aprobado (D29), asi que el PDF y «Aprobado por» valen para los dos.
   protected readonly approved = computed(() => ['APROBADO', 'ENVIADO'].includes(this.detail()?.report.status ?? ''));
-  // El boton sale por permiso y no solo por estado: el servidor decide, la pantalla solo lo refleja.
+  // Los botones salen por permiso y no solo por estado: el servidor decide, la pantalla solo lo refleja.
   protected readonly canSend = computed(() => this.sessionService.session()?.permissions.includes('REPORTS_SEND') ?? false);
+  protected readonly canEdit = computed(() => this.sessionService.session()?.permissions.includes('REPORTS_UPDATE') ?? false);
+  protected readonly isDoctor = computed(() => this.sessionService.session()?.role === 'MEDICO');
+  protected readonly prefix = this.sessionService.prefix;
+  protected readonly home = computed(() => roleHome(this.sessionService.session()?.role));
   protected readonly statusLabel = computed(() => REPORT_STATUS_LABELS[this.detail()?.report.status ?? ''] ?? '');
   protected readonly period = computed(() => {
     const report = this.detail()?.report;
@@ -402,11 +417,27 @@ export class ReportViewComponent implements OnInit, OnDestroy {
     return c && key && index >= 0 ? { claim: c.claims[index], index: index + 1 } : null;
   });
 
+  // La ruta reutiliza esta misma instancia al pasar de un informe a otro (misma ruta, `:id` distinto: p. ej. la
+  // cita de un paciente o «Ver el informe de esa semana» del mensual); sin leer el `:id` como señal, la pantalla
+  // se quedaba mostrando el informe anterior aunque la URL ya hubiera cambiado.
+  private readonly routeId = toSignal(this.route.paramMap.pipe(map((params) => params.get('id') ?? '')), {
+    initialValue: this.route.snapshot.paramMap.get('id') ?? '',
+  });
+
   constructor() {
-    // «En revisión» o «Aprobados» segun el estado del informe, como `marcar` del mockup.
+    // «En revisión» o «Aprobados» segun el estado del informe, como `marcar` del mockup. El medico solo tiene
+    // «Recibidos»: no hay division por estado que marcar aparte de la que ya trae `data.menu` de la ruta.
     effect(() => {
       const status = this.detail()?.report.status;
-      this.menuMark.path.set(status ? (status === 'PENDIENTE_REVISION' ? '/enf/informes/revision' : '/enf/informes/aprobados') : null);
+      this.menuMark.path.set(
+        this.isDoctor() || !status ? null : status === 'PENDIENTE_REVISION' ? '/enf/informes/revision' : '/enf/informes/aprobados',
+      );
+    });
+
+    effect(() => {
+      const id = this.routeId();
+      this.reset();
+      void this.load(id);
     });
   }
 
@@ -414,8 +445,23 @@ export class ReportViewComponent implements OnInit, OnDestroy {
     this.menuMark.path.set(null);
   }
 
-  async ngOnInit(): Promise<void> {
-    await this.load(this.route.snapshot.paramMap.get('id') ?? '');
+  private reset(): void {
+    this.detail.set(null);
+    this.missing.set(false);
+    this.loadError.set(null);
+    this.editing.set(false);
+    this.draft.set({ summary: '', claims: [] });
+    this.errors.set({});
+    this.formError.set(null);
+    this.rejecting.set(false);
+    this.reason.set('');
+    this.reasonError.set('');
+    this.traceOpen.set(false);
+    this.trace.set(null);
+    this.traceError.set(null);
+    this.aiOpen.set(false);
+    this.aiVersion.set(null);
+    this.entryIndex.set(new Map());
   }
 
   private async load(id: string): Promise<void> {

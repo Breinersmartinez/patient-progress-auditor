@@ -2,6 +2,8 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
+import { rolePrefix } from './roles';
+
 export interface DemoUser {
   id: string;
   displayName: string;
@@ -33,8 +35,11 @@ export class SessionService {
   readonly today = signal<string | null>(null);
   readonly error = signal<string | null>(null);
 
-  // Hasta que existan las pantallas del medico (E12c), "Ver como" solo ofrece enfermeras.
-  readonly selectable = computed(() => this.demoUsers().filter((user) => user.role === 'ENFERMERIA'));
+  // "Ver como" ofrece los roles con pantalla propia (D26): enfermeras y médicos; el administrador llega con el Momento 3.
+  readonly selectable = computed(() => this.demoUsers().filter((user) => user.role === 'ENFERMERIA' || user.role === 'MEDICO'));
+
+  // El prefijo de ruta del rol de la sesión actual (`enf` o `med`), para los enlaces internos de las pantallas compartidas.
+  readonly prefix = computed(() => rolePrefix(this.session()?.role));
 
   async init(): Promise<void> {
     try {

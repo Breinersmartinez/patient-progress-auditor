@@ -3,6 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, provideRouter } from '@angular/router';
 
+import { SessionService } from '../core/session.service';
 import { ReportListComponent } from './report-list.component';
 
 const base = { patientId: 'p1', reportType: 'SEMANAL', generatedAt: '2026-10-29T03:30:00Z' };
@@ -22,6 +23,12 @@ describe('ReportListComponent (vInfLista del mockup)', () => {
         { provide: ActivatedRoute, useValue: { snapshot: { data: { view } } } }],
     });
     http = TestBed.inject(HttpTestingController);
+    if (view === 'recibidos') {
+      TestBed.inject(SessionService).session.set({
+        id: 'm1', displayName: 'Dr. Andrés Salazar', role: 'MEDICO',
+        permissions: ['PATIENTS_READ', 'ENTRIES_READ', 'ENTRIES_CREATE', 'REPORTS_READ'],
+      });
+    }
     const fixture = TestBed.createComponent(ReportListComponent);
     fixture.detectChanges();
     http.expectOne('/api/reports').flush(answer);
@@ -63,5 +70,22 @@ describe('ReportListComponent (vInfLista del mockup)', () => {
     const root = await open('revision', []);
     expect(root.textContent).toContain('No hay informes por revisar');
     expect(root.querySelector('.vacio a')!.getAttribute('href')).toBe('/enf/informes/generar');
+  });
+
+  it('«Recibidos» (el médico) no filtra: el servidor ya solo le da los ENVIADO, y «Recibido» es la fecha de envío', async () => {
+    const sent = { ...base, id: 'e', patientAlias: 'P-014', periodStart: '2026-10-05', periodEnd: '2026-10-11', status: 'ENVIADO',
+      reviewedBy: 'Marcela Rojas', sentBy: 'Marcela Rojas', sentAt: '2026-10-31T15:00:00Z' };
+    const root = await open('recibidos', [sent]);
+
+    expect(Array.from(root.querySelectorAll('th')).map((th) => th.textContent)).toEqual(['Paciente', 'Período', 'Recibido', 'Estado']);
+    expect(rowsOf(root)).toEqual(['P-014 5 al 11 de octubre de 2026 31 de octubre de 2026 Enviado']);
+    expect(root.querySelector('tbody tr')!.getAttribute('data-href')).toBe('/med/informes/ver/e');
+  });
+
+  it('«Recibidos» (el médico) sin informes no ofrece «Generar informe» (esa pantalla no es suya)', async () => {
+    const root = await open('recibidos', []);
+
+    expect(root.textContent).toContain('Aún no ha recibido informes');
+    expect(root.querySelector('.vacio a')).toBeNull();
   });
 });

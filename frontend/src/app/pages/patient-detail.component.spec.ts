@@ -6,6 +6,7 @@ import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/route
 import { Entry } from '../core/entries.service';
 import { PageTitleService } from '../core/page-title.service';
 import { Patient } from '../core/patients.service';
+import { SessionService } from '../core/session.service';
 import { PatientDetailComponent } from './patient-detail.component';
 
 const PATIENT: Patient = {
@@ -29,6 +30,10 @@ describe('PatientDetailComponent (vPacFicha del mockup)', () => {
       ],
     });
     http = TestBed.inject(HttpTestingController);
+    TestBed.inject(SessionService).session.set({
+      id: 'n1', displayName: 'Camilo Torres', role: 'ENFERMERIA',
+      permissions: ['PATIENTS_READ', 'ENTRIES_READ', 'ENTRIES_CREATE', 'REPORTS_READ', 'REPORTS_REQUEST'],
+    });
   });
 
   afterEach(() => http.verify());
@@ -86,5 +91,35 @@ describe('PatientDetailComponent (vPacFicha del mockup)', () => {
 
     expect(root.querySelector('.vacio h3')?.textContent).toBe('No encontramos lo que busca');
     expect(root.querySelector('.cab')).toBeNull();
+  });
+
+  describe('con un médico (sin REPORTS_REQUEST, D12)', () => {
+    beforeEach(() => {
+      TestBed.inject(SessionService).session.set({
+        id: 'm1', displayName: 'Dr. Andrés Salazar', role: 'MEDICO',
+        permissions: ['PATIENTS_READ', 'ENTRIES_READ', 'ENTRIES_CREATE', 'REPORTS_READ'],
+      });
+    });
+
+    it('no ofrece "Generar informe", pero sí "Nuevo registro" con su propio prefijo', async () => {
+      const root = await open(PATIENT, [entry('2026-10-25', 'Tranquilo.')]);
+
+      expect(root.querySelector('.acc a.btn--sec')).toBeNull();
+      expect(root.querySelector('.acc a.btn--primary')?.getAttribute('href')).toBe('/med/registro/nuevo/p1');
+    });
+
+    it('el último informe dice "recibido" y enlaza con el prefijo del médico', async () => {
+      const root = await open(PATIENT, [entry('2026-10-25', 'Tranquilo.')]);
+
+      expect(root.querySelector('h3.sec')?.textContent).toBe('Último informe recibido');
+      expect(root.querySelector('a.card--nav')?.getAttribute('href')).toBe('/med/informes/ver/r1');
+    });
+
+    it('sin registros no ofrece el atajo de crear el primero (fiel al mockup)', async () => {
+      const root = await open({ id: 'p1', alias: 'P-045' }, []);
+
+      expect(root.querySelector('.bloque .vacio h3')?.textContent).toBe('Sin registros todavía');
+      expect(root.querySelector('.bloque .vacio a')).toBeNull();
+    });
   });
 });

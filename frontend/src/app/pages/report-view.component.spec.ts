@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, TestRequest, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { BehaviorSubject } from 'rxjs';
 
 import { SessionService } from '../core/session.service';
 import { ToastService } from '../core/toast.service';
@@ -70,12 +71,16 @@ describe('ReportViewComponent (vInfVer y hojaHTML del mockup)', () => {
   let http: HttpTestingController;
   let root: HTMLElement;
   let settle: () => Promise<void>;
+  // La ruta reutiliza el componente al pasar de un informe a otro (misma ruta, :id distinto): este sujeto simula
+  // el paramMap real de Angular, para poder empujarle un id nuevo sin recrear el componente (ver "navegar...").
+  let paramMap: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
 
-  // Por defecto, la sesion de una enfermera (puede enviar); el medico no tiene REPORTS_SEND.
-  async function open(answer: object | 404 = detail(), permissions: string[] = ['REPORTS_READ', 'REPORTS_APPROVE', 'REPORTS_SEND']) {
+  // Por defecto, la sesion de una enfermera (puede editar, aprobar y enviar); el medico no tiene ninguno de los tres.
+  async function open(answer: object | 404 = detail(), permissions: string[] = ['REPORTS_READ', 'REPORTS_UPDATE', 'REPORTS_APPROVE', 'REPORTS_SEND']) {
+    paramMap = new BehaviorSubject(convertToParamMap({ id: 'rep1' }));
     TestBed.configureTestingModule({
       providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([]),
-        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: 'rep1' }) } } }],
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: 'rep1' }) }, paramMap } }],
     });
     http = TestBed.inject(HttpTestingController);
     TestBed.inject(SessionService).session.set({ id: 'n1', displayName: 'Camilo Torres', role: 'ENFERMERIA', permissions });
@@ -230,6 +235,17 @@ describe('ReportViewComponent (vInfVer y hojaHTML del mockup)', () => {
     await open(APPROVED(), ['REPORTS_READ']);
     expect(root.querySelector('[data-a="enviar"]')).toBeNull();
     expect(root.querySelector('[data-a="descargar"]')).toBeTruthy();
+  });
+
+  it('el médico ve un enviado con «Descargar PDF» primario y sin la nota de enfermería, como el mockup', async () => {
+    await open(SENT(), ['REPORTS_READ']);
+    TestBed.inject(SessionService).session.set({ id: 'm1', displayName: 'Dr. Andrés Salazar', role: 'MEDICO', permissions: ['REPORTS_READ'] });
+    await settle();
+
+    expect(Array.from(root.querySelectorAll('.acciones [data-a]')).map((b) => b.getAttribute('data-a'))).toEqual(['traza', 'descargar']);
+    expect(root.querySelector('[data-a="descargar"]')!.classList).toContain('btn--primary');
+    expect(root.querySelector('[data-a="descargar"]')!.classList).not.toContain('btn--sec');
+    expect(root.querySelector('.acciones .nota')).toBeNull();
   });
 
   it('«Descargar PDF» solo existe en un informe aprobado', async () => {
@@ -432,6 +448,15 @@ describe('ReportViewComponent (vInfVer y hojaHTML del mockup)', () => {
     expect(text('[data-t="version-ia"]')).toContain(CONTENT.claims[1].text);
   });
 
+  it('sin REPORTS_UPDATE (el médico) no ofrece «Ver lo que escribió la IA», aunque haya más de una versión (E12a)', async () => {
+    await open(detail({
+      version: { versionNo: 2, origin: 'ENFERMERIA', editedBy: 'Camilo Torres', createdAt: 'y', content: { ...CONTENT, summary: 'Resumen corregido.' } },
+      versions: [{ versionNo: 1, origin: 'MODELO', createdAt: 'x' }, { versionNo: 2, origin: 'ENFERMERIA', editedBy: 'Camilo Torres', createdAt: 'y' }],
+    }), ['REPORTS_READ']);
+
+    expect(root.querySelector('[data-a="ia"]')).toBeNull();
+  });
+
   it('un informe que no existe (o que el rol no ve) dice «No encontramos lo que busca»', async () => {
     await open(404);
     expect(root.textContent).toContain('No encontramos lo que busca');
@@ -472,5 +497,52 @@ describe('ReportViewComponent (vInfVer y hojaHTML del mockup)', () => {
     ]);
     // Se aprueba como cualquier informe pendiente
     expect(root.querySelector('[data-a="aprobar"]')).toBeTruthy();
+  });
+
+  it('el médico, en un mensual enviado, no ve el enlace de la semana que no se envió por separado (D29, 2026-11-07)', async () => {
+    const content = {
+      ...MONTHLY_CONTENT,
+      weekly_reports: MONTHLY_CONTENT.weekly_reports.map((w, i) => ({ ...w, sent: i < 3 })),
+    };
+    await open(
+      detail({ version: { versionNo: 1, origin: 'MODELO', createdAt: '2026-10-29T15:00:00Z', content }, citations: { c1: CITATIONS['c1'] } },
+        { id: 'rep1', reportType: 'MENSUAL', periodStart: '2026-09-21', periodEnd: '2026-10-18', status: 'ENVIADO', sentAt: '2026-10-30T15:00:00Z' }),
+      ['REPORTS_READ'],
+    );
+    TestBed.inject(SessionService).session.set({ id: 'm1', displayName: 'Dr. Andrés Salazar', role: 'MEDICO', permissions: ['REPORTS_READ'] });
+    await settle();
+
+    const rows = Array.from(root.querySelectorAll('.hoja ol[data-t="origen"] li'));
+    expect(rows.length).toBe(4);
+    rows.slice(0, 3).forEach((row) => {
+      expect(row.querySelector('a')).not.toBeNull();
+    });
+    expect(rows[3].querySelector('a')).toBeNull();
+    expect(rows[3].textContent).toContain('no se envió por separado');
+  });
+
+  it('enfermería ve el enlace de las cuatro semanas del mensual, aunque alguna no esté enviada', async () => {
+    const content = {
+      ...MONTHLY_CONTENT,
+      weekly_reports: MONTHLY_CONTENT.weekly_reports.map((w, i) => ({ ...w, sent: i < 3 })),
+    };
+    await open(detail({ version: { versionNo: 1, origin: 'MODELO', createdAt: '2026-10-29T15:00:00Z', content }, citations: { c1: CITATIONS['c1'] } },
+      { id: 'rep1', reportType: 'MENSUAL', periodStart: '2026-09-21', periodEnd: '2026-10-18' }));
+
+    const rows = Array.from(root.querySelectorAll('.hoja ol[data-t="origen"] li'));
+    expect(rows.every((row) => row.querySelector('a') !== null)).toBeTrue();
+  });
+
+  it('navegar de un informe a otro por la misma ruta (misma instancia) recarga el contenido, no se queda con el anterior', async () => {
+    await open(detail({}, { id: 'rep1', patientAlias: 'P-014' }));
+    expect(text('.acciones .izq b')).toBe('Informe de P-014');
+
+    paramMap.next(convertToParamMap({ id: 'rep2' }));
+    await settle();
+    const request = http.expectOne('/api/reports/rep2');
+    request.flush(detail({}, { id: 'rep2', patientAlias: 'P-021' }));
+    await settle();
+
+    expect(text('.acciones .izq b')).toBe('Informe de P-021');
   });
 });

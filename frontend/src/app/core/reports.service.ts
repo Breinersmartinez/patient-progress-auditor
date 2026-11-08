@@ -90,12 +90,14 @@ export interface MonthOption {
   reason?: string;
 }
 
-// De cual informe semanal aprobado sale cada semana del mensual.
+// De cual informe semanal aprobado sale cada semana del mensual. `sent` se consulta en vivo (no viene del contenido
+// congelado): si es `false`, esa semana quedó aprobada sin enviar y el médico no puede abrirla (D29, 2026-11-07).
 export interface WeeklySource {
   week_no: number;
   week_start: string;
   report_id: string;
   summary: string;
+  sent?: boolean;
 }
 
 // En el mensual `metrics` no es una semana sino las cuatro, cada una con la forma de ReportMetrics.

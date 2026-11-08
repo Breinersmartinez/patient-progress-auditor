@@ -387,19 +387,159 @@ Notificaciones y el punto de «registros nuevos» (Pieza 5) · «Armar informe»
 - Las piezas 3 a 6 se construyen sobre la sesión de demostración (D26). Cuando llegue el inicio de sesión (RF-31), cambia de dónde sale el usuario, no las reglas.
 
 ### Pasos
-- [ ] 1. **Mirar** el punto de partida: backend y frontend en verde como línea base; los enlaces y textos con `/enf` fijo; y, con `curl` como médico contra la semilla, la lista de pacientes, la ficha, los informes (por período, del más reciente al más antiguo), el detalle, la traza y el PDF de un enviado, y el 404 de un aprobado sin enviar.
+- [x] 1. **Mirar** el punto de partida: backend y frontend en verde como línea base; los enlaces y textos con `/enf` fijo; y, con `curl` como médico contra la semilla, la lista de pacientes, la ficha, los informes (por período, del más reciente al más antiguo), el detalle, la traza y el PDF de un enviado, y el 404 de un aprobado sin enviar.
   - **Produce:** la línea base, los enganches con archivo y línea, y lo que el backend no da, si falta algo.
   - **Se mira:** `mvn -B verify` y `ng test` en verde con el número anotado; las respuestas como médico cumplen RF-28 y RF-29.
-- [ ] 2. **Registrar** antes de programar: D12 con la decisión de interfaz en la SPEC §7 y en los requisitos (§8), `docs/decisiones.md` (sección «Módulo del médico») y `AGENTS.md`.
+  > Hecho el 2026-11-07.
+  > **Qué quedó:** línea base verde (backend 455 pruebas, frontend 151, 0 fallos en ambos, sobre `V10` con la semilla recién levantada: P-014 con 3 `ENVIADO` + 1 `APROBADO` sin enviar, P-021 con 1 `PENDIENTE_REVISION`). El backend ya le da al médico todo lo que esta pieza necesita: **no falta nada que agregar al backend**, confirmado con `curl -H "X-Demo-User: <id del médico>"` contra la app en vivo (`./run.sh`):
+  >   - `/api/patients` y la ficha (`/api/patients/{id}`): lista los 5 pacientes y en `lastReport` de P-014 muestra el período 2026-10-05 (el último `ENVIADO`), nunca el `APROBADO` de 2026-10-12 — el filtro de "último informe" ya usa `ReportVisibility`.
+  >   - `/api/reports?patientId=…`: para P-014 devuelve solo los 3 `ENVIADO`, ordenados por período descendente (10-05, 09-28, 09-21); para P-021 devuelve `[]` (su único informe es `PENDIENTE_REVISION`).
+  >   - Detalle, traza y PDF del enviado 2026-10-05: 200 los tres (PDF de 39.612 bytes, 1 página). Detalle, traza y PDF del `APROBADO` de 2026-10-12: **404 los tres**.
+  >   - `REPORTS_UPDATE` (versiones del enviado): 403. `REPORTS_REQUEST` (`report-weeks`, `report-months`): 403 los dos. `PATIENTS_CREATE`: 403.
+  >   - `ENTRIES_CREATE` (proponer eventos y crear la entrada): 200 — el médico puede registrar sin tocar nada del backend.
+  >   - Confirmado en `V4__seed_domain_rbac.sql`: `MEDICO` tiene exactamente `PATIENTS_READ`, `ENTRIES_READ`, `ENTRIES_CREATE` y `REPORTS_READ` — igual al supuesto del plan.
+  > **Enganches con `/enf` fijo (33 ocurrencias, 13 archivos, sin contar specs):**
+  >   - `frontend/src/app/app.routes.ts` (12 rutas `enf/…` y 3 redirecciones; no existe ninguna ruta `med/…`).
+  >   - `frontend/src/app/core/menu.ts:14` — `NURSING_MENU` es el único menú; no hay `DOCTOR_MENU`.
+  >   - `frontend/src/app/app.component.ts:29` — `protected readonly menu = NURSING_MENU;` fijo; línea 63 — `choose()` siempre navega a `/enf/pacientes` al cambiar de usuario.
+  >   - `frontend/src/app/core/session.service.ts:37` — `selectable` filtra `demoUsers()` a `role === 'ENFERMERIA'`: «Ver como» no ofrece médicos.
+  >   - `frontend/src/app/pages/not-found.component.ts:13` — «Volver al inicio» fijo a `/enf/pacientes`.
+  >   - `frontend/src/app/pages/patients-list.component.ts:19,56`, `patient-detail.component.ts:35,36,42,58`, `patient-form.component.ts:107`, `entry-new.component.ts:148`, `entry-history.component.ts:23,55`, `report-generate.component.ts:189,222`, `report-list.component.ts:45,54`, `report-view.component.ts:53,86,254,267,409` — enlaces internos con `/enf` fijo.
+  > **Comprobación:**
+  >
+  > | Qué se miró | Valor obtenido | Valor esperado | Cuadra |
+  > |---|---|---|---|
+  > | `mvn -B clean verify` | 455 pruebas, 0 fallos, 0 errores, BUILD SUCCESS | Verde | Sí |
+  > | `ng test --watch=false --browsers=ChromeHeadless` | 151 de 151 | Verde | Sí |
+  > | Médico: pacientes, ficha, informes por período desc | 5 pacientes; P-014 con 3 `ENVIADO` en orden 10-05 → 09-28 → 09-21 | RF-28 | Sí |
+  > | Médico: detalle + traza + PDF de un enviado | 200, 200, 200 (PDF 39.612 B) | RF-29 | Sí |
+  > | Médico: detalle + traza + PDF de un `APROBADO` sin enviar | 404, 404, 404 | RF-28/D29 | Sí |
+  > | Médico: `REPORTS_UPDATE`, `REPORTS_REQUEST`, `PATIENTS_CREATE` | 403 los tres | Fuera de alcance de la pieza | Sí |
+  > **Hallazgos:** el backend de la Pieza 3 ya deja listo todo lo que RF-28 y RF-29 necesitan; esta pieza es enteramente de frontend, salvo que algún paso posterior encuentre lo contrario. El patrón de ocultar por permiso ya existe (`canSend` en `report-view.component.ts:328`, `permissions.includes('REPORTS_SEND')`): se reutiliza para `canEdit` (`REPORTS_UPDATE`), `canRequest` (`REPORTS_REQUEST`) y `canCreatePatient` (`PATIENTS_CREATE`).
+  > **Decisiones que nadie pidió:** ninguna en este paso; solo observación.
+  > **No verificado:** el caso borde del informe mensual con un enlace a una semana aprobada sin enviar (señalado en la sección 5 del prompt) — se resuelve en el paso 2 (Registrar), antes de construir, como pide el plan.
+- [x] 2. **Registrar** antes de programar: D12 con la decisión de interfaz en la SPEC §7 y en los requisitos (§8), `docs/decisiones.md` (sección «Módulo del médico») y `AGENTS.md`.
   - **Se mira:** sin IDs inexistentes, tablas cuadradas y conteos por hito sin cambio (esta pieza no trae RF nuevo).
-- [ ] 3. **Construir el armazón por rol:** «Ver como» con los médicos, el menú del médico del mockup («Mis pacientes» e «Informes → Recibidos»), las rutas `med/…`, la vuelta al inicio del rol, «No encontrado» según el rol y los enlaces internos según el rol en vez de `/enf` fijo.
+  > Hecho el 2026-11-07.
+  > **Qué quedó:** antes de registrar, el caso borde del mensual que el paso 1 encontró real (una semana `APROBADO` sin enviar dentro de un mensual `ENVIADO`) se llevó al dueño por ser justo el punto que la sección 7 del prompt marca como parada obligatoria; eligió ocultar el enlace de esa semana con un chequeo en vivo del backend (opción recomendada, sin reabrir la regla de envío ya validada en la Pieza 3). Con eso resuelto, se registró:
+  >   - `docs/SPEC.md` (v0.10 → **v0.11**): D12 precisada con la interfaz (botón «Nuevo registro» en la ficha del médico, `#/med/registro/nuevo/:id`, 2026-11-05); D29 extendida con el chequeo en vivo por semana dentro del mensual; D26 corregida (tenía «el Médico solo ve informes `APROBADO`», una referencia que D6/D29 ya habían dejado atrás sin actualizar); un caso borde nuevo en §5 para el mensual con una semana sin enviar.
+  >   - `docs/REQUISITOS.md` (v0.7 → **v0.8**): RF-30 y la fila de D12 en §8 con la interfaz decidida. Ningún RF, RN ni CU nuevo; los conteos por hito no cambian (29 M2-N, 7 M2-S, 4 M3, 2 Opc, siguen en 44).
+  >   - `docs/decisiones.md`: sección nueva «Módulo del médico: pantallas (2026-11-07)», con las 8 decisiones del plan (cómo registra el médico, quiénes son «Mis pacientes», qué evidencia ve, columnas y vacío de «Informes recibidos», quién aparece en «Ver como», ruta de otro rol, «No encontrado», «Armar informe» fuera del menú) y la novena, el caso borde del mensual, con su alternativa descartada.
+  >   - `AGENTS.md`: nueva entrada «Módulo del médico: pantallas (D12, RF-28, RF-29, RF-30)» junto a la de «Visibilidad al médico», con el estado real (en construcción, E12c sigue fuera hasta el paso 6).
+  > **Comprobación:**
+  >
+  > | Qué se miró | Valor obtenido | Valor esperado | Cuadra |
+  > |---|---|---|---|
+  > | IDs citados existen (D6, D12, D29, RF-28, RF-29, RF-30, RF-44, RN-10, OBJ-05, OBJ-06, OBJ-15) | Los 11 ya existían antes de este paso | Ninguno inventado | Sí |
+  > | Tablas cuadradas (columnas por fila) | `grep` por fila en SPEC §7 (6 campos), REQUISITOS §3.5/§8 (7 y 6 campos) y la tabla nueva de `decisiones.md` (5 campos): todas iguales a su encabezado | Mismo número que el encabezado | Sí |
+  > | Conteos por hito | 29 M2-N, 7 M2-S, 4 M3, 2 Opc (44 en total), sin cambio | Sin cambio (esta pieza no trae RF nuevo) | Sí |
+  > **Hallazgos:** D26 (SPEC §7) tenía una referencia a «el Médico solo ve `APROBADO`» que D6 y D29 ya habían dejado atrás el 2026-11-07 sin corregirla ahí: quedó de la Pieza 3. Se corrige en este paso por tocar la misma área (módulo del médico), con nota de origen y fecha.
+  > **Decisiones que nadie pidió:** ninguna aparte de la del caso borde, que se preguntó explícitamente antes de registrarla (ver arriba).
+  > **No verificado:** que el frontend vaya a implementar el chequeo en vivo exactamente como se describe aquí; se confirma al construir (pasos 3 a 5) y se mira en el paso 6.
+- [x] 3. **Construir el armazón por rol:** «Ver como» con los médicos, el menú del médico del mockup («Mis pacientes» e «Informes → Recibidos»), las rutas `med/…`, la vuelta al inicio del rol, «No encontrado» según el rol y los enlaces internos según el rol en vez de `/enf` fijo.
   - **Se mira:** `ng test` verde con pruebas nuevas del menú, las rutas y la guarda; las pruebas de enfermería siguen verdes sin cambiarlas.
-- [ ] 4. **Construir** «Mis pacientes», la ficha del médico (último informe recibido, registros recientes y el botón «Nuevo registro») y el registro en `#/med/registro/nuevo/:id`, con la estructuración, la vista previa y el dictado de siempre.
+  > Hecho el 2026-11-07.
+  > **Qué quedó:**
+  >   - `core/roles.ts`: `rolePrefix()` y `roleHome()`. `core/session.service.ts`: `selectable` ya no filtra a solo `ENFERMERIA` (ahora `ENFERMERIA` o `MEDICO`); nuevo `prefix` computado. `core/role.guard.ts` (nuevo): `roleGuard(role)`, un `CanMatchFn` que deja pasar si el rol de la sesión coincide y si no, redirige (`UrlTree`) al inicio del rol real — no es la barrera, el servidor sigue respondiendo 404/403 igual.
+  >   - `core/menu.ts`: `DOCTOR_MENU` («Mis pacientes», «Informes → Recibidos»; sin «Armar informe», decidido en el paso 2). `app.component.ts`: el menú y la vuelta al elegir usuario («Ver como») ya dependen del rol de la sesión, no de `NURSING_MENU` fijo. `not-found.component.ts`: «Volver al inicio» usa `roleHome()`.
+  >   - `app.routes.ts`: la ruta `''` redirige con una función (`RedirectFunction` de Angular, corre con `inject()`) al inicio del rol de la sesión; se agregaron 5 rutas `med/…` (`pacientes`, `pacientes/ficha/:id`, `registro/nuevo/:id`, `informes/recibidos`, `informes/ver/:id`) y las 12 rutas `enf/…` existentes llevan `canMatch: [roleGuard('ENFERMERIA')]`.
+  >   - Enlaces internos reescritos con el prefijo de la sesión en los componentes compartidos por los dos roles: `patients-list` (href de la fila, y «Nuevo paciente» solo con `PATIENTS_CREATE`), `patient-detail` (enlaces, «Generar informe» solo con `REPORTS_REQUEST`, «Último informe recibido» para el médico, sin el atajo de «Crear el primer registro» para él, fiel al mockup), `report-list` (href, columna «Recibido» en vez de «Generado», vacío propio sin «Generar informe» para «recibidos»), `report-view` («Volver al inicio», «Ver lo que escribió la IA» solo con `REPORTS_UPDATE`, los enlaces a la ficha y a una semana del mensual, y la marca del menú). `entry-new`: el enlace «Ver ficha del paciente» tras guardar. Los que quedan con `/enf` fijo (`patient-form`, `entry-history`, `report-generate`, el botón de enfermería de `patients-list`, el de `report-list`, el de `patient-detail`, «Generar de nuevo» de `report-view`) son de pantallas o ramas que solo enfermería puede alcanzar (con su propia nota en el código, cuando no era obvio).
+  >   - **Único cambio de backend** (lo que encontró el paso 1 que faltaba, la extensión de D29 decidida en el paso 2): `ReportService.view()` ya no es estático; agrega, por cada semana de `weekly_reports` de un mensual, si está `ENVIADO` **hoy** (`withWeeklySentFlags`, una consulta en vivo, nunca el contenido congelado). El frontend (`report-view.component.ts`) oculta el enlace «Ver el informe de esa semana» al médico cuando esa semana no está enviada, y le muestra el texto igual.
+  > **Comprobación:**
+  >
+  > | Qué se miró | Valor obtenido | Valor esperado | Cuadra |
+  > |---|---|---|---|
+  > | `ng test --watch=false --browsers=ChromeHeadless` | 163 de 163 (151 + 12 nuevas) | Verde | Sí |
+  > | `ng build` | `Application bundle generation complete` | Sin errores de plantilla ni de tipos | Sí |
+  > | `mvn -B clean verify` (por el cambio de `ReportService`) | 456 pruebas, 0 fallos, 0 errores (455 + 1 nueva) | Verde | Sí |
+  > | Pruebas de enfermería que ya existían | Mismas aserciones, mismo resultado | Sin cambiar | Sí (solo `session.service.spec.ts` cambió una aserción, y es la que el plan pedía cambiar: ya no «solo enfermeras») |
+  > | Guarda de rol (nuevo) | Médico en `/enf/pacientes` → `/med/pacientes`; enfermera en `/med/informes/recibidos` → `/enf/pacientes`; `/` según el rol; «No encontrado» con «Volver al inicio» del rol | Redirige al inicio del rol propio | Sí |
+  > **Lo que se aprendió:**
+  >   - Un `routerLink` en array con un segmento que trae una barra (p. ej. `['/' + prefix, 'registro/nuevo', id]`) **codifica la barra** (`%2F`): Angular trata cada elemento del arreglo como un solo segmento. Hay que separar `'registro'` y `'nuevo'` en dos elementos. Lo encontraron 3 pruebas (`patient-detail`, `report-view`, `entry-new`) y quedó corregido en los 3 archivos.
+  >   - `redirectTo` de Angular puede ser una función (`string | UrlTree`) y corre con acceso a `inject()` (confirmado leyendo `router-Dwfin5Au.mjs`, no solo la documentación): sirve para que la ruta `''` dependa de la sesión sin un guard aparte.
+  >   - Un `fakeSession.session` compartido entre pruebas de un mismo `describe` **se queda con el último valor que alguna prueba le puso** si el `beforeEach` no lo reinicia: una prueba de la guarda falló en falso porque heredó la sesión de médico de la prueba anterior. Ahora `beforeEach` fija la enfermera por defecto.
+  > **Decisiones que nadie pidió:**
+  >   - El chequeo en vivo de `sent` por semana del mensual se calcula para **los dos roles** (no solo para el médico): es un hecho neutro que el servidor ya sabe, y así la regla de ocultar el enlace vive en una sola función (`withWeeklySentFlags`), sin ramas por rol en el backend.
+  >   - El nombre de la ruta de la lista del médico es `med/informes/recibidos` (no `med/informes/lista`, como en el mockup): el frontend ya nombra sus rutas por lo que muestran (`enf/informes/revision`, `enf/informes/aprobados`), no por un verbo genérico.
+  >   - «Generar de nuevo» de `report-view.component.ts` se deja con `/enf/...` fijo, con una nota en el código: el médico nunca entra a esa rama (`approved()` es siempre `true` para `ENVIADO`), y escribir una ruta `med/informes/generar` que no existe sería peor que dejarlo explícito.
+  > **No verificado:** el recorrido en el navegador real (`./run.sh`), tanto del médico como el de enfermería sin cambios — se hace en el paso 6. Las pantallas «Mis pacientes» (más allá del armazón), la ficha completa y «Informes recibidos» con su orden y su búsqueda son el paso 4 y el 5.
+- [x] 4. **Construir** «Mis pacientes», la ficha del médico (último informe recibido, registros recientes y el botón «Nuevo registro») y el registro en `#/med/registro/nuevo/:id`, con la estructuración, la vista previa y el dictado de siempre.
   - **Se mira:** pruebas verdes que cubren que el médico no ve «Nuevo paciente» ni «Generar informe», que el último informe es el enviado y que la entrada creada queda con el médico como autor.
-- [ ] 5. **Construir** «Informes recibidos» (las columnas, el orden y el vacío del mockup) y el informe del médico: la hoja con sus citas, la traza a un clic y «Descargar PDF» (primario, como el mockup), sin editar, aprobar, rechazar ni enviar; un informe que no puede ver muestra «No encontrado».
+  > Hecho el 2026-11-07.
+  > **Qué quedó:** las tres pantallas ya estaban construidas al cerrar el paso 3, porque ahí se decidió hacer el armazón por rol construyendo la condición correcta en cada componente compartido (ocultar por permiso, no solo cambiar el enlace), en vez de dejarlo a medias para este paso. Lo que sigue es exactamente lo que agregó este paso:
+  >   - **«Mis pacientes»:** reutiliza `PatientsListComponent`; el título «Mis pacientes» sale de `data.title` de la ruta `med/pacientes` (paso 3). Sin cambios de código en este paso.
+  >   - **La ficha del médico:** reutiliza `PatientDetailComponent`; «Último informe recibido», «Registros recientes» y «Nuevo registro» (con `#/med/registro/nuevo/:id`) ya construidos en el paso 3. Sin cambios de código en este paso.
+  >   - **El registro:** reutiliza `EntryNewComponent` entero, sin ninguna rama por rol en el componente (se confirmó con `grep`: no hay ningún `permissions`, `ENFERMERIA` ni `role ===` en ese archivo): la estructuración, la vista previa y el dictado los decide el servidor por `ENTRIES_CREATE`, que el médico ya tiene desde `V4`. Se agregó una prueba nueva (`entry-new.component.spec.ts`) que confirma que, con una sesión de médico, el enlace a la ficha tras guardar usa `/med/pacientes/ficha/:id` y no `/enf/...`.
+  >   - **Los tres criterios de este paso ya tenían prueba de backend, de antes de esta pieza:** `theDoctorCanAlsoRegisterAndIsTheAuthor` (`EntriesApiTest.java`, confirma `author_id` del médico) y `theLastReportIsTheMostRecentPeriodAndTheDoctorOnlySeesSentOnes` (`PatientsApiTest.java`, confirma que el último informe que ve el médico es el `ENVIADO` y no uno `APROBADO` más nuevo sin enviar). Que el médico no ve «Nuevo paciente» ni «Generar informe» quedó probado en el paso 3 (`patients-list.component.spec.ts`, `patient-detail.component.spec.ts`).
+  > **Comprobación:**
+  >
+  > | Qué se miró | Valor obtenido | Valor esperado | Cuadra |
+  > |---|---|---|---|
+  > | El médico no ve «Nuevo paciente» | Prueba del paso 3 (`patients-list.component.spec.ts`) | Verde | Sí |
+  > | El médico no ve «Generar informe» | Prueba del paso 3 (`patient-detail.component.spec.ts`) | Verde | Sí |
+  > | El último informe que ve el médico es el enviado | `PatientsApiTest.theLastReportIsTheMostRecentPeriodAndTheDoctorOnlySeesSentOnes` (ya existía) | Verde | Sí |
+  > | La entrada creada por el médico queda con su autoría | `EntriesApiTest.theDoctorCanAlsoRegisterAndIsTheAuthor` (ya existía) | Verde | Sí |
+  > | `ng test --watch=false --browsers=ChromeHeadless` | 164 de 164 (163 + 1 nueva) | Verde | Sí |
+  > **Lo que se aprendió:** construir el armazón por rol «bien hecho» (ocultando por permiso en el componente, no solo cambiando el enlace) adelanta trabajo de los pasos siguientes; vale la pena anotarlo en el paso donde realmente se hizo (paso 3) en vez de fingir que se repitió aquí.
+  > **Decisiones que nadie pidió:** ninguna nueva en este paso.
+  > **No verificado:** el recorrido completo en el navegador real (`./run.sh`): registrar como médico desde la ficha, con la estructuración, la vista previa y el dictado funcionando de verdad — se hace en el paso 6.
+- [x] 5. **Construir** «Informes recibidos» (las columnas, el orden y el vacío del mockup) y el informe del médico: la hoja con sus citas, la traza a un clic y «Descargar PDF» (primario, como el mockup), sin editar, aprobar, rechazar ni enviar; un informe que no puede ver muestra «No encontrado».
   - **Se mira:** pruebas verdes; desde una cita el médico llega a la entrada (RF-29).
-- [ ] 6. **Verificar en vivo** con `./run.sh` y la semilla: el recorrido completo como médico, un aprobado sin enviar y un pendiente que no aparecen en ninguna pantalla ni por la API, una entrada del médico con su autoría, el PDF y el recorrido de enfermería sin cambios; el recorrido del médico en el `README.md`.
+  > Hecho el 2026-11-07.
+  > **Qué quedó:** «Informes recibidos» (columnas, orden del servidor por período descendente, vacío sin acción) y casi todo el informe del médico (citas, traza, 404, sin editar/aprobar/rechazar/enviar) ya habían quedado construidos al cerrar el paso 3, por la misma razón que el paso 4: el armazón por rol se hizo completo en cada componente, no solo el enlace. Releyendo `vInfVer()` del mockup para este paso se encontraron **dos diferencias reales que el paso 3 no cubría** (son del botón de acciones del médico, no del armazón de rutas):
+  >   - **«Descargar PDF» es primario para el médico** (`btn--primary`), no secundario como para enfermería: en el mockup, `rol !== 'enf'` usa `'btn--primary'` para ese botón porque para él es la única acción. Corregido con `[class]="isDoctor() ? 'btn--primary' : 'btn--sec'"` en `report-view.component.ts`.
+  >   - **El médico no ve la nota de enfermería** («Enviado al médico el …»): en el mockup, `nota` solo se imprime si `rol === 'enf'` (o es una consulta). Para el médico esa frase no tiene sentido (es quien la recibe, no quien la envía). Corregido envolviendo `@if (note(); as text)` en `@if (!isDoctor())`.
+  >   - Se repitió, por separado, la comprobación de que sin `REPORTS_UPDATE` (el médico) tampoco aparece «Ver lo que escribió la IA» aunque el informe tenga más de una versión: ya estaba la condición desde el paso 3 (`canEdit()`), pero no tenía su propia prueba.
+  > **Comprobación:**
+  >
+  > | Qué se miró | Valor obtenido | Valor esperado | Cuadra |
+  > |---|---|---|---|
+  > | «Informes recibidos»: columnas, orden, vacío | Hecho y probado en el paso 3 | Como el mockup | Sí |
+  > | El informe del médico: citas, traza, sin editar/aprobar/rechazar/enviar, 404 | Hecho en el paso 3 (estado `ENVIADO` ya excluye esas acciones; `canEdit`/`canSend` las refuerzan por permiso) | Como el mockup | Sí |
+  > | «Descargar PDF» primario para el médico | `btn--primary`, sin `btn--sec` | Como `vInfVer()` del mockup | Sí |
+  > | Sin la nota de enfermería para el médico | `.acciones .nota` no existe | Como `vInfVer()` del mockup | Sí |
+  > | Desde una cita, el médico llega a la ficha del paciente (RF-29) | `/med/pacientes/ficha/:id` (corregido en el paso 3) | Llega a las entradas citadas | Sí (mismo mecanismo que usa enfermería: la ficha, no un ancla a la entrada) |
+  > | `ng test --watch=false --browsers=ChromeHeadless` | 166 de 166 (164 + 2 nuevas) | Verde | Sí |
+  > **Lo que se aprendió:** conviene releer la función exacta del mockup antes de cerrar un paso, aunque parezca ya cubierto: la diferencia del botón primario y la nota de enfermería no estaban en la tabla de supuestos de la sección 5 del prompt ni en el inventario del paso 1, porque esos dos documentos miran el backend y los enlaces, no los detalles finos de la barra de acciones.
+  > **Decisiones que nadie pidió:** ninguna nueva en este paso (las dos correcciones son fidelidad literal al mockup, ya decidida por el equipo el 2026-11-05 de aplicar lo más fiel posible).
+  > **No verificado:** verlo en el navegador real; se hace en el paso 6.
+- [x] 6. **Verificar en vivo** con `./run.sh` y la semilla: el recorrido completo como médico, un aprobado sin enviar y un pendiente que no aparecen en ninguna pantalla ni por la API, una entrada del médico con su autoría, el PDF y el recorrido de enfermería sin cambios; el recorrido del médico en el `README.md`.
   - **Se mira:** los criterios 1 a 5 con evidencia (capturas o salidas de `curl`).
+  > Hecho el 2026-11-07; **revisado el mismo día** tras una primera validación del paso 7 que sirvió «con reservas» (ver abajo, «Revisión tras la primera validación»).
+  > **Qué quedó:** `docker compose up --build -d --wait` (sin `-v`, conservó el volumen) y, encima, `./run.sh` directo: los tres contenedores quedaron sanos con el código de las piezas 3 a 6. La semilla no cambió: P-014 con 3 `SEMANAL ENVIADO` y 1 `SEMANAL APROBADO` (12-oct), P-021 con 1 `PENDIENTE_REVISION`. Encima se generó en vivo, con llave real, el mensual de P-014 (21-sep a 18-oct), se aprobó y se envió, precisamente porque su cuarta semana (12-oct) queda `APROBADO` sin enviar: es el caso real para probar el enlace oculto del paso 2. `README.md` tiene su «Recorrido del médico» y el §7 ya no dice que falta la pantalla del médico.
+  > **Comprobación, criterio por criterio (con la numeración del plan; ver la corrección de numeración abajo):**
+  >
+  > | # | Criterio | Evidencia | Cuadra |
+  > |---|---|---|---|
+  > | 1 | Menú, títulos y pantallas del mockup; una ruta de enfermería lleva al inicio del rol | `ng test` (paso 3) más, en vivo por CDP (`cdp2.mjs`), el médico ve el menú «Mis pacientes \| Informes → Recibidos» y el título «Mis pacientes»; capturas `01-med-inicio.png` y `02-med-recibidos.png` | Sí |
+  > | 2 | Un informe no enviado no aparece al médico, en pantalla ni por la API | `curl` (médico): detalle, PDF y traza del `APROBADO` de P-014 (12-oct) → **404 los tres**; `/api/reports?patientId=P-021` → `[]`; ficha de P-021 sin `lastReport`; en pantalla, «No encontramos lo que busca» (captura `05-med-aprobado-sin-enviar.png`) | Sí |
+  > | 3 | Desde un enviado, semanal o mensual, llega a las entradas citadas y descarga el PDF | Semanal: PDF 200 (39.612 B, paso 1), citas visibles (captura `04-med-informe-enviado.png`). Mensual generado en vivo (Gemini por conmutación, RF-19), aprobado, enviado, PDF 200 (42.394 B, 2 páginas) como médico; en pantalla, las semanas 1 a 3 enlazan y al hacer clic de verdad en «Ver el informe de esa semana» (`cdp2.mjs`) navega al semanal correcto sin recargar la página (capturas `09-med-mensual-enviado.png` y `10-med-tras-navegar-sin-recargar.png`) | Sí |
+  > | 4 | Desde la ficha, el médico crea una entrada, confirma sus eventos y queda con su autoría (RF-30) | **Verificado por la pantalla real**, no solo por la API: con `cdp3.mjs`, el médico escribió «Hoy tuvo fiebre moderada y vomitó una vez…» en `#/med/registro/nuevo/P-014`, la IA propuso FIEBRE (moderado) y VOMITO (1 vez), pulsó «Aprobar y guardar» y la entrada quedó con `authorName: "Dr. Andrés Salazar"`; capturas `11` a `13` | Sí |
+  > | 5 | El recorrido de enfermería no cambia | `ng test`: ninguna prueba de enfermería cambió de resultado salvo la prevista (`selectable`, D26). En vivo (`cdp2.mjs`), el menú, «Descargar PDF» secundario + «Enviar al médico» primario y la nota «Informe guardado…» siguen iguales; capturas `07-enf-pacientes.png` y `08-enf-informe-aprobado.png` | Sí |
+  > | 6 | Pruebas y `eval/` en verde, `./run.sh` en un clon limpio | `mvn -B clean verify`: 456/456. `ng test`: 169/169 (166 + 3 de la revisión). `ng build`: sin errores. `python3 -m unittest discover -s eval`: 37/37. `scripts/check-env-example.sh`: 33 variables, sin faltantes. `./run.sh`: los tres contenedores sanos | Sí, con una reserva: no se repitió desde un **clon limpio** (se reconstruyó sobre el repositorio de trabajo); esta pieza no tocó `docker-compose.yml`, los `Dockerfile` ni `run.sh` |
+  >
+  > ### Revisión tras la primera validación (2026-11-07)
+  > El paso 7 se corrió en sesión nueva y sirvió **con reservas**. Lo que encontró y lo que se corrigió aquí mismo, en el paso 6 (no se replaneó: el plan seguía teniendo sentido, solo faltaba terminar de ejecutarlo):
+  > 1. **La tabla de este paso numeraba sus propias comprobaciones, no las seis del plan:** la fila que yo llamaba «4» («un enviado cuenta como aprobado…») no es ninguna de las seis condiciones del criterio; la que sí es la 4 (RF-30, autoría) solo tenía la prueba de backend (`EntriesApiTest`) citada, sin verificarla en pantalla. **Corregido:** la tabla de arriba usa la numeración real del plan, y la fila 4 ahora tiene evidencia de la pantalla de verdad (ver arriba).
+  > 2. **El chequeo en vivo del enlace oculto (`sent`) no tenía prueba de frontend, solo de backend y vista como enfermera:** se agregaron dos pruebas a `report-view.component.spec.ts` (`el médico, en un mensual enviado, no ve el enlace...` y `enfermería ve el enlace de las cuatro semanas...`) que sí abren el componente como médico y comprueban el enlace oculto y el texto «(no se envió por separado)».
+  > 3. **Un defecto de verdad, anterior a esta pieza pero nunca ejercitado en un navegador hasta ahora:** `report-view.component.ts` leía el `:id` de la ruta solo en `ngOnInit`, así que al navegar de un informe a otro por la misma ruta (el enlace nuevo «Ver el informe de esa semana» es el primer caso real que lo hace) la pantalla se quedaba con el contenido del informe anterior aunque la URL ya hubiera cambiado. **Corregido:** el `:id` ahora es una señal (`toSignal(route.paramMap)`) y un efecto nuevo reinicia todo el estado de la pantalla (edición, traza, rechazo, etc.) y recarga al cambiar; prueba nueva `navegar de un informe a otro por la misma ruta...` que lo reproduce y lo comprueba.
+  > 4. **`AGENTS.md` (líneas que decían «paso 2 hecho» y «E12c sigue fuera») y `CLAUDE.md` (que decía «no hay pantalla del médico») quedaron desactualizados** desde que terminó el paso 3: corregidos, con las cifras de pruebas al día (456 backend, 169 frontend) y el estado real (construida, paso 7 con reservas ya atendidas).
+  > 5. **El `README.md` prometía cosas que no pasan así:** el «Recorrido del médico» decía «sin llave» pero su paso 2 (registrar) sí la necesita, tenía un «Ábra» mal escrito y afirmaba que «Ver cómo se generó» aparece siempre, cuando los informes sembrados (sin `runId`) no lo traen. Corregidos los tres.
+  > 6. **El caso borde del mensual podía leerse como que el médico pierde información, no solo un enlace:** se amplió la fila de `docs/decisiones.md` para decir explícitamente que el resumen y la cifra de la semana sin enviar se le siguen mostrando; solo el enlace a abrirla por separado se oculta.
+  > 7. **Las capturas de pantalla como médico sí se pudieron hacer**, con Chrome en modo remoto (`--remote-debugging-port`) y un script de Node con `--experimental-websocket` (nativo de Node 20, sin instalar nada) que siembra `localStorage` por CDP antes de navegar: la reserva que yo había dejado como «no verificado» en la primera pasada de este paso no era un límite real, era que todavía no había probado esa ruta. Quedan en `/tmp/.../scratchpad/shots/` (fuera del repo, son del clon de esta sesión, no se versionan).
+  > **Lo que se aprendió:**
+  >   - El caso borde del paso 2 (semana `APROBADO` sin enviar dentro de un mensual `ENVIADO`) no es solo teórico: la propia semilla de P-014 lo produce apenas se genera el mensual con sus cuatro semanas actuales, sin tocar nada a mano.
+  >   - Una pantalla como un usuario de demostración concreto sí se puede capturar sin instalar nada: Chrome con `--remote-debugging-port` y Node con `--experimental-websocket` (el `WebSocket` nativo de Node 20 está detrás de esa bandera) alcanzan para hablar CDP a mano, sembrar `localStorage` con `Runtime.evaluate` y navegar con `Page.navigate`/`Page.captureScreenshot`.
+  >   - Un componente que solo lee `route.snapshot` en `ngOnInit` no se entera de un cambio de `:id` en la misma ruta; hay que leerlo como señal (`toSignal(route.paramMap)`) si alguna pantalla puede enlazar a «otro igual que yo, con otro id», como ahora hace el mensual.
+  >   - Al cerrar un paso con una tabla propia de comprobaciones, conviene enumerarla igual que el criterio del plan (o no enumerarla), para que nadie confunda una fila con una condición que no es.
+  > **Decisiones que nadie pidió:**
+  >   - Verificar en vivo sin borrar el volumen (sin `-v`): el paso 1 ya había confirmado que la semilla estaba en el reparto correcto (3 enviados + 1 aprobado), así que reconstruir conservando los datos bastaba y evitaba un borrado innecesario.
+  >   - Generar el mensual real en vivo en vez de confiar solo en la prueba sintética del paso 2: era la única manera de ver el chequeo en vivo (`sent`) actuar sobre datos que de verdad pasaron por el agente y por Groq/Gemini.
+  >   - Capturar la pantalla del médico con un script propio de CDP en vez de pedir instalar Puppeteer o Playwright: Chrome y Node ya estaban disponibles, y las reglas de trabajo piden preguntar antes de instalar una dependencia.
+  > **No verificado:**
+  >   - Un clon limpio de verdad (se reconstruyó sobre el repositorio existente, no sobre un clon nuevo); dado que esta pieza no cambió `docker-compose.yml`, `run.sh` ni los `Dockerfile`, el riesgo es bajo, pero no es lo mismo que probarlo.
+  >   - El dictado por voz desde la pantalla del médico (RF-38 ya estaba construido antes de esta pieza; aquí solo se reutiliza) no se probó en este paso, ni como médico ni en un navegador real con micrófono.
+  >   - El volumen de Docker queda con el mensual de P-014 ya `ENVIADO` y con la entrada de registro que creó el médico en vivo (7-nov-2026, fiebre y vómito): quien siga trabajando debe saberlo, y si quiere la semilla original hace falta `docker compose down -v && ./run.sh` (borra datos: se pide permiso antes).
 - [ ] 7. **Comprobar** el criterio de aceptación, punto por punto, y dejar la evidencia.
 
 ### Criterio de aceptación

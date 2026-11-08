@@ -145,7 +145,7 @@ const PROBLEMS: Record<RecorderProblem, string> = {
             <div class="aviso">
               <svg appIcon="aprobar"></svg>
               <span>{{ turn.savedAs === 'text' ? 'Registro guardado solo con el texto; quedó sin estructurar.' : 'Registro guardado.' }}
-                <a [routerLink]="['/enf/pacientes/ficha', turn.patientId]">Ver ficha del paciente</a></span>
+                <a [routerLink]="['/' + session.prefix(), 'pacientes', 'ficha', turn.patientId]">Ver ficha del paciente</a></span>
             </div>
           }
         }
