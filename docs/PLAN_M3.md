@@ -537,10 +537,31 @@ Notificaciones y el punto de «registros nuevos» (Pieza 5) · «Armar informe»
   >   - Generar el mensual real en vivo en vez de confiar solo en la prueba sintética del paso 2: era la única manera de ver el chequeo en vivo (`sent`) actuar sobre datos que de verdad pasaron por el agente y por Groq/Gemini.
   >   - Capturar la pantalla del médico con un script propio de CDP en vez de pedir instalar Puppeteer o Playwright: Chrome y Node ya estaban disponibles, y las reglas de trabajo piden preguntar antes de instalar una dependencia.
   > **No verificado:**
-  >   - Un clon limpio de verdad (se reconstruyó sobre el repositorio existente, no sobre un clon nuevo); dado que esta pieza no cambió `docker-compose.yml`, `run.sh` ni los `Dockerfile`, el riesgo es bajo, pero no es lo mismo que probarlo.
   >   - El dictado por voz desde la pantalla del médico (RF-38 ya estaba construido antes de esta pieza; aquí solo se reutiliza) no se probó en este paso, ni como médico ni en un navegador real con micrófono.
-  >   - El volumen de Docker queda con el mensual de P-014 ya `ENVIADO` y con la entrada de registro que creó el médico en vivo (7-nov-2026, fiebre y vómito): quien siga trabajando debe saberlo, y si quiere la semilla original hace falta `docker compose down -v && ./run.sh` (borra datos: se pide permiso antes).
-- [ ] 7. **Comprobar** el criterio de aceptación, punto por punto, y dejar la evidencia.
+  >   - El volumen de Docker del equipo queda con el mensual de P-014 ya `ENVIADO` y con la entrada de registro que creó el médico en vivo (7-nov-2026, fiebre y vómito): quien siga trabajando debe saberlo, y si quiere la semilla original hace falta `docker compose down -v && ./run.sh` (borra datos: se pide permiso antes). El clon limpio de la revisión siguiente usó su propio volumen aparte y no tocó este.
+  >
+  > ### Revisión tras la segunda validación (2026-11-08)
+  > El paso 7 se corrió por segunda vez, sobre el commit `bbcaf34` (todo lo de la revisión anterior, ya confirmado). Sirvió **con reservas**, más chicas que la primera: los 7 hallazgos de antes quedaron resueltos de verdad (confirmado con evidencia propia: `report-view.component.spec.ts:502-540`, capturas y navegación real por CDP), y encontró 3 cosas nuevas, las 3 atendidas aquí:
+  > 1. **`AGENTS.md` decía «166 pruebas de frontend»** cuando ya eran 169 (la cifra de la revisión anterior, antes de la prueba de la carrera que se agrega en el punto 3). **Corregido**, con el número final de este cierre (170).
+  > 2. **`AGENTS.md` y `CLAUDE.md` seguían diciendo que `docs/PLAN_M3.md` «solo trae la pieza de Langfuse»**, un texto de antes de que existieran las piezas 2 a 6. **Corregido** en los tres lugares (`AGENTS.md` dos veces, `CLAUDE.md` una), con el estado real: 6 piezas planeadas, 4 ejecutadas.
+  > 3. **Una carrera posible, señalada pero no reproducida por la validación:** el efecto que carga el informe al cambiar de `:id` no descartaba una respuesta vieja que llegara después de una más nueva (p. ej. navegar rápido de un informe a otro, con el primero respondiendo tarde). **Corregido:** `load()` ahora compara `this.routeId()` contra el `id` que pidió antes de aplicar el resultado o el error, y se descarta si ya no coincide; prueba nueva `si una respuesta vieja llega tarde...` en `report-view.component.spec.ts` que fuerza el orden de respuesta al revés (la petición más vieja responde última) y comprueba que no pisa lo que ya se ve.
+  >
+  > La validación también señaló, sin pedir que se arreglara, que «el médico llega a las entradas citadas» (RF-29) admite dos lecturas: la cita en sí (fecha y texto original, ya visibles en «Fuentes» sin un clic más) o siempre poder abrir la entrada original citada, sin importar su fecha (la ficha del médico solo trae los 7 registros más recientes). **Se le preguntó al dueño del proyecto** (no se decidió en silencio): queda la primera lectura, ya registrada en `docs/decisiones.md`.
+  >
+  > La única reserva que quedaba sin resolver en las dos validaciones, un clon limpio de verdad, se hizo aquí: `git clone` de este repositorio a un directorio aparte (`bbcaf34`), `COMPOSE_PROJECT_NAME=ppa-cleanclone ./run.sh` con la llave de Groq del equipo (sin tocar el volumen ni los contenedores del repositorio de trabajo), auto-eligió los puertos 4201 y 8081 porque los 4200 y 8080 ya estaban ocupados, y los tres contenedores quedaron sanos. Por `curl`: `/api/system/status` 200, el médico ve sus 5 pacientes y sus 3 informes `ENVIADO`, y el frontend responde 200. Se bajó con `docker compose down -v` sobre ese mismo proyecto aparte (no sobre el de trabajo) y se borró el clon.
+  >
+  > **Comprobación de esta revisión:**
+  >
+  > | Qué se miró | Obtenido | Esperado | Cuadra |
+  > |---|---|---|---|
+  > | `ng test --watch=false --browsers=ChromeHeadless` | 170 de 170 (169 + 1 de la carrera) | Verde | Sí |
+  > | `ng build` | Sin errores | Sin errores | Sí |
+  > | Clon limpio, `./run.sh` aislado (`COMPOSE_PROJECT_NAME`) | 3 contenedores sanos; médico ve 5 pacientes y 3 `ENVIADO`; frontend 200 | Levanta y funciona | Sí |
+  > **Lo que se aprendió:** `docker-compose.yml` fija `name: patient-progress-auditor` arriba del todo, así que dos checkouts del mismo repo comparten volumen y red por defecto (de ahí el aviso «volumen creado con otra contraseña» en la primera corrida); `COMPOSE_PROJECT_NAME` lo separa sin tocar `run.sh` ni el compose, y por eso un clon limpio se puede probar sin apagar lo que ya está arriba.
+  > **Decisiones que nadie pidió:** usar `COMPOSE_PROJECT_NAME=ppa-cleanclone` para el clon limpio en vez de parar los contenedores del equipo primero: evita interrumpir cualquier otra verificación en curso sobre el volumen de trabajo.
+  > **No verificado (queda igual que antes):** el dictado por voz desde la pantalla del médico, ni como médico ni con micrófono real.
+- [x] 7. **Comprobar** el criterio de aceptación, punto por punto, y dejar la evidencia.
+  > Validado dos veces con `valida-resultado`, en sesiones aparte; la segunda (2026-11-08, sobre `bbcaf34`) sirvió con reservas y las tres quedaron atendidas, con el clon limpio incluido: ver «Revisión tras la segunda validación» al final del paso 6. Pieza cerrada el 2026-11-08 (confirmado por el equipo).
 
 ### Criterio de aceptación
 1. Con un médico elegido en «Ver como», el menú, los títulos y las pantallas son los del mockup vA («Mis pacientes», «Informes → Recibidos»), y una ruta de enfermería lo lleva al inicio de su rol.

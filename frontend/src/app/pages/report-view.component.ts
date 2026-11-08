@@ -466,8 +466,17 @@ export class ReportViewComponent implements OnDestroy {
 
   private async load(id: string): Promise<void> {
     try {
-      this.show(await this.reports.get(id));
+      const detail = await this.reports.get(id);
+      // Si mientras tanto la ruta ya pidio otro informe, esta respuesta llego tarde: se descarta
+      // para no pisar lo que el usuario ya esta viendo (navegar de un informe a otro es mas rapido
+      // que una respuesta lenta del servidor).
+      if (this.routeId() === id) {
+        this.show(detail);
+      }
     } catch (e) {
+      if (this.routeId() !== id) {
+        return;
+      }
       const status = (e as { status?: number }).status;
       if (status === 404) {
         this.missing.set(true);

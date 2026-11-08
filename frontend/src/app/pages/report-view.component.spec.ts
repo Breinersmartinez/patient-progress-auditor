@@ -545,4 +545,24 @@ describe('ReportViewComponent (vInfVer y hojaHTML del mockup)', () => {
 
     expect(text('.acciones .izq b')).toBe('Informe de P-021');
   });
+
+  it('si una respuesta vieja llega tarde (ya se navegó a otro informe), no pisa lo que se está viendo', async () => {
+    await open(detail({}, { id: 'rep1', patientAlias: 'P-014' }));
+
+    paramMap.next(convertToParamMap({ id: 'rep2' }));
+    await settle();
+    const lenta = http.expectOne('/api/reports/rep2');
+
+    paramMap.next(convertToParamMap({ id: 'rep3' }));
+    await settle();
+    const rapida = http.expectOne('/api/reports/rep3');
+    rapida.flush(detail({}, { id: 'rep3', patientAlias: 'P-033' }));
+    await settle();
+    expect(text('.acciones .izq b')).toBe('Informe de P-033');
+
+    // rep2 responde tarde, despues de rep3: no debe pisar lo que ya se ve.
+    lenta.flush(detail({}, { id: 'rep2', patientAlias: 'P-021' }));
+    await settle();
+    expect(text('.acciones .izq b')).toBe('Informe de P-033');
+  });
 });
