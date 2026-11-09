@@ -1,7 +1,9 @@
 # REQUISITOS — Patient Progress Auditor
 
-> **Estado:** borrador v0.8 para aprobación · **Fase del ciclo de vida:** 2 — Análisis de requisitos · **Fecha:** 2026-11-07
-> **Base:** `docs/SPEC.md` v0.11 (§1–§3, objetivos OBJ-01 a OBJ-16), `AGENTS.md`, las rúbricas del curso *Ingeniería de Aplicaciones con IA* y lo dicho por el profesor en la clase del 24 de octubre de 2026.
+> **Estado:** borrador v0.9 para aprobación · **Fase del ciclo de vida:** 2 — Análisis de requisitos · **Fecha:** 2026-11-08
+> **Base:** `docs/SPEC.md` v0.12 (§1–§3, objetivos OBJ-01 a OBJ-16), `AGENTS.md`, las rúbricas del curso *Ingeniería de Aplicaciones con IA* y lo dicho por el profesor en la clase del 24 de octubre de 2026.
+>
+> **Cambios de la v0.9 (notificaciones al médico, paso 2 de la Pieza 5 de `docs/PLAN_M3.md`, 8 de noviembre de 2026):** se agrega RF-45 (la campana de notificaciones del médico) con hito M3, por D30 y por fidelidad al mockup vA. Los RF pasan de 44 a 45 y los de hito M3 puro de 4 a 5 (RF-31, RF-33, RF-34, RF-44 y RF-45); los M2-N (29 puros, más las 2 mixtas con M3), los M2-S (7) y los Opc (2) no cambian. No se agrega ninguna RN: aprobar sin enviar sigue sin notificar porque RN-01 ya lo exige.
 >
 > **Cambios de la v0.8 (módulo del médico, pantallas, paso 2 de la Pieza 4 de `docs/PLAN_M3.md`, 7 de noviembre de 2026):** se precisa RF-30 y la fila de D12 en §8 con la interfaz decidida por el equipo el 2026-11-05 (botón «Nuevo registro» en la ficha del médico, ruta `#/med/registro/nuevo/:id`). No cambia ningún RF, RN ni CU, ni los conteos por hito: esta pieza no trae requisito nuevo.
 >
@@ -152,6 +154,7 @@
 | RF-28 | Permitir al médico listar pacientes y consultar los informes `ENVIADO` por paciente y período, del más reciente al más antiguo | M2-N | OBJ-05 | ¿Un informe pendiente, incompleto, rechazado o aprobado sin enviar NO aparece para el médico? |
 | RF-29 | Mostrar al médico, en un informe enviado, la evidencia que lo respalda | M2-S | OBJ-06 | ¿Desde un informe enviado el médico llega a las entradas citadas? |
 | RF-30 | Permitir al médico registrar entradas diarias (D12, decidida; interfaz: botón «Nuevo registro» en la ficha, `#/med/registro/nuevo/:id`, módulo del médico Pieza 4) | M2-S | OBJ-15 | ¿Un usuario médico crea una entrada y queda con su autoría? |
+| RF-45 | Avisar a cada médico activo, con una campana en el encabezado, de una entrada guardada de un paciente (menos si el autor es él mismo) y de un informe —semanal o mensual— enviado; marcar leída una notificación al abrir la ficha del paciente, al pulsar la notificación o al abrir el informe que avisa; mostrar un punto en la campana y junto al paciente en «Mis pacientes» mientras haya alguna sin leer (D30) | M3 | OBJ-15 | ¿Un médico distinto del autor recibe la notificación de un registro y la de un informe enviado, y las dos se marcan leídas al abrir la ficha, la notificación o el informe, apagando los puntos? |
 
 ### 3.6 Usuarios, roles y auditoría
 
@@ -251,7 +254,7 @@ Solo entidades y relaciones. Atributos, tipos y tablas están en `docs/DICCIONAR
 | OBJ-12 Necesidad del LLM y del agente | RF-10; entregable: decisiones del agente y comparación contra la plantilla sin LLM |
 | OBJ-13 Entrega autosuficiente y plan B | RF-05, RF-19, RF-39, RNF-08, RNF-13 |
 | OBJ-14 Seguridad y gobernanza | RF-21, RF-35, RNF-01 a RNF-03; entregables del Momento 3 |
-| OBJ-15 Permisos por rol | RF-30 a RF-34, RF-39 |
+| OBJ-15 Permisos por rol | RF-30 a RF-34, RF-39, RF-45 |
 | OBJ-16 Decisiones técnicas justificadas | RNF-11, RNF-14; entregable `docs/decisiones.md` |
 
 Todos los objetivos tienen al menos un requisito o un entregable asociado.
@@ -268,6 +271,7 @@ Para poder avanzar, el análisis usa estos supuestos. Si cambian, se actualiza e
 | Visibilidad al médico | Decidido el 2026-11-07: solo ve informes `ENVIADO` (enfermería los aprueba y los envía); era supuesto `APROBADO` | RF-28, RF-44, RN-01 | D6, D29 |
 | Qué es una semana | Lunes a domingo; compara con la anterior y el agente decide cuántas más atrás, con tope | RN-06, RF-10 | D10 |
 | El médico registra | Sí; interfaz decidida el 2026-11-05: botón «Nuevo registro» en su ficha, `#/med/registro/nuevo/:id`, misma pantalla que enfermería | RF-30 | D12 |
+| Notificaciones al médico | Decidido el 2026-11-05: campana con un registro nuevo (menos el propio) y un informe enviado, con sus puntos, fiel al mockup vA; requisito nuevo | RF-45 | D30 |
 | Catálogo de métricas | El de RF-07 es una propuesta; conviene validarlo con una persona de enfermería | RF-07, RF-11 | D18 |
 | Disparo de la generación | Manual (botón) en M2; programado al cierre de semana queda para M3 | RF-08 | D19 |
 | Consulta libre al pedir el informe | Sin campo libre en M2; el caso de rechazo se construye con una entrada que pide un diagnóstico | RF-15 | D20 |
@@ -282,7 +286,7 @@ Para poder avanzar, el análisis usa estos supuestos. Si cambian, se actualiza e
 | Patrón de integración | Ejecución asíncrona del agente con eventos de progreso por SSE | RF-22, RNF-05 | D24 |
 | Evaluaciones y observabilidad | En clase el profesor las trató como deseables; la rúbrica escrita las puntúa; versión mínima: 3 a 5 casos dorados con script y traza visible en la app | RF-22, OBJ-11 | D25 |
 
-**Estado de las decisiones de la SPEC §7:** decididas D1, D2, D3, D4, D5, D7, D8, D9, D10, D11, D12, D13, D14, D17, D21, D22, D23, D24; propuesta D15 solo en sus modelos (el orden Groq principal y Gemini respaldo está decidido); decidida D27 (28-oct); decidida también D26 (confirmada el 2026-10-28); decidida D29 (2026-11-07) y con ella D6; supuestos D19, D20, D25; por confirmar D18; descartada D16.
+**Estado de las decisiones de la SPEC §7:** decididas D1, D2, D3, D4, D5, D7, D8, D9, D10, D11, D12, D13, D14, D17, D21, D22, D23, D24; propuesta D15 solo en sus modelos (el orden Groq principal y Gemini respaldo está decidido); decidida D27 (28-oct); decidida también D26 (confirmada el 2026-10-28); decidida D29 (2026-11-07) y con ella D6; decidida D30 (2026-11-05), con lo marcado **[Propuesta]** dentro por construir en la Pieza 5; supuestos D19, D20, D25; por confirmar D18; descartada D16.
 
 **Para el diseño (no bloquean el análisis):** proveedor del LLM (D15, propuesta), cómo recibe el profesor la llave si no tiene una (parte pendiente de D22), valores de intensidad y tipos de evento de la estructuración (D27, D18) y qué hace «Descartar». Ya decididas: stack con Java 17 (D9), conjunto sintético de 5 pacientes y 18 semanas-paciente con un paciente de cuatro semanas aprobadas para el mensual (D11), `JWT_SECRET` y JWT en el Momento 3 (D23), estrategia de datos (D8), motor de PDF (D13), voz (D14), patrón de integración (D24) y dónde se derivan los eventos (al registrar la entrada, D27 propuesta).
 
@@ -291,7 +295,7 @@ Para poder avanzar, el análisis usa estos supuestos. Si cambian, se actualiza e
 ## 9. Criterios de salida de la fase de análisis
 
 - [x] Cada objetivo de la SPEC tiene al menos un requisito o entregable (§7). Verificado el 2026-10-25, incluido OBJ-16.
-- [x] Cada requisito funcional tiene un criterio que se responde con sí o no. Verificado el 2026-10-25 en los 39 RF, el 2026-10-28 en RF-40 a RF-42 el 2026-11-03 en RF-43 y el 2026-11-07 en RF-44 (44 RF).
+- [x] Cada requisito funcional tiene un criterio que se responde con sí o no. Verificado el 2026-10-25 en los 39 RF, el 2026-10-28 en RF-40 a RF-42, el 2026-11-03 en RF-43, el 2026-11-07 en RF-44 y el 2026-11-08 en RF-45 (45 RF).
 - [ ] Los dos integrantes revisaron los supuestos de trabajo de §8.
 - [ ] El catálogo de métricas (RF-07) y la estructura del informe (RF-11) se validaron con una persona de enfermería, o quedó registrado que no se pudo.
 - [ ] La SPEC se actualizó con las decisiones D18 a D20 y los supuestos confirmados (D18 a D20 ya están en la SPEC; faltan los supuestos confirmados, incluidos D21 a D27).

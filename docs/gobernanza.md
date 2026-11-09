@@ -51,6 +51,7 @@ La supervisión es **exigida por el sistema**, no una costumbre del operador: si
 | **Trazas** | `agent_steps` | Por paso: herramienta, parámetros, resultado (hasta 1 500 caracteres, que incluyen texto de notas), ms y tokens. Se ven en la pantalla del informe (RF-22) | Igual |
 | Registro del servidor | Salida estándar del contenedor, nivel INFO | Por llamada: proveedor, modelo, tokens, ms e intento; errores con el id de la ejecución. Ninguna línea escribe a propósito el texto de las notas, **pero** el motivo técnico de un fallo del proveedor puede traer un fragmento de su respuesta | Lo que Docker conserve; no se configuró rotación |
 | Langfuse (si se activa; **escrito y probado contra un servidor local, no contra la nube**) | Langfuse Cloud, región de Estados Unidos | Los metadatos de cada llamada (ver 4) | Lo define Langfuse; **no verificado** (hay cifras de terceros: 30 días en el plan gratuito) |
+| Notificaciones al médico (M3, D30; **decidido, en construcción**) | `notifications` | A quién, de qué paciente, de qué tipo (entrada o informe) y cuándo; nunca el texto de la nota ni el resumen del informe (la frase se arma al leerla) | **Sin plazo definido**, igual que el resto; no hay borrado ni purga de leídas |
 
 **Lo que no existe:** una política de retención, un registro de auditoría aparte (RF-35 quedó fuera del Momento 2) y rotación de los registros. Los datos son sintéticos; si el sistema pasara a datos reales, el plazo tendría que acordarse con la institución antes **[Propuesta]**.
 

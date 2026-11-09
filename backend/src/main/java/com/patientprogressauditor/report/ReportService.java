@@ -31,6 +31,7 @@ import com.patientprogressauditor.agent.AgentRunRepository;
 import com.patientprogressauditor.agent.AgentStepRepository;
 import com.patientprogressauditor.entry.Entry;
 import com.patientprogressauditor.entry.EntryRepository;
+import com.patientprogressauditor.notification.NotificationService;
 import com.patientprogressauditor.patient.Patient;
 import com.patientprogressauditor.patient.PatientRepository;
 import com.patientprogressauditor.report.ReportEditValidator.Edit;
@@ -81,11 +82,12 @@ public class ReportService {
     private final AgentRunRepository runs;
     private final AgentStepRepository steps;
     private final ReportEditValidator editValidator;
+    private final NotificationService notificationService;
     private final Clock clock;
 
     public ReportService(ReportRepository reports, ReportVersionRepository versions, ReportCitationRepository citations,
             PatientRepository patients, EntryRepository entries, AppUserRepository users, AgentRunRepository runs,
-            AgentStepRepository steps, ReportEditValidator editValidator, Clock clock) {
+            AgentStepRepository steps, ReportEditValidator editValidator, NotificationService notificationService, Clock clock) {
         this.reports = reports;
         this.versions = versions;
         this.citations = citations;
@@ -95,6 +97,7 @@ public class ReportService {
         this.runs = runs;
         this.steps = steps;
         this.editValidator = editValidator;
+        this.notificationService = notificationService;
         this.clock = clock;
     }
 
@@ -210,6 +213,8 @@ public class ReportService {
         report.setSentAt(clock.instant());
         report.setUpdatedAt(clock.instant());
         reports.saveAndFlush(report);
+        // Avisa a todo medico activo (RF-45, D30): misma transaccion, si falla, falla el envio entero.
+        notificationService.notifyReportSent(report.getPatientId(), report.getId());
         return detail(id, principal);
     }
 

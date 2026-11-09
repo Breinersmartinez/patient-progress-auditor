@@ -232,6 +232,17 @@ class DomainSchemaTest {
         assertThat(roles).containsExactly("ENFERMERIA");
     }
 
+    // V11 (D30): la campana es solo del medico.
+    @Test
+    void onlyTheDoctorCanReadNotifications() {
+        List<String> roles = jdbc.queryForList(
+                "SELECT r.code FROM app_role_permissions rp JOIN app_roles r ON r.id = rp.role_id"
+                        + " JOIN app_permissions p ON p.id = rp.permission_id WHERE p.code = 'NOTIFICATIONS_READ'",
+                String.class);
+
+        assertThat(roles).containsExactly("MEDICO");
+    }
+
     @Test
     void agentRoleCanOnlyReadAndSaveTheDraft() {
         List<String> permissions = jdbc.queryForList(
@@ -249,12 +260,59 @@ class DomainSchemaTest {
                         + " JOIN app_permissions p ON p.id = rp.permission_id WHERE r.code = 'MEDICO'",
                 String.class);
 
-        assertThat(permissions).containsExactlyInAnyOrder("PATIENTS_READ", "ENTRIES_READ", "ENTRIES_CREATE", "REPORTS_READ");
+        assertThat(permissions).containsExactlyInAnyOrder("PATIENTS_READ", "ENTRIES_READ", "ENTRIES_CREATE", "REPORTS_READ",
+                "NOTIFICATIONS_READ");
     }
 
     @Test
     void aliasIsUniqueIgnoringCase() {
         assertThatThrownBy(() -> jdbc.update("INSERT INTO patients (id, alias) VALUES (?, 'p-999')", UUID.randomUUID()))
                 .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    // V11 (D30): una notificacion trae exactamente la referencia de su propio tipo, nunca las dos ni ninguna.
+    private UUID insertReportRow() {
+        UUID report = UUID.randomUUID();
+        jdbc.update("INSERT INTO reports (id, patient_id, report_type, period_start, period_end, status, requested_by)"
+                + " VALUES (?, ?, 'SEMANAL', ?, ?, 'PENDIENTE_REVISION', ?)", report, patient, MONDAY, MONDAY.plusDays(6), nurse);
+        return report;
+    }
+
+    private void insertNotification(String type, UUID entryId, UUID reportId) {
+        jdbc.update("INSERT INTO notifications (id, recipient_id, patient_id, notification_type, entry_id, report_id)"
+                + " VALUES (?, ?, ?, ?, ?, ?)", UUID.randomUUID(), nurse, patient, type, entryId, reportId);
+    }
+
+    @Test
+    void anEntryNotificationWithItsEntryIsFine() {
+        assertThatCode(() -> insertNotification("ENTRY", entry, null)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void anEntryNotificationWithoutItsEntryIsRejected() {
+        assertThatThrownBy(() -> insertNotification("ENTRY", null, null)).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void anEntryNotificationCannotAlsoCarryAReport() {
+        UUID report = insertReportRow();
+        assertThatThrownBy(() -> insertNotification("ENTRY", entry, report)).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void aReportNotificationWithItsReportIsFine() {
+        UUID report = insertReportRow();
+        assertThatCode(() -> insertNotification("REPORT", null, report)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void aReportNotificationWithoutItsReportIsRejected() {
+        assertThatThrownBy(() -> insertNotification("REPORT", null, null)).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    void aReportNotificationCannotAlsoCarryAnEntry() {
+        UUID report = insertReportRow();
+        assertThatThrownBy(() -> insertNotification("REPORT", entry, report)).isInstanceOf(DataIntegrityViolationException.class);
     }
 }

@@ -1,11 +1,14 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { map } from 'rxjs';
 
 import { apiFailure } from '../core/api-error';
 import { dFull, periodoTxt, sumar } from '../core/date-es';
 import { Entry, EntriesService } from '../core/entries.service';
 import { IconComponent } from '../core/icon.component';
+import { NotificationsService } from '../core/notifications.service';
 import { PageTitleService } from '../core/page-title.service';
 import { Patient, PatientsService } from '../core/patients.service';
 import { SessionService } from '../core/session.service';
@@ -69,10 +72,11 @@ import { NotFoundComponent } from './not-found.component';
     }
   `,
 })
-export class PatientDetailComponent implements OnInit {
+export class PatientDetailComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly patients = inject(PatientsService);
   private readonly entriesService = inject(EntriesService);
+  private readonly notifications = inject(NotificationsService);
   private readonly title = inject(PageTitleService);
   private readonly session = inject(SessionService);
 
@@ -104,14 +108,47 @@ export class PatientDetailComponent implements OnInit {
   protected readonly reportPeriod = (from: string, to: string) =>
     `${to === sumar(from, 6) ? 'Semana' : 'Período'} del ${periodoTxt(from, to)}`;
 
-  async ngOnInit(): Promise<void> {
-    const id = this.route.snapshot.paramMap.get('id') ?? '';
+  // La ruta reutiliza esta misma instancia al pasar de una ficha a otra (misma ruta, `:id` distinto: p. ej. la
+  // campana lleva a otro paciente): sin leer el `:id` como señal, la pantalla se quedaba mostrando la ficha
+  // anterior aunque la URL ya hubiera cambiado (hallazgo de la validación de la Pieza 5, 2026-11-08).
+  private readonly routeId = toSignal(this.route.paramMap.pipe(map((p) => p.get('id') ?? '')), {
+    initialValue: this.route.snapshot.paramMap.get('id') ?? '',
+  });
+
+  constructor() {
+    effect(() => {
+      const id = this.routeId();
+      this.reset();
+      void this.load(id);
+    });
+  }
+
+  private reset(): void {
+    this.patient.set(null);
+    this.entries.set(null);
+    this.missing.set(false);
+    this.error.set(null);
+  }
+
+  private async load(id: string): Promise<void> {
     try {
       const patient = await this.patients.get(id);
+      // Si mientras tanto la ruta ya pidio otro paciente, esta respuesta llego tarde: se descarta.
+      if (this.routeId() !== id) {
+        return;
+      }
       this.patient.set(patient);
       this.title.set(`Paciente ${patient.alias}`);
-      this.entries.set(await this.entriesService.forPatient(id, { order: 'desc', limit: 7 }));
+      // Abrir la ficha marca leidas las notificaciones de registro de este paciente (D30, como el mockup).
+      void this.notifications.markPatientRead(id);
+      const entries = await this.entriesService.forPatient(id, { order: 'desc', limit: 7 });
+      if (this.routeId() === id) {
+        this.entries.set(entries);
+      }
     } catch (e) {
+      if (this.routeId() !== id) {
+        return;
+      }
       // Un paciente que no existe (o un id mal formado) es "No encontramos lo que busca", como el mockup.
       if (this.patient() === null && e instanceof HttpErrorResponse && (e.status === 404 || e.status === 400)) {
         this.missing.set(true);

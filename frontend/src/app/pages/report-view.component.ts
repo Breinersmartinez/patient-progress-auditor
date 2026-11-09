@@ -8,6 +8,7 @@ import { bogotaDay, dCorto, dFull, fechaCorta, periodoTxt, sumar } from '../core
 import { EntriesService } from '../core/entries.service';
 import { IconComponent } from '../core/icon.component';
 import { MenuMarkService } from '../core/menu-mark.service';
+import { NotificationsService } from '../core/notifications.service';
 import { Claim, CitedEntry, MonthlyMetrics, ReportContent, ReportDetail, ReportMetrics, ReportsService, TraceStep, VersionView } from '../core/reports.service';
 import { roleHome } from '../core/roles';
 import { SessionService } from '../core/session.service';
@@ -307,6 +308,7 @@ export class ReportViewComponent implements OnDestroy {
   private readonly toast = inject(ToastService);
   private readonly sessionService = inject(SessionService);
   private readonly menuMark = inject(MenuMarkService);
+  private readonly notifications = inject(NotificationsService);
 
   protected readonly detail = signal<ReportDetail | null>(null);
   protected readonly missing = signal(false);
@@ -491,6 +493,8 @@ export class ReportViewComponent implements OnDestroy {
     const index = new Map(this.entryIndex());
     Object.values(detail.citations).flat().forEach((entry) => index.set(entry.id, entry));
     this.entryIndex.set(index);
+    // Abrir el informe que avisa lo marca leido (D30): evita que quede sin leer uno que ya se vio.
+    void this.notifications.markReportRead(detail.report.id);
   }
 
   // ---- evidencia ----
@@ -566,7 +570,7 @@ export class ReportViewComponent implements OnDestroy {
     });
   }
 
-  // RF-44: enviar al medico. Hasta las notificaciones (Pieza 5) el aviso no dice que se notifico: no seria cierto.
+  // RF-44: enviar al medico. El aviso dice que se notifico (D30, Pieza 5), como el mockup.
   protected async send_(button: ProcessButtonComponent): Promise<void> {
     const d = this.detail();
     if (!d) {
@@ -576,7 +580,7 @@ export class ReportViewComponent implements OnDestroy {
     await button.run(async () => {
       try {
         this.show(await this.reports.send(d.report.id));
-        this.toast.show('Informe enviado al médico.');
+        this.toast.show('Informe enviado. Se notificó al médico');
       } catch (e) {
         this.formError.set(apiFailure(e).message);
       }

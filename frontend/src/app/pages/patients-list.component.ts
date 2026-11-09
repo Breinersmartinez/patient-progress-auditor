@@ -31,7 +31,12 @@ import { REPORT_STATUS_LABELS, StatusChipComponent } from '../ui/status-chip.com
                    [empty]="{ title: 'Aún no hay pacientes', text: 'Cuando se registre un paciente aparecerá aquí.' }">
         <ng-template appCell let-p let-col="col">
           @switch (col) {
-            @case (0) { <b>{{ p.alias }}</b> }
+            @case (0) {
+              <b>{{ p.alias }}</b>
+              @if (isDoctor() && p.hasUnreadNotifications) {
+                <i class="punto-lista"></i><span class="solo-lector"> Registros nuevos</span>
+              }
+            }
             @case (1) { @if (p.bed) { {{ p.bed }} } @else { <span class="sec">Sin dato</span> } }
             @case (2) { @if (p.age !== undefined) { {{ p.age }} años } @else { <span class="sec">Sin dato</span> } }
             @case (3) { {{ p.lastEntryDate ? dCorto(p.lastEntryDate) : 'Sin registros' }} }
@@ -57,6 +62,8 @@ export class PatientsListComponent implements OnInit {
   protected readonly error = signal<string | null>(null);
   protected readonly dCorto = dCorto;
   protected readonly canCreate = computed(() => this.session.session()?.permissions.includes('PATIENTS_CREATE') ?? false);
+  // El punto de "Mis pacientes" (D30, RF-45) es solo del medico, como en el mockup.
+  protected readonly isDoctor = computed(() => this.session.session()?.role === 'MEDICO');
 
   protected readonly searchText = (p: Patient) => `${p.alias} ${p.bed ?? ''}`;
   protected readonly href = (p: Patient) => `/${this.session.prefix()}/pacientes/ficha/${p.id}`;

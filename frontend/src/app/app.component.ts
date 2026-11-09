@@ -6,23 +6,26 @@ import { filter, map, startWith } from 'rxjs';
 import { IconComponent } from './core/icon.component';
 import { DOCTOR_MENU, NURSING_MENU } from './core/menu';
 import { MenuMarkService } from './core/menu-mark.service';
+import { NotificationsService } from './core/notifications.service';
 import { PageTitleService } from './core/page-title.service';
 import { roleHome, roleLabel } from './core/roles';
 import { SessionService } from './core/session.service';
 import { ToastService } from './core/toast.service';
+import { BellComponent } from './ui/bell.component';
 import { SidebarComponent, SidebarUser } from './ui/sidebar.component';
 
 // El armazon del mockup: menu lateral, encabezado con "Ver como" y la zona de la vista.
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, SidebarComponent, IconComponent],
+  imports: [RouterOutlet, SidebarComponent, IconComponent, BellComponent],
   templateUrl: './app.component.html',
 })
 export class AppComponent {
   protected readonly session = inject(SessionService);
   protected readonly toasts = inject(ToastService);
   protected readonly pageTitle = inject(PageTitleService);
+  private readonly notifications = inject(NotificationsService);
   private readonly router = inject(Router);
   private readonly menuMark = inject(MenuMarkService);
 
@@ -56,6 +59,8 @@ export class AppComponent {
       const title = this.deepestData()['title'];
       this.pageTitle.set(typeof title === 'string' ? title : '');
       window.scrollTo(0, 0);
+      // La campana se actualiza al navegar, como el mockup (D30): sin sondeo ni SSE.
+      void this.notifications.refresh();
     });
   }
 

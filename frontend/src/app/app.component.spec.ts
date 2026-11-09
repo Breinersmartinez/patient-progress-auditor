@@ -121,6 +121,16 @@ describe('AppComponent (armazón del mockup)', () => {
     expect(root.querySelector('.aviso')?.textContent).toContain('No se pudo conectar con el servidor.');
   });
 
+  // D30, RF-45: la campana es solo del medico; enfermeria no tiene el permiso NOTIFICATIONS_READ.
+  it('con un médico, el encabezado trae la campana; con enfermería, no', async () => {
+    const enfermera: HTMLElement = (await open('/enf/pacientes')).nativeElement;
+    expect(enfermera.querySelector('header .campana')).toBeNull();
+
+    fakeSession.session.set({ id: 'm1', displayName: 'Dr. Andrés Salazar', role: 'MEDICO', permissions: [] });
+    const medico: HTMLElement = (await open('/med/pacientes')).nativeElement;
+    expect(medico.querySelector('header .campana')).not.toBeNull();
+  });
+
   it('los avisos (toast) salen en la zona con aria-live y se quitan solos', async () => {
     jasmine.clock().install();
     try {

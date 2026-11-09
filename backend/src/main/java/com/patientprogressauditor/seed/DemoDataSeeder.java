@@ -8,6 +8,7 @@ import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -108,6 +109,10 @@ public class DemoDataSeeder implements ApplicationRunner {
         return nameBased("event|" + entryId + "|" + symptom);
     }
 
+    public static UUID notificationId(String kind, UUID recipientId, UUID subjectId) {
+        return nameBased("notification|" + kind + "|" + recipientId + "|" + subjectId);
+    }
+
     private static UUID nameBased(String name) {
         return UUID.nameUUIDFromBytes(name.getBytes(StandardCharsets.UTF_8));
     }
@@ -123,9 +128,12 @@ public class DemoDataSeeder implements ApplicationRunner {
                     "La semilla de demostracion (APP_SEED_DEMO=true) no puede correr con el perfil prod.");
         }
         SeedData data = read();
+        SeedReports seededReports = readReports();
         transaction.executeWithoutResult(status -> insert(data));
         // Despues de confirmar las entradas: las cifras de cada informe las calcula el codigo leyendolas.
-        transaction.executeWithoutResult(status -> insertReports(data, readReports()));
+        transaction.executeWithoutResult(status -> insertReports(data, seededReports));
+        // Despues de los informes: las notificaciones del informe enviado necesitan que el informe ya exista (FK).
+        transaction.executeWithoutResult(status -> insertNotifications(data, seededReports));
         log.info("Semilla de demostracion aplicada: {} usuarios, {} pacientes, {} entradas.",
                 data.users().size(), data.patients().size(),
                 data.patients().stream().mapToInt(patient -> patient.entries().size()).sum());
@@ -202,6 +210,46 @@ public class DemoDataSeeder implements ApplicationRunner {
                     "INSERT INTO report_citations (report_version_id, claim_key, entry_id) VALUES (?, ?, ?)"
                             + " ON CONFLICT DO NOTHING", versionId, claimKey, entryId)));
         }
+    }
+
+    // Semilla de la campana (D30, RF-45): para cada medico, dos registros recientes sin leer (P-014 y P-021) y el
+    // ultimo informe enviado de P-014 ya leido, como el mockup. Ids deterministas y ON CONFLICT DO NOTHING.
+    private void insertNotifications(SeedData data, SeedReports seeded) {
+        Map<String, SeedPatient> patients = new HashMap<>();
+        data.patients().forEach(patient -> patients.put(patient.alias(), patient));
+        SeedPatient p014 = patients.get("P-014");
+        SeedPatient p021 = patients.get("P-021");
+        SeedEntry lastEntry014 = lastEntry(p014);
+        SeedEntry lastEntry021 = lastEntry(p021);
+        UUID lastEntryId014 = entryId(p014.alias(), lastEntry014.date());
+        UUID lastEntryId021 = entryId(p021.alias(), lastEntry021.date());
+        OffsetDateTime lastEntryAt014 = lastEntry014.date().atTime(ENTRY_TIME).atZone(BOGOTA).toOffsetDateTime();
+        OffsetDateTime lastEntryAt021 = lastEntry021.date().atTime(ENTRY_TIME).atZone(BOGOTA).toOffsetDateTime();
+
+        SeedReport lastSent = seeded.reports().stream()
+                .filter(r -> p014.alias().equals(r.alias()) && "ENVIADO".equals(r.status()))
+                .max(Comparator.comparing(SeedReport::weekStart))
+                .orElseThrow();
+        UUID lastSentReportId = reportId(p014.alias(), lastSent.weekStart());
+        OffsetDateTime readAt = lastSent.sentAt().plusHours(1);
+
+        String sql = "INSERT INTO notifications (id, recipient_id, patient_id, notification_type, entry_id, report_id,"
+                + " created_at, read_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING";
+        for (SeedUser user : data.users()) {
+            if (!AppRole.DOCTOR.equals(user.role())) {
+                continue;
+            }
+            jdbc.update(sql, notificationId("entry", user.id(), lastEntryId014), user.id(), p014.id(), "ENTRY",
+                    lastEntryId014, null, lastEntryAt014, null);
+            jdbc.update(sql, notificationId("entry", user.id(), lastEntryId021), user.id(), p021.id(), "ENTRY",
+                    lastEntryId021, null, lastEntryAt021, null);
+            jdbc.update(sql, notificationId("report", user.id(), lastSentReportId), user.id(), p014.id(), "REPORT",
+                    null, lastSentReportId, lastSent.sentAt(), readAt);
+        }
+    }
+
+    private static SeedEntry lastEntry(SeedPatient patient) {
+        return patient.entries().stream().max(Comparator.comparing(SeedEntry::date)).orElseThrow();
     }
 
     private void insert(SeedData data) {

@@ -1,6 +1,6 @@
 # DICCIONARIO DE DATOS — Momento 2 — Patient Progress Auditor
 
-> **Estado:** borrador v0.1 para aprobación · **Fase del ciclo de vida:** 3 — Diseño (modelo de datos) · **Alcance:** Momento 2 · **Fecha:** 2026-10-28 · ajustado el 2026-11-07 por D29 (lo marcado M3)
+> **Estado:** borrador v0.1 para aprobación · **Fase del ciclo de vida:** 3 — Diseño (modelo de datos) · **Alcance:** Momento 2 · **Fecha:** 2026-10-28 · ajustado el 2026-11-07 por D29 y el 2026-11-08 por D30 (lo marcado M3)
 > **Base:** `docs/SPEC.md` v0.7, `docs/REQUISITOS.md` v0.4, las migraciones existentes `V1__create_rbac.sql` y `V2__seed_rbac.sql` y el diccionario completo `docs/DICCIONARIO_DATOS.md` v0.1, del que deriva.
 >
 > **Qué es:** el modelo de datos de lo que se construye y se entrega en el Momento 2 (demo del sábado 31 de octubre; versión congelada el jueves 29 en el tag `m2-entrega`). Se lee solo: para escribir `V3` y `V4` no hace falta abrir el diccionario completo.
@@ -33,7 +33,7 @@
 
 ## 2. Mapa de entidades
 
-16 tablas: 5 del RBAC que ya existen y 11 del dominio que crea `V3`. En el Momento 2 son 14 de núcleo y 2 «si hay tiempo».
+17 tablas: 5 del RBAC que ya existen, 11 del dominio que crea `V3` y `notifications`, nueva en `V11` (Momento 3, D30). En el Momento 2 son 14 de núcleo y 2 «si hay tiempo».
 
 | Tabla | Etiqueta | Qué guarda | Hito | Requisitos |
 |---|---|---|---|---|
@@ -53,6 +53,7 @@
 | `agent_runs` | Ejecuciones | Estado, límites, proveedor y costo de cada ejecución del agente o de cada estructuración | M2-N | RF-16, RF-17, RF-19, RF-22, D24 |
 | `agent_steps` | Pasos de la ejecución | La traza: cada llamada, herramienta, validación y fallo, en orden | M2-N | RF-22, RNF-07, D24 |
 | `audit_logs` | Auditoría | Quién hizo una acción sensible, cuándo, y el antes y el después | M2-S | RF-35, D12 |
+| `notifications` | Notificaciones | Un aviso al médico de una entrada nueva o un informe enviado, sin texto clínico | M3 (nueva, `V11`) | RF-45, D30 |
 
 ```mermaid
 erDiagram
@@ -72,6 +73,10 @@ erDiagram
     agent_runs ||--o{ agent_steps : traza
     agent_runs ||--o{ reports : produce
     app_users ||--o{ audit_logs : actua
+    app_users ||--o{ notifications : recibe
+    patients ||--o{ notifications : sobre
+    entries ||--o{ notifications : avisa
+    reports ||--o{ notifications : avisa
 ```
 
 ## 3. Catálogos (valores permitidos)
@@ -107,6 +112,7 @@ El rol `ADMIN` ya existe por `V2` y en el Momento 2 no se asigna a ningún usuar
 | `agent_runs.stop_reason` | `EXITO`, `MAX_ITERACIONES`, `MAX_TOKENS`, `TIMEOUT_HERRAMIENTA`, `SALIDA_INVALIDA`, `PROVEEDOR_NO_DISPONIBLE` | **[Propuesta]**: el motivo con el que termina | RF-16, RF-17, RF-19 |
 | `agent_steps.step_type` | `ESTADO`, `LLAMADA_LLM`, `HERRAMIENTA`, `VALIDACION`, `LIMITE`, `FALLBACK`, `ERROR` | **[Propuesta]** | RF-22, D24 |
 | `audit_logs.action` | `APROBAR_INFORME`, `RECHAZAR_INFORME`, `EDITAR_INFORME`, `EDITAR_ENTRADA`, `REGISTRAR_ENTRADA_MEDICO` | M2-S | RF-35 |
+| `notifications.notification_type` | `ENTRY`, `REPORT` | M3, nueva en `V11`. La frase que ve el médico se arma al leerla, con el tipo y la fecha (D30) | RF-45 |
 
 ### 3.3 Catálogo de síntomas
 
@@ -142,6 +148,7 @@ V2 dejó los permisos del dominio «hasta que la especificación cierre sus nomb
 | `REPORTS_UPDATE` | Editar el borrador antes de aprobar | Sí | — | — | M2-N | RF-25 |
 | `REPORTS_APPROVE` | Aprobar o rechazar un informe; fijo para enfermería | Sí | — | — | M2-N | RN-02, RF-26, RF-27 |
 | `REPORTS_SEND` | Enviar al médico un informe aprobado; solo enfermería **[Propuesta]** | Sí | — | — | M3 | RN-02, RF-44, D29 |
+| `NOTIFICATIONS_READ` | Ver y marcar leídas las notificaciones propias; solo el médico **[Propuesta]** | — | Sí | — | M3 | RF-45, D30 |
 
 `V2` ya sembró para `ADMIN` los permisos `USERS_*`, `ROLES_*` y `PERMISSIONS_READ`. En el Momento 2 no se usan y `V4` no los toca. No hay permiso `TRACES_READ` en el Momento 2: la traza se lee desde el informe (punto 1 de §8).
 
@@ -391,6 +398,25 @@ Una fila por acción sensible. Solo se agregan filas; nunca se actualizan ni se 
 
 **Índices:** `(entity_type, entity_id)` y `(actor_id, occurred_at DESC)`.
 
+### 4.14 `notifications` — Notificaciones al médico (M3, D30, RF-45, nueva en `V11`)
+
+Una fila por aviso. No guarda texto clínico: el tipo y la fecha de lo que avisa alcanzan para armar la frase al leerla (RNF-02). Se crea en la misma transacción que guarda la entrada o envía el informe (D30): una entrada o un envío válidos no se pierden si la notificación falla, porque es la misma transacción la que falla entera.
+
+| Columna | Etiqueta | Tipo | Nulo | Clave | Descripción y reglas | Origen |
+|---|---|---|---|---|---|---|
+| `id` | Id | `UUID` | No | PK | — | RF-45 |
+| `recipient_id` | Para quién | `UUID` | No | FK → `app_users` | El médico que la recibe; nunca el autor de la entrada que la generó | RF-45, D30 |
+| `patient_id` | Paciente | `UUID` | No | FK → `patients` | De qué paciente es el aviso | RF-45 |
+| `notification_type` | Tipo | `VARCHAR(20)` | No | — | `ENTRY` (entrada nueva) o `REPORT` (informe enviado) | RF-45, D30 |
+| `entry_id` | Entrada | `UUID` | Sí | FK → `entries` | Solo en `ENTRY`; la fecha del aviso es `entries.entry_date` | RF-45 |
+| `report_id` | Informe | `UUID` | Sí | FK → `reports` | Solo en `REPORT`; el tipo del informe (semanal o mensual) sale de `reports.report_type` | RF-45 |
+| `created_at` | Creada | `TIMESTAMPTZ` | No | — | Por defecto `CURRENT_TIMESTAMP`; es la hora que muestra la campana | RF-45 |
+| `read_at` | Leída | `TIMESTAMPTZ` | Sí | — | `NULL` mientras está sin leer; se llena al abrir la ficha del paciente, al pulsar la notificación o al abrir el informe que avisa | RF-45, D30 |
+
+**`CHECK`:** `(notification_type = 'ENTRY') = (entry_id IS NOT NULL AND report_id IS NULL)` y `(notification_type = 'REPORT') = (report_id IS NOT NULL AND entry_id IS NULL)`: cada fila trae exactamente la referencia de su tipo, nunca las dos ni ninguna.
+
+**Índices:** `(recipient_id, read_at)` para listar las propias y contar las sin leer rápido, y `(recipient_id, patient_id, read_at)` para marcar leídas las de un paciente al abrir su ficha.
+
 ## 5. Reglas de integridad
 
 ### 5.1 Qué garantiza la base de datos y qué el servidor
@@ -411,6 +437,9 @@ Una fila por acción sensible. Solo se agregan filas; nunca se actualizan ni se 
 | Las entradas y los informes no se borran | BD | Ninguna clave foránea del dominio usa `ON DELETE CASCADE` y no hay operación de borrado | RNF-10 |
 | Orden de las entradas del mismo día | BD | `created_at`, con el índice `(patient_id, entry_date, created_at)` | RN-09 |
 | La semilla es idempotente y nunca corre en producción | Servidor | UUID fijos y `ON CONFLICT DO NOTHING`; solo con `APP_SEED_DEMO=true`; el perfil `prod` la rechaza. Desde D29 también reconcilia: avanza `APROBADO` a `ENVIADO` solo en los informes que ella declara enviados, nunca al revés ni en otro informe | RF-05, RF-39, D23 |
+| El autor de una entrada no recibe su propia notificación (M3) | Servidor | Al listar los médicos a notificar, se excluye `recipient_id = author_id` de la entrada | RF-45, D30 |
+| Notificar es parte de la misma transacción de guardar o enviar (M3) | Servidor | El `INSERT` en `notifications` va dentro de `EntryService.create()` y `ReportService.send()`, ambos `@Transactional`: si falla, falla la entrada o el envío entero, nunca queda uno sin el otro | RF-45, D30 |
+| Solo el médico destinatario lee o marca sus notificaciones (M3) | Servidor | El servidor exige `NOTIFICATIONS_READ` y compara `recipient_id` contra el usuario de la sesión; la de otro médico responde 404, no 403 (E12a) | RF-45, D30 |
 
 ### 5.2 Transiciones del estado del informe
 
@@ -524,6 +553,7 @@ Cada fila es una **[Propuesta]** para poder escribir `V3` y `V4` ya. Lo que camb
 | RF-18 | `report_versions.plain_text` |
 | RF-23, RF-26, RF-27, RF-28 | `reports` (`status`, `status_reason`, `reviewed_by`, `reviewed_at`, `approved_version_no`) |
 | RF-44 (M3) | `reports` (`status`, `sent_by`, `sent_at`) y el permiso `REPORTS_SEND` |
+| RF-45 (M3) | `notifications` y el permiso `NOTIFICATIONS_READ` |
 | RF-25 | `report_versions` |
 | RF-30 | `entries.author_id` y el permiso `ENTRIES_CREATE` del médico |
 | RF-35 | `audit_logs` |

@@ -10,6 +10,9 @@
           }
         </select>
       </label>
+      @if (session.session()?.role === 'MEDICO') {
+        <app-bell />
+      }
     </header>
     <main class="view" id="vista">
       @if (session.error(); as message) {

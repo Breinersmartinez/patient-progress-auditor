@@ -144,7 +144,7 @@ const PROBLEMS: Record<RecorderProblem, string> = {
           @if (turn.state === 'saved') {
             <div class="aviso">
               <svg appIcon="aprobar"></svg>
-              <span>{{ turn.savedAs === 'text' ? 'Registro guardado solo con el texto; quedó sin estructurar.' : 'Registro guardado.' }}
+              <span>{{ turn.savedAs === 'text' ? 'Registro guardado solo con el texto; quedó sin estructurar. Se notificó al médico.' : 'Registro guardado. Se notificó al médico.' }}
                 <a [routerLink]="['/' + session.prefix(), 'pacientes', 'ficha', turn.patientId]">Ver ficha del paciente</a></span>
             </div>
           }

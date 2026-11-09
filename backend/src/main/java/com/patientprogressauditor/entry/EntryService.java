@@ -19,6 +19,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.patientprogressauditor.notification.NotificationService;
 import com.patientprogressauditor.patient.Patient;
 import com.patientprogressauditor.patient.PatientRepository;
 import com.patientprogressauditor.session.DemoPrincipal;
@@ -62,15 +63,17 @@ public class EntryService {
     private final EntryVersionRepository versions;
     private final PatientRepository patients;
     private final AppUserRepository users;
+    private final NotificationService notificationService;
     private final Clock clock;
 
     public EntryService(EntryRepository entries, EntryEventRepository events, EntryVersionRepository versions,
-            PatientRepository patients, AppUserRepository users, Clock clock) {
+            PatientRepository patients, AppUserRepository users, NotificationService notificationService, Clock clock) {
         this.entries = entries;
         this.events = events;
         this.versions = versions;
         this.patients = patients;
         this.users = users;
+        this.notificationService = notificationService;
         this.clock = clock;
     }
 
@@ -108,6 +111,8 @@ public class EntryService {
             version.setEntryId(entry.getId());
             versions.saveAndFlush(version);
         }
+        // Avisa a los demas medicos activos (RF-45, D30): misma transaccion, si falla, falla el guardado entero.
+        notificationService.notifyEntryCreated(patientId, entry.getId(), principal.id());
         return new EntryView(entry.getId(), patientId, patient.getAlias(), entryDate, body, principal.displayName(),
                 entry.getStructuringStatus().name(), entry.getCreatedAt(),
                 confirmed.stream().sorted(Comparator.comparing(EntryService::byCode)).map(EntryService::view).toList(),

@@ -27,14 +27,16 @@ class PermissionMatrixTest {
     private static final List<String> ALL_PERMISSIONS = List.of(
             "PATIENTS_READ", "PATIENTS_CREATE", "PATIENTS_UPDATE",
             "ENTRIES_READ", "ENTRIES_CREATE", "ENTRIES_UPDATE",
-            "REPORTS_READ", "REPORTS_REQUEST", "REPORTS_CREATE_DRAFT", "REPORTS_UPDATE", "REPORTS_APPROVE", "REPORTS_SEND");
+            "REPORTS_READ", "REPORTS_REQUEST", "REPORTS_CREATE_DRAFT", "REPORTS_UPDATE", "REPORTS_APPROVE", "REPORTS_SEND",
+            "NOTIFICATIONS_READ");
 
     private static final Set<String> NURSING = Set.of(
             "PATIENTS_READ", "PATIENTS_CREATE", "PATIENTS_UPDATE",
             "ENTRIES_READ", "ENTRIES_CREATE", "ENTRIES_UPDATE",
             "REPORTS_READ", "REPORTS_REQUEST", "REPORTS_UPDATE", "REPORTS_APPROVE", "REPORTS_SEND");
 
-    private static final Set<String> DOCTOR = Set.of("PATIENTS_READ", "ENTRIES_READ", "ENTRIES_CREATE", "REPORTS_READ");
+    private static final Set<String> DOCTOR = Set.of("PATIENTS_READ", "ENTRIES_READ", "ENTRIES_CREATE", "REPORTS_READ",
+            "NOTIFICATIONS_READ");
 
     @Autowired
     private MockMvc mockMvc;
@@ -81,5 +83,14 @@ class PermissionMatrixTest {
         assertThat(allowedFor(CAMILO)).containsEntry("REPORTS_SEND", true);
         assertThat(allowedFor(ANDRES)).containsEntry("REPORTS_SEND", false);
         assertThat(allowedFor(JULIAN)).containsEntry("REPORTS_SEND", false);
+    }
+
+    // D30: la campana es del medico; enfermeria no tiene notificaciones.
+    @Test
+    void onlyTheDoctorCanReadNotificationsAndNursingCannot() throws Exception {
+        assertThat(allowedFor(ANDRES)).containsEntry("NOTIFICATIONS_READ", true);
+        assertThat(allowedFor(JULIAN)).containsEntry("NOTIFICATIONS_READ", true);
+        assertThat(allowedFor(MARCELA)).containsEntry("NOTIFICATIONS_READ", false);
+        assertThat(allowedFor(CAMILO)).containsEntry("NOTIFICATIONS_READ", false);
     }
 }

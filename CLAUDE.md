@@ -11,7 +11,7 @@ Lee, en este orden, solo lo que la tarea necesita:
 3. `docs/REQUISITOS.md` — RF, RNF, RN y CU con su hito (M2-N, M2-S, M3, Opc) y su criterio de aceptación.
 4. `docs/DICCIONARIO_DATOS.md` — tablas, columnas, tipos, catálogos y reglas de integridad; base de las migraciones Flyway. Identificadores en inglés y `snake_case`.
 5. `docs/DICCIONARIO_DATOS_M2.md` — lo mismo recortado al Momento 2, con los puntos abiertos cerrados por propuesta; es el que se usa para escribir `V3` y `V4`. Si choca con el completo, avisa.
-6. `docs/PLAN.md` — el plan de trabajo. Cubre el Momento 2 (E1 a E19); el del Momento 3 está en `docs/PLAN_M3.md`, con sus 6 piezas planeadas y aprobadas (Langfuse, voz, enviar al médico, pantallas del médico, notificaciones y la consulta del médico), de las cuales las 4 primeras están ejecutadas; lo que no esté en un plan aprobado no se ejecuta.
+6. `docs/PLAN.md` — el plan de trabajo. Cubre el Momento 2 (E1 a E19); el del Momento 3 está en `docs/PLAN_M3.md`, con sus 6 piezas planeadas y aprobadas (Langfuse, voz, enviar al médico, pantallas del médico, notificaciones y la consulta del médico), de las cuales las 5 primeras están ejecutadas; lo que no esté en un plan aprobado no se ejecuta.
 7. `CONTRIBUTING.md` — ramas, commits, pull requests y qué del harness de IA se versiona.
 
 ## Qué se construye ahora
