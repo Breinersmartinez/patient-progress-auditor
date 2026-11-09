@@ -184,6 +184,110 @@ public final class ReadTools {
         }
     }
 
+    // Solo de la consulta del medico (D31, RF-46): todas las entradas del periodo, de una vez (el tope de 31 dias,
+    // docs/PLAN_M3.md Pieza 6 paso 1, las mantiene siempre pocas). Sin parametros: el periodo ya lo fija la tarea.
+    @Component
+    public static class GetPeriodEntries implements AgentTool {
+
+        private final EntryService entries;
+        private final AgentProperties properties;
+        private final ObjectMapper mapper;
+
+        public GetPeriodEntries(EntryService entries, AgentProperties properties, ObjectMapper mapper) {
+            this.entries = entries;
+            this.properties = properties;
+            this.mapper = mapper;
+        }
+
+        @Override
+        public String name() {
+            return "get_period_entries";
+        }
+
+        @Override
+        public boolean consultationOnly() {
+            return true;
+        }
+
+        @Override
+        public ToolSpec spec(DescriptionVersion version) {
+            return new ToolSpec(name(), ToolDescriptions.of(name(), version), noParams(mapper));
+        }
+
+        @Override
+        public String execute(AgentRunContext context, JsonNode arguments) {
+            ArrayNode out = mapper.createArrayNode();
+            for (EntryService.EntryView e : entries.listForPatient(context.patientId(), context.periodStart(), context.periodEnd(), false, 200)) {
+                ObjectNode node = out.addObject();
+                node.put("e", context.aliasFor(e.id(), e.entryDate()));
+                node.put("date", e.entryDate().toString());
+                String text = e.body();
+                int max = properties.getEntryTextChars();
+                node.put("text", text.length() > max ? text.substring(0, max) + "…" : text);
+                ArrayNode symptoms = node.putArray("symptoms");
+                e.symptoms().forEach(s -> symptoms.add(GetWeekEntries.compact(s)));
+                if ("SIN_ESTRUCTURAR".equals(e.structuringStatus())) {
+                    node.put("unstructured", true);
+                }
+            }
+            ObjectNode root = mapper.createObjectNode();
+            root.put("period_start", context.periodStart().toString()).put("period_end", context.periodEnd().toString());
+            root.set("entries", out);
+            return json(mapper, root);
+        }
+    }
+
+    // Solo de la consulta del medico (D31, RF-46): las cifras del periodo completo y, si se eligio comparar, las del
+    // periodo de comparacion (vs_previous). Mismo calculo que get_week_metrics (MetricsCalculator.computePeriod,
+    // generalizacion probada contra compute() en el paso 3 del plan), con las claves del periodo en vez de "week".
+    @Component
+    public static class GetPeriodMetrics implements AgentTool {
+
+        private final com.patientprogressauditor.metrics.MetricsService metrics;
+        private final ObjectMapper mapper;
+
+        public GetPeriodMetrics(com.patientprogressauditor.metrics.MetricsService metrics, ObjectMapper mapper) {
+            this.metrics = metrics;
+            this.mapper = mapper;
+        }
+
+        @Override
+        public String name() {
+            return "get_period_metrics";
+        }
+
+        @Override
+        public boolean consultationOnly() {
+            return true;
+        }
+
+        @Override
+        public ToolSpec spec(DescriptionVersion version) {
+            return new ToolSpec(name(), ToolDescriptions.of(name(), version), noParams(mapper));
+        }
+
+        @Override
+        public String execute(AgentRunContext context, JsonNode arguments) {
+            var data = context.metrics(context.periodEnd(), w -> metrics.period(context.patientId(), context.periodStart(),
+                    context.periodEnd(), context.comparisonStart(), context.comparisonEnd()));
+            ObjectNode view = MetricsView.of(data, mapper);
+            // El "week" que deja MetricsView.of (pensado para una semana) no dice nada de un periodo libre: se
+            // reemplaza por nombres claros, y lo mismo para el "week" de dentro de vs_previous.
+            view.remove("week");
+            view.put("period_start", context.periodStart().toString()).put("period_end", context.periodEnd().toString());
+            ObjectNode vsPrevious = (ObjectNode) view.get("vs_previous");
+            JsonNode comparisonWeek = vsPrevious.remove("week");
+            if (context.comparisonStart() != null) {
+                vsPrevious.put("comparison_start", context.comparisonStart().toString());
+                vsPrevious.put("comparison_end", context.comparisonEnd().toString());
+            } else if (comparisonWeek != null) {
+                vsPrevious.putNull("comparison_start");
+                vsPrevious.putNull("comparison_end");
+            }
+            return json(mapper, view);
+        }
+    }
+
     @Component
     public static class GetSymptomHistory implements AgentTool {
 
@@ -222,21 +326,28 @@ public final class ReadTools {
             if (code.length() < 2 || code.length() > Symptom.MAX_CODE) {
                 throw new ToolException("symptom debe ser el código de un síntoma, como sale en get_week_metrics (p. ej. NAUSEAS, DOLOR_GARGANTA).");
             }
+            LocalDate catalogEnd = (context.isPeriod() ? context.periodEnd() : context.weekEnd()).plusDays(1);
             if (!Symptom.isCatalog(code) && !events.recordedFor(context.patientId(), code)) {
                 throw new ToolException("«" + raw.trim() + "» no es un síntoma registrado para este paciente. Use el código tal como sale en get_week_metrics; "
                         + "este paciente tiene registrados: " + String.join(", ", new java.util.TreeSet<>(
-                                events.findSymptomCodesBefore(context.patientId(), context.weekEnd().plusDays(1)))) + ".");
+                                events.findSymptomCodesBefore(context.patientId(), catalogEnd))) + ".");
             }
             int back = arguments.path("weeks_back").asInt(4);
             if (back < 1 || back > MAX_WEEKS_BACK) {
                 throw new ToolException("weeks_back debe estar entre 1 y " + MAX_WEEKS_BACK + ".");
             }
-            LocalDate first = context.weekStart().minusWeeks(back - 1L);
+            // El ancla es el lunes de la semana del informe, o, en una consulta (D31), el lunes de la semana que
+            // contiene el fin del periodo: asi `perWeek` siempre queda alineado a semanas reales, sin importar que
+            // el periodo mismo no empiece en lunes.
+            LocalDate anchorWeek = context.isPeriod()
+                    ? context.periodEnd().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)) : context.weekStart();
+            LocalDate readEnd = context.isPeriod() ? context.periodEnd() : context.weekEnd();
+            LocalDate first = anchorWeek.minusWeeks(back - 1L);
             Map<LocalDate, List<ObjectNode>> perWeek = new TreeMap<>();
-            for (LocalDate w = first; !w.isAfter(context.weekStart()); w = w.plusWeeks(1)) {
+            for (LocalDate w = first; !w.isAfter(anchorWeek); w = w.plusWeeks(1)) {
                 perWeek.put(w, new ArrayList<>());
             }
-            events.findRows(context.patientId(), first, context.weekEnd()).stream()
+            events.findRows(context.patientId(), first, readEnd).stream()
                     .filter(r -> r.getSymptomCode().equals(code))
                     .sorted(java.util.Comparator.comparing(r -> r.getEntryDate()))
                     .forEach(r -> {

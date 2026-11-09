@@ -44,7 +44,14 @@ public final class MetricsView {
         }
         WeeklyMetrics.Comparison c = m.comparison();
         ObjectNode cmp = out.putObject("vs_previous");
-        cmp.put("week", c.previousWeekStart().toString());
+        // `previousWeekStart` solo es null para una consulta del medico (D31) sin comparacion elegida: no hay, ni
+        // siquiera sin datos, un periodo con el que comparar. El informe semanal y el mensual siempre tienen uno
+        // (aunque `comparable` sea false por falta de registros), as que nunca llegan aqui con null.
+        if (c.previousWeekStart() == null) {
+            cmp.putNull("week");
+        } else {
+            cmp.put("week", c.previousWeekStart().toString());
+        }
         cmp.put("comparable", c.comparable());
         cmp.put("previous_entries", c.previousEntries());
         cmp.put("previous_unstructured_entries", c.previousUnstructuredEntries());

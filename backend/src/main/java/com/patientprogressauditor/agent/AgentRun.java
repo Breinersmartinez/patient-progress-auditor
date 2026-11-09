@@ -23,7 +23,7 @@ import lombok.Setter;
 @NoArgsConstructor
 public class AgentRun {
 
-    public enum Type { INFORME, MENSUAL, ESTRUCTURACION, TRANSCRIPCION }
+    public enum Type { INFORME, MENSUAL, ESTRUCTURACION, TRANSCRIPCION, CONSULTA }
 
     public enum Status { EN_COLA, EN_CURSO, COMPLETADA, INCOMPLETA, FALLIDA }
 

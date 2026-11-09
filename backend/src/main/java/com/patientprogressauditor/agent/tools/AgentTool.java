@@ -24,5 +24,10 @@ public interface AgentTool {
         return false;
     }
 
+    // true solo para las herramientas propias de la consulta del medico (D31, RF-46): el informe y el mensual no las ven.
+    default boolean consultationOnly() {
+        return false;
+    }
+
     String execute(AgentRunContext context, JsonNode arguments) throws ToolException;
 }

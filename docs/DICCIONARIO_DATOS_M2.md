@@ -54,6 +54,7 @@
 | `agent_steps` | Pasos de la ejecución | La traza: cada llamada, herramienta, validación y fallo, en orden | M2-N | RF-22, RNF-07, D24 |
 | `audit_logs` | Auditoría | Quién hizo una acción sensible, cuándo, y el antes y el después | M2-S | RF-35, D12 |
 | `notifications` | Notificaciones | Un aviso al médico de una entrada nueva o un informe enviado, sin texto clínico | M3 (nueva, `V11`) | RF-45, D30 |
+| `doctor_consultations` | Consultas del médico | «Armar informe»: la consulta que un médico arma de sus propios registros, solo para él, fuera del historial | M3 (nueva, `V12`) | RF-46, D31 |
 
 ```mermaid
 erDiagram
@@ -77,6 +78,9 @@ erDiagram
     patients ||--o{ notifications : sobre
     entries ||--o{ notifications : avisa
     reports ||--o{ notifications : avisa
+    app_users ||--o{ doctor_consultations : pide
+    patients ||--o{ doctor_consultations : sobre
+    agent_runs ||--o{ doctor_consultations : produce
 ```
 
 ## 3. Catálogos (valores permitidos)
@@ -107,12 +111,13 @@ El rol `ADMIN` ya existe por `V2` y en el Momento 2 no se asigna a ningún usuar
 | `entry_events.intensity` | `LEVE`, `MODERADO`, `INTENSO`, `SIN_INDICAR` | Son las cuatro opciones de la pantalla de registro de los mockups | RF-06, D27 |
 | `entry_events.origin` | `IA`, `EDITADO`, `MANUAL` | Propuesto por la IA y confirmado igual, propuesto y cambiado por la persona, o agregado a mano | RF-40, D27 |
 | `entry_versions.origin` | `IA_ACEPTADA`, `IA_EDITADA`, `MANUAL` | Texto corregido propuesto por la IA y aceptado o editado, o edición manual (M2-S) | RF-03, RF-42 |
-| `agent_runs.run_type` | `INFORME`, `MENSUAL`, `ESTRUCTURACION`, `TRANSCRIPCION` | **[Propuesta]**: la estructuración al registrar también deja traza. `MENSUAL` entró con `V7` (E13). `TRANSCRIPCION` (dictado por voz, Opc, D14) entra con `V9` | RF-22, RNF-07, RF-36, RF-38 |
+| `agent_runs.run_type` | `INFORME`, `MENSUAL`, `ESTRUCTURACION`, `TRANSCRIPCION`, `CONSULTA` | **[Propuesta]**: la estructuración al registrar también deja traza. `MENSUAL` entró con `V7` (E13). `TRANSCRIPCION` (dictado por voz, Opc, D14) entra con `V9`. `CONSULTA` (M3, D31) entra con `V12`: la consulta del médico es una ejecución más, con sus cuatro límites, pero no produce un `reports`, sino un `doctor_consultations` | RF-22, RNF-07, RF-36, RF-38, RF-46 |
 | `agent_runs.status` | `EN_COLA`, `EN_CURSO`, `COMPLETADA`, `INCOMPLETA`, `FALLIDA` | **[Propuesta]**: el estado de la ejecución vive en la BD para poder consultarlo y reanudar | D24 |
 | `agent_runs.stop_reason` | `EXITO`, `MAX_ITERACIONES`, `MAX_TOKENS`, `TIMEOUT_HERRAMIENTA`, `SALIDA_INVALIDA`, `PROVEEDOR_NO_DISPONIBLE` | **[Propuesta]**: el motivo con el que termina | RF-16, RF-17, RF-19 |
 | `agent_steps.step_type` | `ESTADO`, `LLAMADA_LLM`, `HERRAMIENTA`, `VALIDACION`, `LIMITE`, `FALLBACK`, `ERROR` | **[Propuesta]** | RF-22, D24 |
 | `audit_logs.action` | `APROBAR_INFORME`, `RECHAZAR_INFORME`, `EDITAR_INFORME`, `EDITAR_ENTRADA`, `REGISTRAR_ENTRADA_MEDICO` | M2-S | RF-35 |
 | `notifications.notification_type` | `ENTRY`, `REPORT` | M3, nueva en `V11`. La frase que ve el médico se arma al leerla, con el tipo y la fecha (D30) | RF-45 |
+| `doctor_consultations.comparison_*` | Dos columnas de fecha, ambas `NULL` o ambas con valor | M3, nueva en `V12`. `NULL` cuando el médico elige «No comparar» | RF-46, D31 |
 
 ### 3.3 Catálogo de síntomas
 
@@ -149,6 +154,7 @@ V2 dejó los permisos del dominio «hasta que la especificación cierre sus nomb
 | `REPORTS_APPROVE` | Aprobar o rechazar un informe; fijo para enfermería | Sí | — | — | M2-N | RN-02, RF-26, RF-27 |
 | `REPORTS_SEND` | Enviar al médico un informe aprobado; solo enfermería **[Propuesta]** | Sí | — | — | M3 | RN-02, RF-44, D29 |
 | `NOTIFICATIONS_READ` | Ver y marcar leídas las notificaciones propias; solo el médico **[Propuesta]** | — | Sí | — | M3 | RF-45, D30 |
+| `CONSULTATIONS_REQUEST` | Pedir, leer y seguir el progreso de su propia consulta («Armar informe»); solo el médico **[Propuesta]** | — | Sí | — | M3 | RF-46, D31 |
 
 `V2` ya sembró para `ADMIN` los permisos `USERS_*`, `ROLES_*` y `PERMISSIONS_READ`. En el Momento 2 no se usan y `V4` no los toca. No hay permiso `TRACES_READ` en el Momento 2: la traza se lee desde el informe (punto 1 de §8).
 
@@ -417,6 +423,28 @@ Una fila por aviso. No guarda texto clínico: el tipo y la fecha de lo que avisa
 
 **Índices:** `(recipient_id, read_at)` para listar las propias y contar las sin leer rápido, y `(recipient_id, patient_id, read_at)` para marcar leídas las de un paciente al abrir su ficha.
 
+### 4.15 `doctor_consultations` — Consulta del médico (M3, D31, RF-46, nueva en `V12`)
+
+Una fila por consulta que arma un médico con «Armar informe». No es un informe: no tiene estado, no la revisa enfermería y nunca se linkea desde `reports` ni `notifications`. Solo la lee su autor (`doctor_id`); de otro médico, 404. El `content` tiene la misma forma que `report_versions.content` (resumen, afirmaciones citadas, cifras, lo que falta): la hoja del mockup para la consulta cabe en el mismo esquema (confirmado en el paso 1 de la Pieza 6).
+
+| Columna | Etiqueta | Tipo | Nulo | Clave | Descripción y reglas | Origen |
+|---|---|---|---|---|---|---|
+| `id` | Id | `UUID` | No | PK | — | RF-46 |
+| `doctor_id` | Médico | `UUID` | No | FK → `app_users` | Quien la pidió; el único que la puede leer | RF-46, D31 |
+| `patient_id` | Paciente | `UUID` | No | FK → `patients` | De qué paciente es | RF-46 |
+| `period_start` | Desde | `DATE` | No | — | Sin restricción de lunes: una semana, un mes calendario o un rango de fechas | RF-46, D31 |
+| `period_end` | Hasta | `DATE` | No | — | `period_end >= period_start`; el rango completo no pasa de 31 días (lo exige el servidor antes de crear la ejecución, no la BD) | RF-46, D31 |
+| `comparison_start` | Comparar desde | `DATE` | Sí | — | `NULL` si no se comparó | RF-46, D31 |
+| `comparison_end` | Comparar hasta | `DATE` | Sí | — | `NULL` si no se comparó; nunca se cruza con el período (lo exige el servidor) | RF-46, D31 |
+| `content` | Contenido | `JSONB` | Sí | — | Igual forma que `report_versions.content`: `summary`, `claims` citadas, `metrics`, `insufficient_data`. Vacío si el agente no terminó y solo dejó texto sin validar | RF-46, RN-04, RN-05 |
+| `plain_text` | Texto sin validar | `TEXT` | Sí | — | Como `report_versions.plain_text`: el texto del modelo cuando no pasó la validación (RF-18) | RF-46 |
+| `run_id` | Ejecución | `UUID` | No | FK → `agent_runs` | La ejecución `CONSULTA` que la produjo; de ahí sale la traza | RF-46, RF-22 |
+| `created_at` | Creada | `TIMESTAMPTZ` | No | — | Por defecto `CURRENT_TIMESTAMP` | RF-46 |
+
+**`CHECK`:** `period_end >= period_start`; `(comparison_start IS NULL) = (comparison_end IS NULL)`; `comparison_end IS NULL OR comparison_end >= comparison_start`; `content IS NOT NULL OR plain_text IS NOT NULL` (como `report_versions_body_check`).
+
+**Índice:** `(doctor_id, created_at DESC)` para que cada médico, si alguna vez hace falta, pueda ver cuándo pidió la suya (no hay lista en pantalla: «Lista de consultas», fuera de alcance).
+
 ## 5. Reglas de integridad
 
 ### 5.1 Qué garantiza la base de datos y qué el servidor
@@ -440,6 +468,9 @@ Una fila por aviso. No guarda texto clínico: el tipo y la fecha de lo que avisa
 | El autor de una entrada no recibe su propia notificación (M3) | Servidor | Al listar los médicos a notificar, se excluye `recipient_id = author_id` de la entrada | RF-45, D30 |
 | Notificar es parte de la misma transacción de guardar o enviar (M3) | Servidor | El `INSERT` en `notifications` va dentro de `EntryService.create()` y `ReportService.send()`, ambos `@Transactional`: si falla, falla la entrada o el envío entero, nunca queda uno sin el otro | RF-45, D30 |
 | Solo el médico destinatario lee o marca sus notificaciones (M3) | Servidor | El servidor exige `NOTIFICATIONS_READ` y compara `recipient_id` contra el usuario de la sesión; la de otro médico responde 404, no 403 (E12a) | RF-45, D30 |
+| Solo el médico que pidió la consulta la ve (M3) | Servidor | El servidor exige `CONSULTATIONS_REQUEST` y compara `doctor_id` contra el usuario de la sesión; la de otro médico, o la de enfermería, responde 404, no 403 (E12a) | RF-46, D31, RN-12 |
+| El rango de la consulta no pasa de 31 días, y el período no se cruza con la comparación (M3) | Servidor | Se valida antes de crear la fila de `agent_runs`: sin eso, 400 con un mensaje claro y no se gasta ninguna llamada al modelo. El tope sale de una medición real contra el proveedor (`docs/PLAN_M3.md`, Pieza 6, paso 1), no de la BD | RF-46, D31 |
+| La consulta nunca notifica ni aparece en una lista de informes (M3) | Servidor | `EntryService` y `ReportService` son los únicos que llaman a `NotificationService`; `ConsultationDraftService` no lo hace. `doctor_consultations` no tiene fila en `reports` ni en `notifications`, y ninguna consulta a esas tablas la puede devolver | RF-46, RN-12 |
 
 ### 5.2 Transiciones del estado del informe
 
@@ -477,6 +508,7 @@ V1 y V2 existen y no se editan: se agregan migraciones nuevas. Los roles y permi
 | `V3__domain_schema.sql` | En `app_users`: agrega `display_name` e `is_demo` y permite `NULL` en `password_hash`. Crea `patients`, `entries`, `entry_events`, `entry_versions`, `reports`, `report_versions`, `report_citations`, `monthly_report_weeks`, `agent_runs`, `agent_steps` y `audit_logs`, con sus `CHECK`, claves e índices | M2-N (`entry_versions` y `audit_logs` M2-S) |
 | `V4__seed_domain_rbac.sql` | Siembra los roles `ENFERMERIA`, `MEDICO` y `AGENTE` y los permisos de §3.4 con sus asignaciones, con UUID fijos y `ON CONFLICT DO NOTHING` como V2. No toca `ADMIN` ni sus permisos | M2-N |
 | `V8__open_symptoms.sql` | Quita el `CHECK` de los nueve síntomas, ensancha `entry_events.symptom` a 40, agrega `symptom_label` y un `CHECK` de forma (E18) | M2-N |
+| `V12__doctor_consultations.sql` | Suma `CONSULTA` al `CHECK` de `agent_runs.run_type` (reemplaza el de `V9`). Crea `doctor_consultations`, con sus `CHECK`, FK e índice, y el permiso `CONSULTATIONS_REQUEST` para `MEDICO` | M3 (D31, RF-46) |
 | `ApplicationRunner` de la semilla | Con `APP_SEED_DEMO=true` y nunca en `prod`: crea lo de la tabla siguiente. No llama al LLM | M2-N |
 
 ### 7.1 Contenido de la semilla (D11)
@@ -554,6 +586,7 @@ Cada fila es una **[Propuesta]** para poder escribir `V3` y `V4` ya. Lo que camb
 | RF-23, RF-26, RF-27, RF-28 | `reports` (`status`, `status_reason`, `reviewed_by`, `reviewed_at`, `approved_version_no`) |
 | RF-44 (M3) | `reports` (`status`, `sent_by`, `sent_at`) y el permiso `REPORTS_SEND` |
 | RF-45 (M3) | `notifications` y el permiso `NOTIFICATIONS_READ` |
+| RF-46 (M3) | `doctor_consultations`, `agent_runs` (`run_type = 'CONSULTA'`) y el permiso `CONSULTATIONS_REQUEST` |
 | RF-25 | `report_versions` |
 | RF-30 | `entries.author_id` y el permiso `ENTRIES_CREATE` del médico |
 | RF-35 | `audit_logs` |

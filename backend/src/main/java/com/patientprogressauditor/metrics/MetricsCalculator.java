@@ -41,16 +41,24 @@ public final class MetricsCalculator {
         LocalDate weekEnd = weekStart.plusDays(6);
         LocalDate previousStart = weekStart.minusDays(7);
         LocalDate previousEnd = weekStart.minusDays(1);
+        return computePeriod(patientId, weekStart, weekEnd, previousStart, previousEnd, entries, events, earlierSymptoms);
+    }
 
-        List<EntryFact> current = within(entries, weekStart, weekEnd, EntryFact::date);
-        List<EntryFact> previous = within(entries, previousStart, previousEnd, EntryFact::date);
-        List<EventFact> currentEvents = within(events, weekStart, weekEnd, EventFact::date);
-        List<EventFact> previousEvents = within(events, previousStart, previousEnd, EventFact::date);
+    // Generaliza `compute`: un periodo cualquiera (no solo una semana que empieza en lunes) y su comparacion con OTRO
+    // periodo cualquiera (no solo los 7 dias anteriores), o sin comparacion si `comparisonStart`/`comparisonEnd` son
+    // null. Para la consulta del medico (D31, RF-46): un mismo WeeklyMetrics sirve para una semana o para un rango,
+    // porque el record no exige nada sobre sus fechas; solo `compute` (arriba) les exige ser una semana. Probado contra
+    // `compute`: pedir una semana como periodo, comparada con los 7 dias anteriores, da el mismo resultado exacto.
+    public static WeeklyMetrics computePeriod(UUID patientId, LocalDate periodStart, LocalDate periodEnd,
+            LocalDate comparisonStart, LocalDate comparisonEnd, List<EntryFact> entries, List<EventFact> events,
+            Set<Symptom> earlierSymptoms) {
+        List<EntryFact> current = within(entries, periodStart, periodEnd, EntryFact::date);
+        List<EventFact> currentEvents = within(events, periodStart, periodEnd, EventFact::date);
 
         Set<LocalDate> withEntry = new TreeSet<>();
         current.forEach(e -> withEntry.add(e.date()));
         List<LocalDate> without = new ArrayList<>();
-        for (LocalDate day = weekStart; !day.isAfter(weekEnd); day = day.plusDays(1)) {
+        for (LocalDate day = periodStart; !day.isAfter(periodEnd); day = day.plusDays(1)) {
             if (!withEntry.contains(day)) {
                 without.add(day);
             }
@@ -62,8 +70,10 @@ public final class MetricsCalculator {
         List<SymptomMetrics> symptoms = new ArrayList<>();
         bySymptom.forEach((symptom, list) -> symptoms.add(symptomMetrics(symptom, list)));
 
-        Comparison comparison = compare(previousStart, previous, previousEvents, bySymptom, earlierSymptoms);
-        return new WeeklyMetrics(patientId, weekStart, weekEnd, current.size(), withEntry.size(), without.size(), without,
+        List<EntryFact> previous = comparisonStart == null ? List.of() : within(entries, comparisonStart, comparisonEnd, EntryFact::date);
+        List<EventFact> previousEvents = comparisonStart == null ? List.of() : within(events, comparisonStart, comparisonEnd, EventFact::date);
+        Comparison comparison = compare(comparisonStart, previous, previousEvents, bySymptom, earlierSymptoms);
+        return new WeeklyMetrics(patientId, periodStart, periodEnd, current.size(), withEntry.size(), without.size(), without,
                 unstructured.size(), unstructured.stream().map(EntryFact::id).toList(), currentEvents.size(), symptoms,
                 comparison);
     }
@@ -71,7 +81,7 @@ public final class MetricsCalculator {
     private static Comparison compare(LocalDate previousStart, List<EntryFact> previous, List<EventFact> previousEvents,
             Map<Symptom, List<EventFact>> currentBySymptom, Set<Symptom> earlier) {
         int previousUnstructured = (int) previous.stream().filter(EntryFact::unstructured).count();
-        if (previous.isEmpty()) {
+        if (previousStart == null || previous.isEmpty()) {
             return new Comparison(previousStart, false, 0, 0, 0, List.of(), List.of(), List.of(), List.of(), List.of());
         }
         Map<Symptom, List<EventFact>> previousBySymptom = group(previousEvents);
