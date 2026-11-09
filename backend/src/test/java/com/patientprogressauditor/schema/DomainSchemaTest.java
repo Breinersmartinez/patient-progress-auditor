@@ -261,7 +261,7 @@ class DomainSchemaTest {
                 String.class);
 
         assertThat(permissions).containsExactlyInAnyOrder("PATIENTS_READ", "ENTRIES_READ", "ENTRIES_CREATE", "REPORTS_READ",
-                "NOTIFICATIONS_READ");
+                "NOTIFICATIONS_READ", "CONSULTATIONS_REQUEST");
     }
 
     @Test

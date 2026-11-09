@@ -210,12 +210,21 @@ class AgentRunnerTest {
     void theInventoryHasNoOutputToTheOutsideNoApprovalAndOnlyOneWrite() {
         AgentRunner runner = runner(new ScriptedClient("groq", true), new ScriptedClient("gemini", true));
 
-        assertThat(runner.toolNames()).containsExactly("get_approved_weekly_reports", "get_symptom_history", "get_week_entries", "get_week_metrics", "list_patient_weeks", "save_draft");
+        assertThat(runner.toolNames()).containsExactly("get_approved_weekly_reports", "get_period_entries", "get_period_metrics",
+                "get_symptom_history", "get_week_entries", "get_week_metrics", "list_patient_weeks", "save_draft");
         // Ninguna herramienta ACTUA fuera de lo permitido: el verbo aprobar/enviar/borrar no esta en su nombre. «approved» en
         // get_approved_weekly_reports describe el dato que LEE (informes ya aprobados por una persona), no una accion.
         assertThat(runner.toolNames()).noneMatch(n -> n.matches(".*(^|_)(approve|reject|aprobar|send|mail|delete|update)(_|$).*|.*(http|web|fetch).*"));
         assertThat(realTools.stream().filter(AgentTool::writes)).hasSize(1);
-        assertThat(realTools.size()).isLessThanOrEqualTo(7);
+        // El tope de 7 es POR RUTA (AGENTS.md, Pieza 6 de docs/PLAN_M3.md: "cada ruta del agente ve solo las suyas,
+        // sin pasar de 7"), no en el total registrado: desde la Pieza 6 hay 8 herramientas reales, pero ninguna ruta
+        // ve mas de 6 (mensual: las 5 del semanal + get_approved_weekly_reports).
+        long weekly = realTools.stream().filter(t -> !t.consultationOnly() && !t.monthlyOnly()).count();
+        long monthly = realTools.stream().filter(t -> !t.consultationOnly()).count();
+        long consultation = realTools.stream().filter(t -> t.consultationOnly() || t.writes()).count();
+        assertThat(weekly).isLessThanOrEqualTo(7);
+        assertThat(monthly).isLessThanOrEqualTo(7);
+        assertThat(consultation).isLessThanOrEqualTo(7);
     }
 
     // --- informe mensual (E13) ---
@@ -319,6 +328,7 @@ class AgentRunnerTest {
                 .then(tools(10, 10, call("2", "save_draft", goodDraft())));
         execute(runner(groq, new ScriptedClient("gemini", true)), newRun());
 
+        // Ni las del mensual (get_approved_weekly_reports) ni las de la consulta (get_period_entries/metrics, D31).
         assertThat(groq.calls.get(0).tools()).extracting(t -> t.name())
                 .containsExactlyInAnyOrder("get_symptom_history", "get_week_entries", "get_week_metrics", "list_patient_weeks", "save_draft");
     }

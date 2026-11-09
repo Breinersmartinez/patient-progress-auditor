@@ -159,8 +159,11 @@ public class AgentRunner {
 
     private Outcome loop(State s) {
         boolean monthly = s.context.isMonthly();
-        // El semanal no ve las herramientas propias del mensual.
-        List<ToolSpec> specs = tools.values().stream().filter(t -> monthly || !t.monthlyOnly())
+        boolean period = s.context.isPeriod();
+        // El semanal no ve las herramientas propias del mensual, ni al reves. La consulta (D31) solo ve las suyas
+        // (consultationOnly) mas save_draft, la unica que escribe: nunca las de leer una semana o un mes.
+        List<ToolSpec> specs = tools.values().stream()
+                .filter(t -> period ? t.consultationOnly() || t.writes() : !t.consultationOnly() && (monthly || !t.monthlyOnly()))
                 .map(t -> t.spec(properties.getToolDescriptions())).toList();
         List<LlmMessage> messages = new ArrayList<>();
         messages.add(LlmMessage.system(monthly ? AgentPrompt.systemMonthly(properties.getMaxIterations()) : AgentPrompt.system(properties.getMaxIterations())));

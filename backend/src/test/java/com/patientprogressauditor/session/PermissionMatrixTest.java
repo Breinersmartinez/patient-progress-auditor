@@ -28,7 +28,7 @@ class PermissionMatrixTest {
             "PATIENTS_READ", "PATIENTS_CREATE", "PATIENTS_UPDATE",
             "ENTRIES_READ", "ENTRIES_CREATE", "ENTRIES_UPDATE",
             "REPORTS_READ", "REPORTS_REQUEST", "REPORTS_CREATE_DRAFT", "REPORTS_UPDATE", "REPORTS_APPROVE", "REPORTS_SEND",
-            "NOTIFICATIONS_READ");
+            "NOTIFICATIONS_READ", "CONSULTATIONS_REQUEST");
 
     private static final Set<String> NURSING = Set.of(
             "PATIENTS_READ", "PATIENTS_CREATE", "PATIENTS_UPDATE",
@@ -36,7 +36,7 @@ class PermissionMatrixTest {
             "REPORTS_READ", "REPORTS_REQUEST", "REPORTS_UPDATE", "REPORTS_APPROVE", "REPORTS_SEND");
 
     private static final Set<String> DOCTOR = Set.of("PATIENTS_READ", "ENTRIES_READ", "ENTRIES_CREATE", "REPORTS_READ",
-            "NOTIFICATIONS_READ");
+            "NOTIFICATIONS_READ", "CONSULTATIONS_REQUEST");
 
     @Autowired
     private MockMvc mockMvc;
