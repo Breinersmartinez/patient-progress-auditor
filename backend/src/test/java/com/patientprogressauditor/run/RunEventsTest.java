@@ -260,4 +260,14 @@ class RunEventsTest {
         HttpRequest other = HttpRequest.newBuilder(URI.create(url("/api/runs/" + run + "?demoUser=" + NURSE))).build();
         assertThat(client.send(other, HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(401);
     }
+
+    @Test
+    void aNurseCannotStreamAConsultationThatIsNotHers() throws Exception {
+        UUID run = UUID.randomUUID();
+        jdbc.update("INSERT INTO agent_runs (id, run_type, patient_id, requested_by, period_start, period_end, status) VALUES (?, 'CONSULTA', ?, ?, ?, ?, 'FALLIDA')",
+                run, patient, UUID.fromString(DOCTOR), WEEK, WEEK.plusDays(6));
+
+        // D31: una CONSULTA solo la ve quien la pidio, ni siquiera enfermeria (REPORTS_REQUEST no aplica aqui).
+        assertThat(client.send(events(run.toString(), NURSE).build(), HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(404);
+    }
 }

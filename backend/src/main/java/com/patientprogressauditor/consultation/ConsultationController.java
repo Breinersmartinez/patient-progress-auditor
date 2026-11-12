@@ -27,10 +27,13 @@ import jakarta.validation.constraints.NotNull;
 
 // La consulta del medico, «Armar informe» (D31, RF-46): pedirla, leerla y su PDF. Seguir su progreso (segundo plano, D24)
 // es /api/runs/{id}[/steps|/events], igual que un informe (RunController, abierto al medico para sus propias consultas).
-// Solo MEDICO (CONSULTATIONS_REQUEST): hoy solo enfermeria pide informes, y esta es la unica ejecucion que pide el medico.
+// Pedirla (POST) es solo de MEDICO (CONSULTATIONS_REQUEST): hoy solo enfermeria pide informes, y esta es la unica
+// ejecucion que pide el medico. Leerla (GET) no lleva permiso de clase a proposito: la autoridad "puede pedir consultas"
+// no es la misma pregunta que "puede ver ESTA consulta", y poner el permiso aqui le daria 403 a enfermeria en vez del
+// 404 que el criterio de aceptacion pide ("a cualquier otro, 404"); ConsultationService.findVisible ya resuelve ese 404
+// por dueno (ninguna enfermera es nunca la doctorId de una fila), sin depender de que el principal tenga o no el permiso.
 @RestController
 @RequestMapping("/api/consultations")
-@PreAuthorize("hasAuthority('CONSULTATIONS_REQUEST')")
 public class ConsultationController {
 
     public record RequestConsultation(@NotNull(message = "Elija el paciente.") UUID patientId,
@@ -50,6 +53,7 @@ public class ConsultationController {
 
     // 202 al instante con el id de la ejecucion (AgentRun.Type.CONSULTA); el contenido se lee despues con GET /{id}.
     @PostMapping
+    @PreAuthorize("hasAuthority('CONSULTATIONS_REQUEST')")
     public ResponseEntity<RunView> request(@Valid @RequestBody RequestConsultation request, @AuthenticationPrincipal DemoPrincipal principal) {
         RunView created = service.request(request.patientId(), request.periodStart(), request.periodEnd(),
                 request.comparisonStart(), request.comparisonEnd(), principal);

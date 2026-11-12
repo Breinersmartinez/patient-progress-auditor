@@ -175,12 +175,14 @@ class ConsultationApiTest {
         awaitCompletion(runId);
         UUID consultationId = jdbc.queryForObject("SELECT id FROM doctor_consultations WHERE run_id = ?::uuid", UUID.class, runId);
 
-        mockMvc.perform(get("/api/consultations/" + consultationId).header("X-Demo-User", OTHER_DOCTOR)).andExpect(status().isNotFound());
-        mockMvc.perform(get("/api/consultations/" + consultationId).header("X-Demo-User", NURSE)).andExpect(status().isForbidden());
-        mockMvc.perform(get("/api/runs/" + runId).header("X-Demo-User", OTHER_DOCTOR)).andExpect(status().isNotFound());
-        // Enfermeria SI puede seguir el progreso de cualquier ejecucion (igual que con un informe), pero la consulta en
-        // si (doctor_consultations) no es suya: GET /api/runs/{id} no es un informe, no bloquea a enfermeria.
-        mockMvc.perform(get("/api/runs/" + runId).header("X-Demo-User", NURSE)).andExpect(status().isOk());
+        // A cualquier otro, 404 en las cinco rutas (D31: «solo la ve quien la pidió»): ni otro médico ni enfermería,
+        // aunque enfermería sí tenga REPORTS_REQUEST y vea cualquier ejecución de informe (RunService.visible).
+        for (String other : new String[] {OTHER_DOCTOR, NURSE}) {
+            mockMvc.perform(get("/api/consultations/" + consultationId).header("X-Demo-User", other)).andExpect(status().isNotFound());
+            mockMvc.perform(get("/api/consultations/" + consultationId + "/pdf").header("X-Demo-User", other)).andExpect(status().isNotFound());
+            mockMvc.perform(get("/api/runs/" + runId).header("X-Demo-User", other)).andExpect(status().isNotFound());
+            mockMvc.perform(get("/api/runs/" + runId + "/steps").header("X-Demo-User", other)).andExpect(status().isNotFound());
+        }
     }
 
     @Test

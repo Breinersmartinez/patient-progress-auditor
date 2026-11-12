@@ -191,8 +191,10 @@ public class RunService {
         return runs.findFirstByPatientIdAndPeriodStartAndRunTypeAndStatusIn(patientId, weekStart, type, RunTrace.OPEN);
     }
 
-    // Enfermeria (REPORTS_REQUEST) ve cualquier ejecucion; un medico que solo tiene CONSULTATIONS_REQUEST (D31) ve
-    // unicamente las consultas que el mismo pidio. Lo que no puede ver, 404, igual que un informe (RN-01).
+    // Enfermeria (REPORTS_REQUEST) ve cualquier ejecucion de informe; un medico que solo tiene CONSULTATIONS_REQUEST (D31)
+    // ve unicamente las consultas que el mismo pidio. Una CONSULTA es siempre privada de quien la pidio (D31: "solo la
+    // ve quien la pidio"), incluida enfermeria: su permiso amplio es sobre informes, nunca sobre la traza de una consulta.
+    // Lo que no puede ver, 404, igual que un informe (RN-01).
     public RunView get(UUID runId, DemoPrincipal principal) {
         return view(visible(runId, principal));
     }
@@ -204,8 +206,9 @@ public class RunService {
 
     private AgentRun visible(UUID runId, DemoPrincipal principal) {
         AgentRun run = find(runId);
-        boolean nurse = principal.permissions().contains("REPORTS_REQUEST");
-        if (!nurse && !run.getRequestedBy().equals(principal.id())) {
+        boolean ownRun = run.getRequestedBy().equals(principal.id());
+        boolean nurse = run.getRunType() != AgentRun.Type.CONSULTA && principal.permissions().contains("REPORTS_REQUEST");
+        if (!nurse && !ownRun) {
             throw new NotFoundException("No encontramos esa ejecución.");
         }
         return run;
