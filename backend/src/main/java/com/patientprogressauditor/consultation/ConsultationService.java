@@ -1,15 +1,19 @@
 package com.patientprogressauditor.consultation;
 
 import java.time.Clock;
+import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Function;
@@ -44,6 +48,8 @@ public class ConsultationService {
 
     private static final Logger log = LoggerFactory.getLogger(ConsultationService.class);
 
+    private static final LocalDate EPOCH = LocalDate.of(2000, 1, 1);
+
     // El tope real, medido con el modelo (docs/PLAN_M3.md, Pieza 6, paso 1): cubre cualquier mes calendario.
     public static final int MAX_DAYS = 31;
 
@@ -55,6 +61,13 @@ public class ConsultationService {
     public record ConsultationDetail(UUID id, UUID patientId, String patientAlias, LocalDate periodStart, LocalDate periodEnd,
             LocalDate comparisonStart, LocalDate comparisonEnd, JsonNode content, String plainText, UUID runId,
             Instant createdAt, Map<String, List<CitedEntry>> citations) {
+    }
+
+    // Semanas reales con registros, para el selector "Semana" del formulario (como el mockup, vInfGenerar): a
+    // diferencia de ReportService.WeekOption, sin reportId/runId/canGenerate, porque una consulta no tiene ese estado
+    // (no hay "ya existe", se puede pedir otra vez la misma semana) y no depende de REPORTS_REQUEST (paso 5 de la
+    // Pieza 6: la consulta no reusa la infraestructura de informes).
+    public record WeekOption(LocalDate weekStart, LocalDate weekEnd, int entries) {
     }
 
     private final PatientRepository patients;
@@ -118,6 +131,27 @@ public class ConsultationService {
         RunService.RunView created = runService.view(run);
         launch(run, task);
         return created;
+    }
+
+    // ---- semanas para el formulario ----
+
+    // Semanas completas (de lunes a domingo, sin llegar más allá de hoy) con al menos un registro, de más reciente a
+    // más antigua, igual orden que ReportService.weeks().
+    public List<WeekOption> weeks(UUID patientId) {
+        if (!patients.existsById(patientId)) {
+            throw new NotFoundException("No encontramos al paciente.");
+        }
+        LocalDate today = LocalDate.now(clock);
+        Map<LocalDate, Integer> perWeek = new TreeMap<>(Comparator.reverseOrder());
+        for (Entry e : entries.findByPatientIdAndEntryDateBetweenOrderByEntryDateAscCreatedAtAsc(patientId, EPOCH, today)) {
+            LocalDate monday = e.getEntryDate().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+            if (!monday.plusDays(6).isAfter(today)) {
+                perWeek.merge(monday, 1, Integer::sum);
+            }
+        }
+        List<WeekOption> out = new ArrayList<>();
+        perWeek.forEach((monday, count) -> out.add(new WeekOption(monday, monday.plusDays(6), count)));
+        return out;
     }
 
     private void validateRange(LocalDate start, LocalDate end, String field) {

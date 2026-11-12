@@ -169,6 +169,30 @@ class ConsultationApiTest {
     }
 
     @Test
+    void theWeekSelectorListsCompleteWeeksWithEntriesLikeTheMockupNotTheCurrentOne() throws Exception {
+        LocalDate today = LocalDate.now(java.time.ZoneId.of("America/Bogota"));
+        jdbc.update("INSERT INTO entries (id, patient_id, entry_date, body, author_id, source, structuring_status) VALUES (?, ?, ?, 'Hoy sin novedad.', ?, 'TEXTO', 'SIN_ESTRUCTURAR')",
+                UUID.randomUUID(), patient, today, UUID.fromString(DOCTOR));
+
+        JsonNode weeks = mapper.readTree(mockMvc.perform(get("/api/consultations/weeks/" + patient).header("X-Demo-User", DOCTOR))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        java.util.List<String> starts = weeks.findValuesAsText("weekStart");
+        assertThat(starts).isSortedAccordingTo(java.util.Comparator.reverseOrder());
+        assertThat(starts).contains(START.toString())
+                .doesNotContain(today.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY)).toString());
+        JsonNode first = weeks.get(0);
+        assertThat(first.path("weekStart").asText()).isEqualTo(START.toString());
+        assertThat(first.path("weekEnd").asText()).isEqualTo(END.toString());
+        assertThat(first.path("entries").asInt()).isEqualTo(7);
+
+        // No es del medico pedir informes de enfermeria, ni al reves: enfermeria no arma esta pantalla.
+        mockMvc.perform(get("/api/consultations/weeks/" + patient).header("X-Demo-User", NURSE)).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/consultations/weeks/" + UUID.randomUUID()).header("X-Demo-User", DOCTOR)).andExpect(status().isNotFound());
+
+        jdbc.update("DELETE FROM entries WHERE patient_id = ? AND entry_date = ?", patient, today);
+    }
+
+    @Test
     void onlyItsOwnDoctorSeesItAnyoneElseGets404() throws Exception {
         agentSavesAConsultation();
         String runId = mapper.readTree(request(DOCTOR, body(patient, START, END, null, null)).getResponse().getContentAsString()).path("id").asText();

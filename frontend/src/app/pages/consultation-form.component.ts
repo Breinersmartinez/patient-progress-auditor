@@ -2,7 +2,7 @@ import { Component, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 
 import { apiFailure } from '../core/api-error';
-import { ConsultationsService } from '../core/consultations.service';
+import { ConsultationsService, ConsultationWeekOption } from '../core/consultations.service';
 import { isoDe, rango, sumar } from '../core/date-es';
 import { IconComponent } from '../core/icon.component';
 import { Patient, PatientsService } from '../core/patients.service';
@@ -28,7 +28,7 @@ type Compare = 'no' | 'ant' | 'otro';
       <div class="chat-datos">
         <div class="campo">
           <label for="ig-pac">Paciente</label>
-          <select class="inp" id="ig-pac" [disabled]="running()" (change)="patientId.set($any($event.target).value)">
+          <select class="inp" id="ig-pac" [disabled]="running()" (change)="choosePatient($any($event.target).value)">
             @for (p of patients(); track p.id) {
               <option [value]="p.id" [selected]="p.id === patientId()">{{ p.alias }}{{ p.bed ? ' (cama ' + p.bed + ')' : '' }}</option>
             }
@@ -46,11 +46,11 @@ type Compare = 'no' | 'ant' | 'otro';
       @if (kind() === 'semana') {
         <div class="campo" id="ig-semana">
           <label for="ig-sem">Semana</label>
-          <input class="inp" type="date" id="ig-sem" [disabled]="running()" [value]="weekStart()" [max]="hoy"
-                 (input)="weekStart.set($any($event.target).value)">
-          @if (weekStart()) {
-            <span class="sec">Del {{ range(weekStart()) }}, a partir del lunes que elija</span>
-          }
+          <select class="inp" id="ig-sem" [disabled]="running()" (change)="weekStart.set($any($event.target).value)">
+            @for (w of weeks(); track w.weekStart) {
+              <option [value]="w.weekStart" [selected]="w.weekStart === weekStart()">Del {{ range(w.weekStart) }}</option>
+            }
+          </select>
         </div>
       } @else if (kind() === 'mes') {
         <div class="campo" id="ig-mes">
@@ -121,7 +121,8 @@ export class ConsultationFormComponent implements OnInit, OnDestroy {
   protected readonly patients = signal<Patient[]>([]);
   protected readonly patientId = signal('');
   protected readonly kind = signal<Kind>('semana');
-  protected readonly weekStart = signal(sumar(this.hoy, -7));
+  protected readonly weeks = signal<ConsultationWeekOption[]>([]);
+  protected readonly weekStart = signal('');
   protected readonly month = signal(this.hoy.slice(0, 7));
   protected readonly rangeStart = signal(sumar(this.hoy, -6));
   protected readonly rangeEnd = signal(this.hoy);
@@ -139,6 +140,7 @@ export class ConsultationFormComponent implements OnInit, OnDestroy {
       const list = await this.patientsService.list();
       this.patients.set(list);
       this.patientId.set(list[0]?.id ?? '');
+      await this.loadWeeks();
     } catch (e) {
       this.toast.show(apiFailure(e).message, false);
     }
@@ -146,6 +148,28 @@ export class ConsultationFormComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.stopFollowing?.();
+  }
+
+  protected async choosePatient(id: string): Promise<void> {
+    this.patientId.set(id);
+    this.error.set('');
+    await this.loadWeeks();
+  }
+
+  // El selector "Semana" (como el mockup): semanas completas con registros de este paciente, no una fecha libre.
+  private async loadWeeks(): Promise<void> {
+    if (!this.patientId()) {
+      return;
+    }
+    try {
+      const weeks = await this.consultations.weeks(this.patientId());
+      this.weeks.set(weeks);
+      this.weekStart.set(weeks[0]?.weekStart ?? '');
+    } catch (e) {
+      this.weeks.set([]);
+      this.weekStart.set('');
+      this.error.set(apiFailure(e).message);
+    }
   }
 
   // El período que se arma con lo elegido; null con el mensaje si falta algo (periodo() del mockup, sin el tope de

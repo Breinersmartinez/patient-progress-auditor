@@ -33,6 +33,14 @@ export interface ConsultationDetail {
   citations: Record<string, CitedEntry[]>;
 }
 
+// Una semana completa con registros, para el selector "Semana" del formulario (como el mockup). Sin reportId/runId/
+// canGenerate (reports.service.ts): una consulta no tiene ese estado, se puede pedir la misma semana otra vez.
+export interface ConsultationWeekOption {
+  weekStart: string;
+  weekEnd: string;
+  entries: number;
+}
+
 // La consulta del médico, «Armar informe» (D31, RF-46): pedirla, leerla y su PDF. Seguir el progreso en vivo es
 // RunsService (se reutiliza /api/runs/{id}, abierto al médico para sus propias consultas), no esta clase.
 @Injectable({ providedIn: 'root' })
@@ -50,6 +58,10 @@ export class ConsultationsService {
 
   get(id: string): Promise<ConsultationDetail> {
     return firstValueFrom(this.http.get<ConsultationDetail>(`/api/consultations/${encodeURIComponent(id)}`));
+  }
+
+  weeks(patientId: string): Promise<ConsultationWeekOption[]> {
+    return firstValueFrom(this.http.get<ConsultationWeekOption[]>(`/api/consultations/weeks/${encodeURIComponent(patientId)}`));
   }
 
   // El PDF de la consulta, con la marca «Consulta del médico» (RN-12). Mismo patrón que ReportsService.pdf.

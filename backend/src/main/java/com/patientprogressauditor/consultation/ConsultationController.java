@@ -1,6 +1,7 @@
 package com.patientprogressauditor.consultation;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.http.ContentDisposition;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.patientprogressauditor.consultation.ConsultationService.ConsultationDetail;
+import com.patientprogressauditor.consultation.ConsultationService.WeekOption;
 import com.patientprogressauditor.consultation.pdf.ConsultationPdfService;
 import com.patientprogressauditor.run.RunService.RunView;
 import com.patientprogressauditor.session.DemoPrincipal;
@@ -58,6 +60,14 @@ public class ConsultationController {
         RunView created = service.request(request.patientId(), request.periodStart(), request.periodEnd(),
                 request.comparisonStart(), request.comparisonEnd(), principal);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(created);
+    }
+
+    // El selector "Semana" del formulario (como el mockup): semanas completas con registros. Mismo permiso que pedir,
+    // porque es un dato para armar el formulario de pedir, no la consulta en si (esa la filtra findVisible).
+    @GetMapping("/weeks/{patientId}")
+    @PreAuthorize("hasAuthority('CONSULTATIONS_REQUEST')")
+    public List<WeekOption> weeks(@PathVariable UUID patientId) {
+        return service.weeks(patientId);
     }
 
     // Solo quien la pidio (criterio 3 de la Pieza 6): a cualquier otro, 404 (ConsultationService.findVisible).

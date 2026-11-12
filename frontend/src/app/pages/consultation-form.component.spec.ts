@@ -9,6 +9,7 @@ import { SessionService } from '../core/session.service';
 import { ConsultationFormComponent } from './consultation-form.component';
 
 const PATIENTS = [{ id: 'p1', alias: 'P-014', bed: '204-A' }, { id: 'p2', alias: 'P-021' }];
+const WEEKS = [{ weekStart: '2026-10-19', weekEnd: '2026-10-25', entries: 7 }, { weekStart: '2026-10-12', weekEnd: '2026-10-18', entries: 7 }];
 
 describe('ConsultationFormComponent («Armar informe» del mockup, D31, RF-46)', () => {
   let http: HttpTestingController;
@@ -17,7 +18,7 @@ describe('ConsultationFormComponent («Armar informe» del mockup, D31, RF-46)',
   let sources: FakeEventSource[];
   let navigate: jasmine.Spy;
 
-  async function open() {
+  async function open(weeks: object[] = WEEKS) {
     sources = [];
     TestBed.configureTestingModule({
       providers: [
@@ -33,6 +34,8 @@ describe('ConsultationFormComponent («Armar informe» del mockup, D31, RF-46)',
     http.expectOne('/api/patients').flush(PATIENTS);
     root = fixture.nativeElement;
     settle = async () => { await new Promise((resolve) => setTimeout(resolve)); fixture.detectChanges(); };
+    await settle();
+    http.expectOne('/api/consultations/weeks/p1').flush(weeks);
     await settle();
   }
 
@@ -59,12 +62,32 @@ describe('ConsultationFormComponent («Armar informe» del mockup, D31, RF-46)',
     expect(button().textContent).toContain('Generar con IA');
   });
 
-  it('rotula el período semanal como el mockup («Semana») y muestra el rango del lunes elegido', async () => {
+  it('rotula el período semanal como el mockup («Semana») con una lista de semanas reales, no una fecha libre', async () => {
     await open();
 
     expect(root.querySelector('label[for="ig-sem"]')?.textContent?.trim()).toBe('Semana');
-    await setInput('#ig-sem', '2026-10-19');
-    expect(root.querySelector('#ig-semana .sec')?.textContent).toContain('Del 19 al 25 de octubre de 2026');
+    expect(Array.from(select('#ig-sem').options).map((o) => o.textContent!.trim())).toEqual([
+      'Del 19 al 25 de octubre de 2026', 'Del 12 al 18 de octubre de 2026']);
+    // La más reciente queda elegida por defecto, como el mockup (vInfGenerar: sems[0]).
+    expect(select('#ig-sem').value).toBe('2026-10-19');
+
+    select('#ig-sem').value = '2026-10-12';
+    select('#ig-sem').dispatchEvent(new Event('change'));
+    await settle();
+    button().click();
+    await settle();
+    const request = http.expectOne('/api/consultations');
+    expect(request.request.body).toEqual({ patientId: 'p1', periodStart: '2026-10-12', periodEnd: '2026-10-18' });
+  });
+
+  it('recarga la lista de semanas al cambiar de paciente', async () => {
+    await open();
+    select('#ig-pac').value = 'p2';
+    select('#ig-pac').dispatchEvent(new Event('change'));
+    await settle();
+    http.expectOne('/api/consultations/weeks/p2').flush([{ weekStart: '2026-10-05', weekEnd: '2026-10-11', entries: 3 }]);
+    await settle();
+    expect(select('#ig-sem').value).toBe('2026-10-05');
   });
 
   it('cambia a rango de fechas y pide la consulta con el período elegido, sin comparar', async () => {

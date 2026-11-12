@@ -62,24 +62,40 @@ describe('ConsultationViewComponent («Informe de consulta» del mockup, D31, RF
   const text = (selector: string) => root.querySelector(selector)?.textContent?.replace(/\s+/g, ' ').trim();
   const click = async (selector: string) => { root.querySelector<HTMLElement>(selector)!.click(); await settle(); };
 
-  it('muestra la marca «Consulta del médico», el resumen con sus citas y las cifras del período', async () => {
+  it('muestra la marca «Consulta del médico», el resumen con sus citas y las cifras de la semana', async () => {
     await open();
 
-    expect(text('.acciones .izq b')).toBe('Consulta de P-014');
+    expect(text('.acciones .izq b')).toBe('Informe de P-014');
     expect(root.querySelectorAll('.marca').length).toBe(2);
     expect(root.querySelector('.marca')!.textContent).toBe('CONSULTA DEL MÉDICO');
+    expect(root.textContent).toContain('Consulta personal: se arma con los registros del período');
     expect(text('h1')).toBe('Informe de consulta');
-    expect(text('.sub')).toBe('Paciente P-014, período del 19 al 25 de octubre de 2026');
+    // Un período de exactamente 7 días se lee como semana, como hojaHTML del mockup (largo() === 7).
+    expect(text('.sub')).toBe('Paciente P-014, semana del 19 al 25 de octubre de 2026');
     expect(root.textContent).toContain('Las náuseas aparecieron 4 días en el período.');
     expect(root.textContent).toContain('Comparado con:');
     expect(root.textContent).toContain('12 al 18 de octubre de 2026');
+    expect(root.textContent).toContain('Registros revisados: 7 de 7 días');
+    expect(root.textContent).toContain('Aprobado por: no aplica, es una consulta del médico');
+    expect(text('h2')).toBe('Resumen de la evolución');
+    expect(Array.from(root.querySelectorAll('h2')).map((h) => h.textContent)).toContain('Cifras de la semana');
     expect(text('table')).toContain('Registros');
     expect(root.textContent).toContain('4 días');
     expect(root.textContent).toContain('Patrón a destacar');
     expect(root.textContent).toContain('mar 20');
     expect(root.textContent).toContain('Náuseas leves tras el desayuno');
-    expect(root.textContent).not.toContain('Aprobado por');
     expect(root.textContent).toContain('No pasó por la revisión de enfermería');
+    expect(root.textContent).toContain('Revisado por: el médico que lo solicita');
+  });
+
+  it('un período que no es una semana completa se lee como período, no como semana', async () => {
+    await open({
+      ...DETAIL, periodStart: '2026-10-01', periodEnd: '2026-10-15',
+      content: { ...CONTENT, period: { ...CONTENT.period, start: '2026-10-01', end: '2026-10-15' } },
+    });
+
+    expect(text('.sub')).toBe('Paciente P-014, período del 1 al 15 de octubre de 2026');
+    expect(Array.from(root.querySelectorAll('h2')).map((h) => h.textContent)).toContain('Cifras del período');
   });
 
   it('sin comparación lo dice en vez de inventar un período', async () => {

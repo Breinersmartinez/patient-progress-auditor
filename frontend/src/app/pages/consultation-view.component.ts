@@ -5,7 +5,7 @@ import { map } from 'rxjs';
 
 import { apiFailure } from '../core/api-error';
 import { ConsultationContent, ConsultationDetail, ConsultationsService } from '../core/consultations.service';
-import { bogotaDay, dCorto, dFull, periodoTxt } from '../core/date-es';
+import { bogotaDay, dCorto, dFull, fch, periodoTxt } from '../core/date-es';
 import { IconComponent } from '../core/icon.component';
 import { roleHome } from '../core/roles';
 import { SessionService } from '../core/session.service';
@@ -39,11 +39,12 @@ const SHORT = 90;
     @if (detail(); as d) {
       <div class="acciones">
         <div class="izq">
-          <b>Consulta de {{ d.patientAlias }}</b>
+          <b>Informe de {{ d.patientAlias }}</b>
           <span class="marca">CONSULTA DEL MÉDICO</span>
         </div>
         <button appProcessButton #download="processButton" label="Descargar PDF" busyLabel="Descargando" icon="descargar"
                 class="btn--primary" data-a="descargar" (click)="downloadPdf(download)"></button>
+        <p class="nota">Consulta personal: se arma con los registros del período. No pasa por la revisión de enfermería ni se guarda en el historial.</p>
       </div>
       @if (formError(); as message) {
         <div class="aviso" role="alert"><svg appIcon="rechazar"></svg><span>{{ message }}</span></div>
@@ -52,11 +53,13 @@ const SHORT = 90;
       <article class="hoja" id="hoja">
         <span class="marca marca--hoja">CONSULTA DEL MÉDICO</span>
         <h1>Informe de consulta</h1>
-        <p class="sub">Paciente {{ d.patientAlias }}, período del {{ period() }}</p>
+        <p class="sub">Paciente {{ d.patientAlias }}, {{ week() ? 'semana del ' + period() : 'período del ' + period() }}</p>
         @if (content(); as c) {
           <div class="meta">
             <span><b>Comparado con:</b> {{ comparedWith() }}</span>
-            <span><b>Armada:</b> {{ generated() }}</span>
+            <span><b>Registros revisados:</b> {{ c.metrics.days_with_entry }} de {{ c.metrics.days_with_entry + c.metrics.days_without_entry }} días</span>
+            <span><b>Generado:</b> {{ generated() }}</span>
+            <span><b>Aprobado por:</b> no aplica, es una consulta del médico</span>
           </div>
           <h2>Resumen de la evolución</h2>
           <p class="resumen">{{ c.summary }}
@@ -68,7 +71,7 @@ const SHORT = 90;
               <span> {{ item.text }}</span><sup><a class="ref" role="link" tabindex="0" (click)="goTo(c.claims.length + j + 1)" (keydown.enter)="goTo(c.claims.length + j + 1)">[{{ c.claims.length + j + 1 }}]</a></sup>
             }
           </p>
-          <h2>Cifras del período</h2>
+          <h2>{{ week() ? 'Cifras de la semana' : 'Cifras del período' }}</h2>
           <table>
             <tr><th>Síntoma</th><th>Período de comparación</th><th>Este período</th></tr>
             @for (row of rows(); track row.name) {
@@ -99,6 +102,7 @@ const SHORT = 90;
         }
         <div class="pie">
           <span>Generado con IA a partir de los registros del período. No pasó por la revisión de enfermería ni forma parte del historial oficial. No contiene diagnóstico ni recomendación de tratamiento.</span>
+          <span>Revisado por: <b>el médico que lo solicita</b></span>
         </div>
       </article>
     }
@@ -120,6 +124,15 @@ export class ConsultationViewComponent {
   protected readonly period = computed(() => {
     const d = this.detail();
     return d ? periodoTxt(d.periodStart, d.periodEnd) : '';
+  });
+  // Como el mockup (hojaHTML: `largo(desde, hasta) === 7`): si el período elegido dio exactamente una semana, se lee
+  // como semana; cualquier otra duración (un mes, un rango) se lee como período.
+  protected readonly week = computed(() => {
+    const d = this.detail();
+    if (!d) {
+      return false;
+    }
+    return (fch(d.periodEnd).getTime() - fch(d.periodStart).getTime()) / 86_400_000 + 1 === 7;
   });
   protected readonly generated = computed(() => dFull(bogotaDay(this.detail()?.createdAt ?? '')));
   protected readonly comparedWith = computed(() => {
