@@ -59,6 +59,14 @@ describe('ConsultationFormComponent («Armar informe» del mockup, D31, RF-46)',
     expect(button().textContent).toContain('Generar con IA');
   });
 
+  it('rotula el período semanal como el mockup («Semana») y muestra el rango del lunes elegido', async () => {
+    await open();
+
+    expect(root.querySelector('label[for="ig-sem"]')?.textContent?.trim()).toBe('Semana');
+    await setInput('#ig-sem', '2026-10-19');
+    expect(root.querySelector('#ig-semana .sec')?.textContent).toContain('Del 19 al 25 de octubre de 2026');
+  });
+
   it('cambia a rango de fechas y pide la consulta con el período elegido, sin comparar', async () => {
     await open();
     select('#ig-tipo').value = 'rango';

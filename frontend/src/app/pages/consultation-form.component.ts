@@ -3,7 +3,7 @@ import { Router } from '@angular/router';
 
 import { apiFailure } from '../core/api-error';
 import { ConsultationsService } from '../core/consultations.service';
-import { isoDe, sumar } from '../core/date-es';
+import { isoDe, rango, sumar } from '../core/date-es';
 import { IconComponent } from '../core/icon.component';
 import { Patient, PatientsService } from '../core/patients.service';
 import { Run, RunStep, RunsService } from '../core/runs.service';
@@ -45,9 +45,12 @@ type Compare = 'no' | 'ant' | 'otro';
       </div>
       @if (kind() === 'semana') {
         <div class="campo" id="ig-semana">
-          <label for="ig-sem">Lunes de la semana</label>
+          <label for="ig-sem">Semana</label>
           <input class="inp" type="date" id="ig-sem" [disabled]="running()" [value]="weekStart()" [max]="hoy"
                  (input)="weekStart.set($any($event.target).value)">
+          @if (weekStart()) {
+            <span class="sec">Del {{ range(weekStart()) }}, a partir del lunes que elija</span>
+          }
         </div>
       } @else if (kind() === 'mes') {
         <div class="campo" id="ig-mes">
@@ -114,6 +117,7 @@ export class ConsultationFormComponent implements OnInit, OnDestroy {
   private readonly toast = inject(ToastService);
 
   protected readonly hoy = isoDe(new Date());
+  protected readonly range = rango;
   protected readonly patients = signal<Patient[]>([]);
   protected readonly patientId = signal('');
   protected readonly kind = signal<Kind>('semana');
