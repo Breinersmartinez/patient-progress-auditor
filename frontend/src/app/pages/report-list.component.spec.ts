@@ -82,10 +82,11 @@ describe('ReportListComponent (vInfLista del mockup)', () => {
     expect(root.querySelector('tbody tr')!.getAttribute('data-href')).toBe('/med/informes/ver/e');
   });
 
-  it('«Recibidos» (el médico) sin informes no ofrece «Generar informe» (esa pantalla no es suya)', async () => {
+  it('«Recibidos» (el médico) sin informes invita a armar un informe propio (Pieza 6, D31)', async () => {
     const root = await open('recibidos', []);
 
     expect(root.textContent).toContain('Aún no ha recibido informes');
-    expect(root.querySelector('.vacio a')).toBeNull();
+    expect(root.textContent).toContain('También puede armar uno propio');
+    expect(root.querySelector('.vacio a')!.getAttribute('href')).toBe('/med/informes/armar');
   });
 });

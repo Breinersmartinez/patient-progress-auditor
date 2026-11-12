@@ -29,5 +29,11 @@ public interface AgentTool {
         return false;
     }
 
+    // true solo para una herramienta que no es propia de ninguna ruta sino que sirve en las tres (semanal, mensual y
+    // consulta) porque ella misma se adapta con AgentRunContext.isPeriod(): hoy, get_symptom_history.
+    default boolean sharedAcrossRoutes() {
+        return false;
+    }
+
     String execute(AgentRunContext context, JsonNode arguments) throws ToolException;
 }

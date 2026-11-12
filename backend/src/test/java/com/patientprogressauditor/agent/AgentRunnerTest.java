@@ -55,6 +55,7 @@ class AgentRunnerTest {
     @Autowired private AgentRunRepository runs;
     @Autowired private AgentStepRepository steps;
     @Autowired private ReportDraftService drafts;
+    @Autowired private com.patientprogressauditor.consultation.ConsultationDraftService consultations;
     @Autowired private ReportContentBuilder builder;
     @Autowired private ReportRepository reports;
     @Autowired private EntryRepository entries;
@@ -81,6 +82,7 @@ class AgentRunnerTest {
     @AfterEach
     void clean() {
         for (UUID run : runIds) {
+            jdbc.update("DELETE FROM doctor_consultations WHERE run_id = ?", run);
             jdbc.update("DELETE FROM monthly_report_weeks WHERE monthly_report_id IN (SELECT id FROM reports WHERE run_id = ?)", run);
             jdbc.update("DELETE FROM report_citations WHERE report_version_id IN (SELECT v.id FROM report_versions v JOIN reports r ON r.id = v.report_id WHERE r.run_id = ?)", run);
             jdbc.update("DELETE FROM report_versions WHERE report_id IN (SELECT id FROM reports WHERE run_id = ?)", run);
@@ -95,7 +97,7 @@ class AgentRunnerTest {
         LlmGateway gateway = new LlmGateway(List.of(groq, gemini), llm, d -> { }, mapper);
         List<AgentTool> all = new ArrayList<>(realTools);
         all.addAll(List.of(extra));
-        return new AgentRunner(gateway, all, properties, runs, steps, drafts, builder, reports, entries, eligibility,
+        return new AgentRunner(gateway, all, properties, runs, steps, drafts, consultations, builder, reports, entries, eligibility,
                 approvedWeekly, Clock.systemDefaultZone(), mapper, langfuse);
     }
 
@@ -218,10 +220,11 @@ class AgentRunnerTest {
         assertThat(realTools.stream().filter(AgentTool::writes)).hasSize(1);
         // El tope de 7 es POR RUTA (AGENTS.md, Pieza 6 de docs/PLAN_M3.md: "cada ruta del agente ve solo las suyas,
         // sin pasar de 7"), no en el total registrado: desde la Pieza 6 hay 8 herramientas reales, pero ninguna ruta
-        // ve mas de 6 (mensual: las 5 del semanal + get_approved_weekly_reports).
+        // ve mas de 6 (mensual: las 5 del semanal + get_approved_weekly_reports; consulta: get_period_entries,
+        // get_period_metrics, get_symptom_history (comparte las tres rutas) y save_draft).
         long weekly = realTools.stream().filter(t -> !t.consultationOnly() && !t.monthlyOnly()).count();
         long monthly = realTools.stream().filter(t -> !t.consultationOnly()).count();
-        long consultation = realTools.stream().filter(t -> t.consultationOnly() || t.writes()).count();
+        long consultation = realTools.stream().filter(t -> t.consultationOnly() || t.writes() || t.sharedAcrossRoutes()).count();
         assertThat(weekly).isLessThanOrEqualTo(7);
         assertThat(monthly).isLessThanOrEqualTo(7);
         assertThat(consultation).isLessThanOrEqualTo(7);
@@ -381,6 +384,111 @@ class AgentRunnerTest {
         String observation = groq.calls.get(2).messages().stream().map(LlmMessage::content).filter(c -> c != null).reduce("", String::concat);
         assertThat(observation).contains("El informe mensual cubre desde la semana del 2026-09-21");
         assertThat(stepTypes(run)).contains(AgentStep.Type.VALIDACION);
+    }
+
+    // --- consulta del médico, «Armar informe» (D31, RF-46) ---
+
+    private AgentRun newConsultationRun(UUID forPatient, UUID doctor, AgentRunner.ConsultationPeriod period) {
+        AgentRun run = new AgentRun();
+        run.setRunType(AgentRun.Type.CONSULTA);
+        run.setPatientId(forPatient);
+        run.setRequestedBy(doctor);
+        run.setPeriodStart(period.start());
+        run.setPeriodEnd(period.end());
+        runs.save(run);
+        runIds.add(run.getId());
+        return run;
+    }
+
+    private UUID aDoctor() {
+        return jdbc.queryForObject("SELECT u.id FROM app_users u JOIN app_user_roles ur ON ur.user_id = u.id "
+                + "JOIN app_roles r ON r.id = ur.role_id WHERE r.code = 'MEDICO' LIMIT 1", UUID.class);
+    }
+
+    private static String periodDraft() {
+        return """
+                {"summary":"Las náuseas aparecieron en el período consultado.",
+                 "claims":[{"claim_key":"c1","text":"Las náuseas aparecieron 4 días en el período.",
+                   "criterion":"Días del período","entry_ids":["e1"],
+                   "figures":[{"key":"NAUSEAS.days","value":4}]}],
+                 "changes_vs_previous":[],"recurring_patterns":[]}""";
+    }
+
+    @Test
+    void aConsultationRunReadsThePeriodAndSavesADoctorConsultationNeverAReport() throws Exception {
+        UUID doctor = aDoctor();
+        AgentRunner.ConsultationPeriod period = new AgentRunner.ConsultationPeriod(WEEK, WEEK.plusDays(6), null, null);
+        ScriptedClient groq = new ScriptedClient("groq", true)
+                .then(tools(1200, 70, call("1", "get_period_metrics", "{}"), call("2", "get_period_entries", "{}")))
+                .then(tools(3000, 300, call("3", "save_draft", periodDraft())));
+        AgentRun run = newConsultationRun(patient, doctor, period);
+
+        AgentRunner.Outcome outcome = runner(groq, new ScriptedClient("gemini", true))
+                .run(run, AgentRunner.Task.consultation(patient, doctor, period));
+
+        assertThat(outcome.status()).isEqualTo(AgentRun.Status.COMPLETADA);
+        assertThat(outcome.stopReason()).isEqualTo(AgentRun.StopReason.EXITO);
+        // No es un Report: ningun registro en `reports` quedo ligado a esta ejecucion.
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM reports WHERE run_id = ?", Integer.class, run.getId())).isZero();
+        Integer consultations = jdbc.queryForObject("SELECT count(*) FROM doctor_consultations WHERE run_id = ?", Integer.class, run.getId());
+        assertThat(consultations).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT doctor_id FROM doctor_consultations WHERE run_id = ?", UUID.class, run.getId())).isEqualTo(doctor);
+        assertThat(jdbc.queryForObject("SELECT patient_id FROM doctor_consultations WHERE run_id = ?", UUID.class, run.getId())).isEqualTo(patient);
+        assertThat(jdbc.queryForObject("SELECT period_start FROM doctor_consultations WHERE run_id = ?", java.sql.Date.class, run.getId()).toLocalDate())
+                .isEqualTo(WEEK);
+        assertThat(jdbc.queryForObject("SELECT period_end FROM doctor_consultations WHERE run_id = ?", java.sql.Date.class, run.getId()).toLocalDate())
+                .isEqualTo(WEEK.plusDays(6));
+        assertThat((Boolean) jdbc.queryForObject("SELECT comparison_start IS NULL FROM doctor_consultations WHERE run_id = ?", Boolean.class, run.getId()))
+                .isTrue();
+        String content = jdbc.queryForObject("SELECT content::text FROM doctor_consultations WHERE run_id = ?", String.class, run.getId());
+        JsonNode json = mapper.readTree(content);
+        assertThat(json.path("metrics").path("symptoms").path("NAUSEAS").path("days").asInt()).isEqualTo(4);
+        assertThat(json.path("period").path("compared_with").isNull()).isTrue();
+        // Lo que el modelo lee no trae el alias, la cama ni el id del paciente ni del medico
+        String everything = groq.calls.stream().flatMap(r -> r.messages().stream()).map(LlmMessage::content).filter(c -> c != null).reduce("", String::concat);
+        assertThat(everything).doesNotContain("P-014").doesNotContain("204-A").doesNotContain(patient.toString()).doesNotContain(doctor.toString());
+        // La traza de la consulta es la ejecucion CONSULTA, con las mismas herramientas de lectura que el período ve.
+        assertThat(groq.calls.get(0).tools()).extracting(t -> t.name())
+                .containsExactlyInAnyOrder("get_period_entries", "get_period_metrics", "get_symptom_history", "save_draft");
+    }
+
+    @Test
+    void aConsultationDraftWithAFigureThatDoesNotMatchTheCodeIsRejectedAndCorrected() {
+        UUID doctor = aDoctor();
+        AgentRunner.ConsultationPeriod period = new AgentRunner.ConsultationPeriod(WEEK, WEEK.plusDays(6), null, null);
+        String altered = periodDraft().replace("\"value\":4", "\"value\":5");
+        ScriptedClient groq = new ScriptedClient("groq", true)
+                .then(tools(1200, 70, call("1", "get_period_metrics", "{}"), call("2", "get_period_entries", "{}")))
+                .then(tools(2000, 200, call("3", "save_draft", altered)))
+                .then(tools(2500, 300, call("4", "save_draft", periodDraft())));
+        AgentRun run = newConsultationRun(patient, doctor, period);
+
+        AgentRunner.Outcome outcome = runner(groq, new ScriptedClient("gemini", true))
+                .run(run, AgentRunner.Task.consultation(patient, doctor, period));
+
+        assertThat(outcome.status()).isEqualTo(AgentRun.Status.COMPLETADA);
+        String problem = groq.calls.get(2).messages().stream().filter(m -> m.role() == LlmMessage.Role.TOOL).map(LlmMessage::content)
+                .reduce((a, b) -> b).orElseThrow();
+        assertThat(problem).contains("El borrador NO se guardó").contains("vale 4").contains("escribió 5");
+        assertThat(stepTypes(run)).contains(AgentStep.Type.VALIDACION);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM doctor_consultations WHERE run_id = ?", Integer.class, run.getId())).isEqualTo(1);
+    }
+
+    @Test
+    void aConsultationPeriodWithoutEntriesIsBlockedWithoutCallingTheModel() {
+        UUID doctor = aDoctor();
+        // Un periodo fuera de todo registro sembrado (DemoDataSeeder termina en octubre de 2026).
+        AgentRunner.ConsultationPeriod period = new AgentRunner.ConsultationPeriod(LocalDate.of(2020, 1, 1), LocalDate.of(2020, 1, 7), null, null);
+        ScriptedClient groq = new ScriptedClient("groq", true);
+        AgentRun run = newConsultationRun(patient, doctor, period);
+
+        AgentRunner.Outcome outcome = runner(groq, new ScriptedClient("gemini", true))
+                .run(run, AgentRunner.Task.consultation(patient, doctor, period));
+
+        assertThat(outcome.status()).isEqualTo(AgentRun.Status.FALLIDA);
+        assertThat(outcome.message()).contains("no tiene registros: no hay nada que resumir");
+        assertThat(groq.calls).isEmpty();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM doctor_consultations WHERE run_id = ?", Integer.class, run.getId())).isZero();
     }
 
     // --- límites ---

@@ -22,6 +22,7 @@ import com.patientprogressauditor.agent.AgentRunRepository;
 import com.patientprogressauditor.agent.AgentRunner;
 import com.patientprogressauditor.agent.AgentStep;
 import com.patientprogressauditor.agent.AgentStepRepository;
+import com.patientprogressauditor.consultation.DoctorConsultationRepository;
 import com.patientprogressauditor.patient.PatientRepository;
 import com.patientprogressauditor.report.Report;
 import com.patientprogressauditor.report.ReportRepository;
@@ -39,9 +40,11 @@ public class RunService {
 
     static final String UNEXPECTED = "El agente falló de forma inesperada. Intente de nuevo en unos minutos.";
 
+    // `consultationId` solo existe para una ejecucion CONSULTA (D31): es como `reportId`, pero de doctor_consultations,
+    // nunca de reports (la consulta no es un informe). Los dos quedan null hasta que el agente termina de guardar.
     public record RunView(UUID id, AgentRun.Type runType, UUID patientId, LocalDate periodStart, LocalDate periodEnd,
-            AgentRun.Status status, AgentRun.StopReason stopReason, UUID reportId, String message, String provider,
-            String model, boolean fallbackUsed, int iterations, int tokensIn, int tokensOut, BigDecimal costUsd,
+            AgentRun.Status status, AgentRun.StopReason stopReason, UUID reportId, UUID consultationId, String message,
+            String provider, String model, boolean fallbackUsed, int iterations, int tokensIn, int tokensOut, BigDecimal costUsd,
             Instant createdAt, Instant startedAt, Instant finishedAt) {
     }
 
@@ -56,17 +59,20 @@ public class RunService {
     private final AgentRunRepository runs;
     private final AgentStepRepository steps;
     private final ReportRepository reports;
+    private final DoctorConsultationRepository consultations;
     private final PatientRepository patients;
     private final AgentRunner runner;
     private final RunExecutor executor;
     private final RunTrace trace;
     private final Clock clock;
 
-    public RunService(AgentRunRepository runs, AgentStepRepository steps, ReportRepository reports, PatientRepository patients,
+    public RunService(AgentRunRepository runs, AgentStepRepository steps, ReportRepository reports,
+            DoctorConsultationRepository consultations, PatientRepository patients,
             AgentRunner runner, RunExecutor executor, RunTrace trace, Clock clock) {
         this.runs = runs;
         this.steps = steps;
         this.reports = reports;
+        this.consultations = consultations;
         this.patients = patients;
         this.runner = runner;
         this.executor = executor;
@@ -185,13 +191,24 @@ public class RunService {
         return runs.findFirstByPatientIdAndPeriodStartAndRunTypeAndStatusIn(patientId, weekStart, type, RunTrace.OPEN);
     }
 
-    public RunView get(UUID runId) {
-        return view(find(runId));
+    // Enfermeria (REPORTS_REQUEST) ve cualquier ejecucion; un medico que solo tiene CONSULTATIONS_REQUEST (D31) ve
+    // unicamente las consultas que el mismo pidio. Lo que no puede ver, 404, igual que un informe (RN-01).
+    public RunView get(UUID runId, DemoPrincipal principal) {
+        return view(visible(runId, principal));
     }
 
-    public List<StepView> steps(UUID runId, long afterId) {
-        find(runId);
+    public List<StepView> steps(UUID runId, long afterId, DemoPrincipal principal) {
+        visible(runId, principal);
         return stepsAfter(runId, afterId);
+    }
+
+    private AgentRun visible(UUID runId, DemoPrincipal principal) {
+        AgentRun run = find(runId);
+        boolean nurse = principal.permissions().contains("REPORTS_REQUEST");
+        if (!nurse && !run.getRequestedBy().equals(principal.id())) {
+            throw new NotFoundException("No encontramos esa ejecución.");
+        }
+        return run;
     }
 
     List<StepView> stepsAfter(UUID runId, long afterId) {
@@ -202,10 +219,12 @@ public class RunService {
         return runs.findById(runId).orElseThrow(() -> new NotFoundException("No encontramos esa ejecución."));
     }
 
-    RunView view(AgentRun run) {
+    public RunView view(AgentRun run) {
         UUID reportId = reports.findFirstByRunId(run.getId()).map(Report::getId).orElse(null);
+        UUID consultationId = consultations.findFirstByRunId(run.getId())
+                .map(com.patientprogressauditor.consultation.DoctorConsultation::getId).orElse(null);
         return new RunView(run.getId(), run.getRunType(), run.getPatientId(), run.getPeriodStart(), run.getPeriodEnd(),
-                run.getStatus(), run.getStopReason(), reportId, run.getErrorMessage(), run.getProvider(), run.getModel(),
+                run.getStatus(), run.getStopReason(), reportId, consultationId, run.getErrorMessage(), run.getProvider(), run.getModel(),
                 run.isFallbackUsed(), run.getIterations(), run.getTokensIn(), run.getTokensOut(), run.getCostUsd(),
                 run.getCreatedAt(), run.getStartedAt(), run.getFinishedAt());
     }

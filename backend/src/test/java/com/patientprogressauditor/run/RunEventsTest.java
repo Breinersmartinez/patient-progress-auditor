@@ -251,7 +251,8 @@ class RunEventsTest {
         jdbc.update("INSERT INTO agent_runs (id, run_type, patient_id, requested_by, period_start, period_end, status) VALUES (?, 'INFORME', ?, ?, ?, ?, 'FALLIDA')",
                 run, patient, UUID.fromString(NURSE), WEEK, WEEK.plusDays(6));
 
-        assertThat(client.send(events(run.toString(), DOCTOR).build(), HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(403);
+        // El medico ve la ruta (CONSULTATIONS_REQUEST, D31) pero esta ejecucion no es suya: 404, no 403 (RN-01).
+        assertThat(client.send(events(run.toString(), DOCTOR).build(), HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(404);
         HttpRequest anonymous = HttpRequest.newBuilder(URI.create(url("/api/runs/" + run + "/events"))).build();
         assertThat(client.send(anonymous, HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(401);
         assertThat(client.send(events(UUID.randomUUID().toString(), NURSE).build(), HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(404);

@@ -260,7 +260,8 @@ class RunsApiTest {
                 .andExpect(jsonPath("$.length()").value(1));
         mockMvc.perform(get("/api/runs/" + run).header("X-Demo-User", NURSE))
                 .andExpect(jsonPath("$.runType").value("ESTRUCTURACION"));
-        mockMvc.perform(get("/api/runs/" + run + "/steps").header("X-Demo-User", DOCTOR)).andExpect(status().isForbidden());
+        // El medico ve la ruta (CONSULTATIONS_REQUEST, D31) pero esta ejecucion no es suya: 404, no 403 (RN-01).
+        mockMvc.perform(get("/api/runs/" + run + "/steps").header("X-Demo-User", DOCTOR)).andExpect(status().isNotFound());
         mockMvc.perform(get("/api/runs/" + run)).andExpect(status().isUnauthorized());
         mockMvc.perform(get("/api/runs/" + UUID.randomUUID()).header("X-Demo-User", NURSE))
                 .andExpect(status().isNotFound())

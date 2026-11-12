@@ -307,6 +307,11 @@ public final class ReadTools {
         }
 
         @Override
+        public boolean sharedAcrossRoutes() {
+            return true;
+        }
+
+        @Override
         public ToolSpec spec(DescriptionVersion version) {
             ObjectNode schema = mapper.createObjectNode().put("type", "object");
             ObjectNode props = schema.putObject("properties");

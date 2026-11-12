@@ -32,12 +32,15 @@ export const NURSING_MENU: MenuModule[] = [
   },
 ];
 
-// ROLES.med del mockup, sin «Armar informe»: no aparece hasta que exista esa pantalla (Pieza 6 de docs/PLAN_M3.md).
+// ROLES.med del mockup, con «Armar informe» (D31, RF-46, Pieza 6 de docs/PLAN_M3.md).
 export const DOCTOR_MENU: MenuModule[] = [
   { text: 'Mis pacientes', icon: 'pacientes', path: '/med/pacientes' },
   {
     text: 'Informes',
     icon: 'informes',
-    sub: [{ text: 'Recibidos', path: '/med/informes/recibidos' }],
+    sub: [
+      { text: 'Recibidos', path: '/med/informes/recibidos' },
+      { text: 'Armar informe', path: '/med/informes/armar' },
+    ],
   },
 ];

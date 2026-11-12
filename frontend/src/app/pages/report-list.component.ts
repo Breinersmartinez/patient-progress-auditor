@@ -52,7 +52,11 @@ export class ReportListComponent implements OnInit {
 
   protected empty() {
     if (this.view === 'recibidos') {
-      return { title: 'Aún no ha recibido informes', text: 'Cuando enfermería envíe un informe aparecerá aquí.' };
+      return {
+        title: 'Aún no ha recibido informes',
+        text: 'Cuando enfermería envíe un informe aparecerá aquí. También puede armar uno propio.',
+        action: { text: 'Armar un informe', path: '/med/informes/armar' },
+      };
     }
     return {
       title: this.view === 'revision' ? 'No hay informes por revisar' : 'Aún no hay informes aprobados',

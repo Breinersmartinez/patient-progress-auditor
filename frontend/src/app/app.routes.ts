@@ -13,6 +13,8 @@ import { PatientsListComponent } from './pages/patients-list.component';
 import { ReportGenerateComponent } from './pages/report-generate.component';
 import { ReportListComponent } from './pages/report-list.component';
 import { ReportViewComponent } from './pages/report-view.component';
+import { ConsultationFormComponent } from './pages/consultation-form.component';
+import { ConsultationViewComponent } from './pages/consultation-view.component';
 
 // Rutas con hash, identicas a las del mockup (F4), con un prefijo por rol (D26: enf o med; el rol sale del usuario
 // de demostracion elegido, no de la URL). `data.title` es el titulo del encabezado y `data.menu`, la opcion del
@@ -46,6 +48,8 @@ export const routes: Routes = [
   { path: 'med/registro/nuevo/:id', component: EntryNewComponent, canMatch: [roleGuard('MEDICO')], data: { title: 'Nuevo registro diario', menu: '/med/pacientes' } },
   { path: 'med/informes/recibidos', component: ReportListComponent, canMatch: [roleGuard('MEDICO')], data: { title: 'Informes recibidos', view: 'recibidos' } },
   { path: 'med/informes/ver/:id', component: ReportViewComponent, canMatch: [roleGuard('MEDICO')], data: { title: 'Informe de seguimiento', menu: '/med/informes/recibidos' } },
+  { path: 'med/informes/armar', component: ConsultationFormComponent, canMatch: [roleGuard('MEDICO')], data: { title: 'Armar informe' } },
+  { path: 'med/informes/consulta/:id', component: ConsultationViewComponent, canMatch: [roleGuard('MEDICO')], data: { title: 'Informe de consulta', menu: '/med/informes/armar' } },
 
   { path: '**', component: NotFoundComponent, data: { title: 'No encontrado' } },
 ];
