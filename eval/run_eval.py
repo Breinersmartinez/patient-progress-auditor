@@ -23,6 +23,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import baseline  # noqa: E402
 import checks  # noqa: E402
+import consultation  # noqa: E402
 import monthly  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -86,11 +87,11 @@ class Http:
         return body
 
 
-def connect(base, user):
+def connect(base, user, role="ENFERMERIA"):
     http = Http(base, user)
     if not user:
         status, users = http.call("GET", "/api/demo-users")
-        http.user = next(u["id"] for u in users if u["role"] == "ENFERMERIA")
+        http.user = next(u["id"] for u in users if u["role"] == role)
     return http
 
 
@@ -288,10 +289,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--base", default="http://localhost:8080", help="URL de la API (por defecto http://localhost:8080)")
     parser.add_argument("--user", help="id del usuario de demostracion de enfermeria (por defecto el primero)")
+    parser.add_argument("--doctor", help="id del usuario de demostracion medico, para --suite consultation (por defecto el primero)")
     parser.add_argument("--repeat", type=int, default=2, help="veces que se corre cada caso con el sistema real (por defecto 2)")
     parser.add_argument("--pause", type=float, default=12, help="segundos entre ejecuciones, para no agotar la cuota (por defecto 12)")
     parser.add_argument("--only", help="ids de casos separados por coma")
-    parser.add_argument("--suite", choices=["all", "reports", "structuring", "monthly"], default="all")
+    parser.add_argument("--suite", choices=["all", "reports", "structuring", "monthly", "consultation"], default="all")
     parser.add_argument("--holdout", action="store_true", help="ademas, las semanas libres que no son casos dorados (reserva contra el sobreajuste)")
     parser.add_argument("--baseline-only", action="store_true", help="solo la solucion convencional (sin app ni llave)")
     parser.add_argument("--system-only", action="store_true", help="solo el sistema real")
@@ -301,6 +303,7 @@ def main():
     only = set(args.only.split(",")) if args.only else None
     report_cases = [c for c in json.loads((CASES / "reports.json").read_text(encoding="utf-8"))["cases"] if not only or c["id"] in only]
     month_cases = [c for c in json.loads((CASES / "monthly.json").read_text(encoding="utf-8"))["cases"] if not only or c["id"] in only]
+    consultation_cases = [c for c in json.loads((CASES / "consultation.json").read_text(encoding="utf-8"))["cases"] if not only or c["id"] in only]
     struct_cases = [c for c in json.loads((CASES / "structuring.json").read_text(encoding="utf-8"))["cases"] if not only or c["id"] in only]
     started = datetime.now(timezone.utc)
     result = {"date": started.isoformat(timespec="seconds"), "repeat": args.repeat, "base": None if args.baseline_only else args.base}
@@ -316,6 +319,11 @@ def main():
         result["monthly_baseline"] = {"figures": report_figures(records, with_agent=False), "records": records,
                                       "no_aplica": [c["id"] for c in month_cases if c["expect"].get("baseline") == "no_aplica"]}
         print_report("Informe mensual: solución convencional (las plantillas semanales juntas)", result["monthly_baseline"]["figures"], records)
+    if args.suite in ("all", "consultation") and not args.system_only:
+        records = [consultation.run_baseline(seed, c) for c in consultation_cases if c["expect"].get("baseline") != "no_aplica"]
+        result["consultation_baseline"] = {"figures": report_figures(records, with_agent=False), "records": records,
+                                           "no_aplica": [c["id"] for c in consultation_cases if c["expect"].get("baseline") == "no_aplica"]}
+        print_report("Consulta del médico: solución convencional (la misma plantilla, por período)", result["consultation_baseline"]["figures"], records)
     if args.suite in ("all", "structuring") and not args.system_only:
         records = [run_structuring_baseline(c) for c in struct_cases]
         result["structuring_baseline"] = {"figures": structuring_figures(records), "records": records}
@@ -340,6 +348,16 @@ def main():
                     time.sleep(0 if case["expect"].get("blocked") else args.pause)
             result["monthly_system"] = {"figures": report_figures(records), "records": records}
             print_report("Informe mensual: sistema real (agente)", result["monthly_system"]["figures"], records)
+        if args.suite in ("all", "consultation"):
+            # CONSULTATIONS_REQUEST es solo del medico (D31): una conexion aparte, con un usuario MEDICO.
+            doctor_http = connect(args.base, args.doctor, role="MEDICO")
+            records = []
+            for case in consultation_cases:
+                for _ in range(1 if case["expect"].get("blocked") else args.repeat):
+                    records.append(consultation.run_system(doctor_http, live, case))
+                    time.sleep(0 if case["expect"].get("blocked") else args.pause)
+            result["consultation_system"] = {"figures": report_figures(records), "records": records}
+            print_report("Consulta del médico: sistema real (agente)", result["consultation_system"]["figures"], records)
         if args.holdout:
             records = []
             for case in holdout_cases(live, json.loads((CASES / "reports.json").read_text(encoding="utf-8"))["cases"]):

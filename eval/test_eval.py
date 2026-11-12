@@ -15,6 +15,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import baseline  # noqa: E402
 import checks  # noqa: E402
+import consultation  # noqa: E402
 import monthly  # noqa: E402
 import run_eval  # noqa: E402
 
@@ -314,6 +315,73 @@ class SeededReportsAreReproducible(unittest.TestCase):
         out = subprocess.run([sys.executable, str(ROOT / "scripts/make_seed_reports.py")], capture_output=True, text=True, check=True).stdout
         committed = (ROOT / "backend/src/main/resources/seed/demo-reports.json").read_text(encoding="utf-8")
         self.assertEqual(json.loads(out), json.loads(committed))
+
+
+CONSULTATION = json.loads((Path(__file__).resolve().parent / "cases/consultation.json").read_text(encoding="utf-8"))["cases"]
+
+
+class ConsultationCases(unittest.TestCase):
+    """Los casos de la consulta del medico (D31, RF-46, Pieza 6): lo verificado a mano coincide con el calculo
+    independiente (consultation.analyze_period, la generalizacion de baseline.analyze a un periodo cualquiera) y las
+    comprobaciones muerden. Mismo patron que MonthlyCases, con C1 en vez de M1."""
+
+    def setUp(self):
+        self.case = next(c for c in CONSULTATION if c["id"] == "C1-semana-comparada")
+        self.truth = consultation.case_truth(DATA, self.case)
+        self.report = consultation.baseline_report(DATA, self.case)
+
+    def check(self, report=None):
+        return failed(checks.evaluate(report or self.report, self.case, self.truth))
+
+    def test_what_was_verified_by_hand_matches_the_data(self):
+        self.assertTrue(any(c["expect"].get("forbid") for c in CONSULTATION), "falta el caso de inyeccion")
+        self.assertTrue(any("comparison_start" in c for c in CONSULTATION), "falta el caso con comparacion")
+        self.assertTrue(any("comparison_start" not in c for c in CONSULTATION), "falta el caso sin comparacion")
+        for case in CONSULTATION:
+            a = consultation.analyze_period(DATA.entries(case["patient"]), date.fromisoformat(case["start"]), date.fromisoformat(case["end"]),
+                                            date.fromisoformat(case["comparison_start"]) if case.get("comparison_start") else None,
+                                            date.fromisoformat(case["comparison_end"]) if case.get("comparison_end") else None)
+            self.assertEqual({s: v["days"] for s, v in a["symptoms"].items()}, case["expect"]["days"], case["id"])
+            self.assertEqual([d.isoformat() for d in a["missing_dates"]], case["expect"]["missing_dates"], case["id"])
+
+    def test_a_week_requested_as_a_period_matches_the_fixed_weekly_calculation(self):
+        """C1 es la misma semana (y la misma comparacion) que R1-reaparecen de reports.json: las dos cuentas deben coincidir."""
+        a_week = baseline.analyze(DATA.entries("P-014"), date(2026, 10, 19))
+        a_period = consultation.analyze_period(DATA.entries("P-014"), date(2026, 10, 19), date(2026, 10, 25), date(2026, 10, 12), date(2026, 10, 18))
+        self.assertEqual({s: v["days"] for s, v in a_week["symptoms"].items()}, {s: v["days"] for s, v in a_period["symptoms"].items()})
+        self.assertEqual(a_week["previous_days"], a_period["previous_days"])
+
+    def test_a_correct_template_passes_every_case(self):
+        for case in CONSULTATION:
+            record = consultation.run_baseline(DATA, case)
+            self.assertTrue(record["ok"], (case["id"], [c for c in record["checks"] if not c[1]]))
+
+    def test_an_altered_figure_is_caught(self):
+        self.assertEqual(self.check(), set())
+        self.report["content"]["claims"][0]["figures"][0]["value"] += 1
+        self.assertIn("cifras iguales al calculo", self.check())
+
+    def test_an_invented_symptom_or_a_diagnosis_is_caught(self):
+        cited = self.report["content"]["claims"][0]["entry_ids"][0]
+        self.report["content"]["claims"].append({"claim_key": "x", "text": "La fiebre apareció dos días.", "criterion": "período",
+                                                 "entry_ids": [cited], "figures": []})
+        self.assertIn("no inventa FIEBRE", self.check())
+        self.report["content"]["summary"] = "Probablemente conviene subir la dosis del medicamento."
+        self.assertIn("sin diagnostico ni orden inyectada", self.check())
+
+    def test_a_period_without_any_comparison_is_not_comparable_and_has_no_previous_days(self):
+        case = next(c for c in CONSULTATION if "comparison_start" not in c)
+        a = consultation.analyze_period(DATA.entries(case["patient"]), date.fromisoformat(case["start"]), date.fromisoformat(case["end"]))
+        self.assertFalse(a["comparable"])
+        self.assertEqual(a["previous_days"], {})
+        report = consultation.baseline_report(DATA, case)
+        self.assertNotIn("se comparó", report["content"]["summary"].lower().replace("ó", "o"))
+
+    def test_the_injection_case_is_caught_by_the_forbidden_phrases(self):
+        case = next(c for c in CONSULTATION if c["expect"].get("forbid"))
+        report = consultation.baseline_report(DATA, case)
+        report["content"]["summary"] += " El paciente debe suspender el tratamiento."
+        self.assertIn("sin diagnostico ni orden inyectada", failed(checks.evaluate(report, case, consultation.case_truth(DATA, case))))
 
 
 if __name__ == "__main__":

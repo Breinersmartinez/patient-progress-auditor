@@ -1036,8 +1036,35 @@ Que la consulta pase a enfermería o se convierta en informe · que aparezca en 
   >   - Los casos dorados de `eval/` y las cuatro cifras de `docs/decisiones/semana14.md`: paso 6, no empezado.
   >   - `./run.sh` en vivo con un clon limpio, con la pantalla nueva probada a mano en el navegador: paso 7, reservado para una sesión nueva.
   >   - El formulario en Firefox/Safari (inputs `date`/`month` varían de aspecto entre navegadores): solo se probó el comportamiento, no la apariencia, y solo con pruebas automáticas (Chrome headless), no a mano.
-- [ ] 6. **Medir:** casos dorados de consulta en `eval/` (una semana comparada con la anterior, un rango sin comparación, un período con días sin registro y la nota de P-040 que trae una orden) contra la solución convencional, y las cuatro cifras con fecha y método en `docs/decisiones/semana14.md`.
+- [x] 6. **Medir:** casos dorados de consulta en `eval/` (una semana comparada con la anterior, un rango sin comparación, un período con días sin registro y la nota de P-040 que trae una orden) contra la solución convencional, y las cuatro cifras con fecha y método en `docs/decisiones/semana14.md`.
   - **Se mira:** los casos verificados a mano contra los datos; tasa de éxito, costo por consulta, mediana de latencia y recuperación anotados.
+  > Hecho el 2026-11-12, en la misma sesión que cerró los pasos 4 y 5 (el usuario ya había levantado los contenedores con `docker compose`).
+  > **Qué quedó:**
+  >   - **`eval/consultation.py`** (nuevo): `analyze_period` generaliza `baseline.analyze` a un período cualquiera con una comparación opcional (igual que el backend generalizó `MetricsCalculator.compute` a `computePeriod` en el paso 3); `truth_json` es igual a `checks.truth_json` salvo que `days_without_entry` usa el largo real del período, no un 7 fijo; `draft`/`baseline_report` son la plantilla sin modelo, generalizada; `run_system` pide `/api/consultations`, sigue `/api/runs/{id}` (reutilizado tal cual) y lee `/api/consultations/{id}`. Reutiliza `checks.evaluate` **sin cambiarlo**: ninguna de sus reglas depende de que el período sea una semana de 7 días.
+  >   - **`eval/cases/consultation.json`** (nuevo, 4 casos): C1 reutiliza la semana y la comparación de R1-reaparecen (`reports.json`), pedida como período; C2 un rango de 10 días sin comparar que no empieza en lunes; C3 un período de 11 días con cinco días sin registro; C4 la nota inyectada de P-040 (la misma de R7-inyeccion) en un período de 10 días. Los días por síntoma se obtuvieron con `analyze_period` contra la semilla real (no a mano desde cero) y se cruzaron con la prueba nueva.
+  >   - **`eval/run_eval.py`**: `--suite consultation`; `connect(base, user, role)` ganó un parámetro `role` (antes fijo a `ENFERMERIA`) porque pedir una consulta necesita un usuario `MEDICO` (`CONSULTATIONS_REQUEST`); el bloque del sistema real abre una segunda conexión (`--doctor`) solo para la consulta, sin tocar la conexión de enfermería que ya usan los otros suites.
+  >   - **`eval/test_eval.py`**: `ConsultationCases` (7 pruebas), mismo patrón que `MonthlyCases`: lo verificado a mano coincide con el cálculo independiente, una semana pedida como período da los mismos días que `baseline.analyze` de la semana fija (cruzada contra C1/R1), una plantilla correcta pasa los 4 casos, y una cifra alterada, un síntoma inventado, una comparación inventada sin haberse pedido o la frase inyectada hacen fallar la comprobación que corresponde.
+  >   - **`docs/decisiones/semana14.md`** (nuevo): las cuatro cifras con fecha, método y n = 4 (deliberadamente chico: no gastar más cuota de la que ya gastó esta pieza), con la comparación contra la plantilla y las mismas salvedades de estilo que `semana10.md` («cómo leerlo, sin exagerar»).
+  > **Comprobación:**
+  >
+  > | Qué se miró | Valor obtenido | Valor esperado | Cuadra |
+  > |---|---|---|---|
+  > | `python3 -m unittest discover -s eval` | **44 de 44** (37 de antes + 7 de `ConsultationCases`) | Verde | Sí |
+  > | `run_eval.py --suite consultation --baseline-only` | 4 de 4, cada caso con sus comprobaciones en verde | Verde | Sí |
+  > | `run_eval.py --suite consultation --repeat 1` contra la app real | **4 de 4 (100 %)**, 1 a la primera, 3 recuperadas (3 de 3) | Los casos verificados a mano contra los datos, con las cuatro cifras anotadas | Sí |
+  > | Los casos dorados coinciden con la semilla | `ConsultationCases.test_what_was_verified_by_hand_matches_the_data` y `test_a_week_requested_as_a_period_matches_the_fixed_weekly_calculation` (C1 contra R1) | Verde | Sí |
+  > | Las cuatro cifras con fecha y método | `docs/decisiones/semana14.md` | Con fecha, método y n | Sí |
+  > | El semanal y el mensual no empeoran | No se tocó `baseline.py`, `checks.py` ni `monthly.py`; solo se agregó `consultation.py` aparte | Sin cambios | Sí |
+  > **Lo que se aprendió:**
+  >   - **3 de las 4 ejecuciones reales pasaron por Gemini** (2 a 5 errores 429 de Groq cada una) porque las 4 llamadas, más un `curl` de humo del propio paso, se corrieron en menos de un minuto contra la misma llave: el mismo mecanismo de respaldo que ya mide `semana10.md`, no un defecto de la consulta. La ruta «Groq responde todo» para la consulta casi no se midió (1 de 4).
+  >   - `connect()` estaba escrito pensando solo en enfermería (`REPORTS_REQUEST`); la consulta es la primera suite que necesita un usuario `MEDICO` de verdad para pedir una ejecución, no solo para leerla. El cambio (`role` como parámetro, con el mismo valor por defecto) no tocó ninguna llamada existente.
+  > **Decisiones que nadie pidió:**
+  >   - n = 4 (una repetición, no dos como el resto de la suite): explícito en `semana14.md`, no una omisión. La Pieza 6 ya gastó cuota real en el paso 1 (el tope de 31 días) y en las pruebas de integración de los pasos 3 a 5 corridas esta sesión; duplicar las llamadas aquí sin necesidad no estaba en el plan.
+  >   - No agregar una regla de comprobación propia de la consulta en `checks.py`: las reglas existentes (citas válidas, cifras contra el cálculo, síntomas que no deben aparecer, días sin registro declarados, sin diagnóstico ni orden inyectada) ya alcanzan sin tocar un archivo que el semanal y el mensual también usan.
+  > **No verificado:**
+  >   - Un período cercano al tope de 31 días con el sistema real de punta a punta (el tope mismo ya se midió en el paso 1 con `ConsultationRangeTokensMeasurementTest`, pero no junto con `checks.evaluate` end-to-end).
+  >   - La ruta directa por Groq para la consulta (sin pasar por el respaldo): solo 1 de 4 ejecuciones la tomó.
+  >   - El PDF y la marca «Consulta del médico» no entraron en esta medición (ya probados aparte en `ConsultationApiTest`, con extracción real de texto del PDF).
 - [ ] 7. **Comprobar** en vivo con `./run.sh` el criterio de aceptación, punto por punto, y dejar la evidencia.
 
 ### Criterio de aceptación
