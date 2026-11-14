@@ -67,6 +67,7 @@ GEMINI.md
 .roo/
 .github/copilot-instructions.md
 .github/modernize/
+skills/taste-skill/
 
 # Prompts de trabajo personales (no son documentación del producto)
 docs/prompts/
