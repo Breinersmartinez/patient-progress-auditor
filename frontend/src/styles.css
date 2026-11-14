@@ -5,19 +5,19 @@
   --lift-static: -0.75px;
   --ease-ui: 400ms ease-out;
   --press-in: 100ms;
-  --shadow-rgb: 0 0 0; /* negro sobre fondos neutros */
+  --shadow-rgb: 11 42 74; /* paleta de mockups-vC (auditor-vC.html, bloque #tema): solo el color, nada de tipografía ni forma */
 
-  --color-primary: #3D5AFE;
+  --color-primary: #0F5FA8;
   --on-primary: #FFFFFF;
-  --color-success: #1D9E75;
-  --color-danger: #E24B4A;
-  --bg: #FAFAF8;
+  --color-success: #0F7A3D;
+  --color-danger: #B3261E;
+  --bg: #F3F7FB;
   --surface: #FFFFFF;
   --surface-raised: #FFFFFF;
-  --surface-sunken: #F1F1EE;
-  --text-primary: #1F1F1E;
-  --text-secondary: #5F5E5A;
-  --divider: rgb(0 0 0 / 0.07);
+  --surface-sunken: #F0F5FA;
+  --text-primary: #14243A;
+  --text-secondary: #56667B;
+  --divider: #D5E0EB;
   --color-selected: color-mix(in srgb, var(--color-primary) 8%, var(--surface));
 }
 
@@ -85,7 +85,7 @@
 .sb {
   --sb-tint: color-mix(in srgb, var(--color-primary) 8%, var(--surface));
   --sb-box: #FFFFFF;               /* en modo oscuro, var(--surface-raised) */
-  --sb-line: rgb(0 0 0 / 0.12);    /* borde de la caja y guía de submódulos */
+  --sb-line: #B9C9DA;    /* borde de la caja y guía de submódulos: color de mockups-vC */
   --sb-dur: 300ms; --sb-hover: 400ms; --sb-shift: 2px;
   position: sticky; top: 0; z-index: 10; flex: none;
   display: flex; flex-direction: column; gap: 8px;
@@ -373,3 +373,133 @@
     .view { padding: 0; max-width: none; }
     .hoja { box-shadow: none; padding: 0; width: 100%; margin: 0; min-height: 0; }
   }
+
+/* ===== Diseño nuevo (mockups-vC, auditor-vC.html, bloque #tema) =====
+   Los componentes conservan su HTML y su comportamiento (Angular no cambia); aquí solo cambia su aspecto.
+   Sin tipografía incrustada (el app arranca sin red, D22): se usa la misma pila de system-ui, solo más grande.
+   Los estilos de los estados (.est, .est--d, los colores de cada punto) quedan tal como estaban: fuera de este bloque. */
+:root {
+  --ink2: #3A4A60; --navy: #0B2A4A;
+  --pri-d: #0B4A85; --pri-50: #EAF3FB; --pri-100: #D3E6F6; --pri-200: #A9CDEB;
+  --field: #7D90A6;
+  --r-lg: 16px; --r-md: 12px; --r-sm: 8px;
+  --radius-ui: var(--r-md);
+}
+body { font-size: 16px; }
+:focus-visible { outline: 3px solid var(--color-primary); outline-offset: 2px; box-shadow: 0 0 0 2px #fff; }
+::placeholder { color: var(--text-secondary); opacity: 1; }
+
+.main { background: var(--bg); }
+.top { gap: 16px; padding: 16px 32px; min-height: 76px; box-sizing: border-box; background: #fff; border-bottom: 1px solid var(--divider); box-shadow: none; }
+.top h1 { font-size: 28px; line-height: 36px; font-weight: 700; letter-spacing: -0.01em; color: var(--navy); }
+.vercomo { font-size: 14px; }
+.vercomo .inp { min-height: 40px; padding: 0 10px; }
+.icbtn { border: 1px solid var(--divider); border-radius: 50%; background: #fff; color: var(--ink2); }
+@media (hover: hover) and (pointer: fine) { .icbtn:hover { background: var(--pri-50); color: var(--color-primary); } }
+.punto-notif { top: 7px; right: 7px; }
+.view { max-width: 1160px; padding: 28px 32px 56px; }
+
+.sb { box-shadow: none; border-right: 1px solid var(--divider); --sb-tint: var(--pri-50); }
+.sb-mod { font-weight: 600; }
+.sb-item:has([aria-current="page"]) > .sb-mod { color: var(--pri-d); }
+.sb-toggle { border: 1px solid var(--divider); }
+.sb-avatar { background: var(--pri-100); color: var(--pri-d); font-weight: 700; }
+.sb-panel { border: 1px solid var(--divider); border-radius: var(--r-lg); }
+.sb-opt, .sb[data-collapsed="true"] .sb-sub a { border-radius: var(--r-sm); }
+
+/* Solo la ficha del paciente (el .cab con h2) va en tarjeta con avatar, como en el mockup; en los listados el .cab
+   es apenas una línea y un botón sobre la tarjeta del listado, y una tarjeta casi vacía encima se veía de más. */
+.cab { align-items: center; }
+.cab:has(h2) { padding: 20px 24px; background: #fff; border: 1px solid var(--divider); border-radius: var(--r-lg); box-shadow: var(--shadow); }
+.cab h2 { display: flex; align-items: center; gap: 14px; font-size: 22px; line-height: 30px; font-weight: 700; color: var(--navy); }
+.cab h2::before { content: ""; flex: none; width: 48px; height: 48px; border-radius: 50%; background: var(--pri-100) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230B4A85' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='8' r='3.5'/%3E%3Cpath d='M5 20a7 7 0 0 1 14 0'/%3E%3C/svg%3E") no-repeat center / 26px; }
+.cab h2 + .sec { margin-left: 62px; }
+.bloque > h3, .vista-ia h3 { font-size: 18px; line-height: 26px; font-weight: 600; color: var(--navy); }
+.acciones .izq b { color: var(--navy); }
+/* La insignia de la cabecera pedía var(--sb-tint), que solo existe dentro del menú lateral: salía sin fondo.
+   Solo la de la cabecera; la de dentro de la hoja del informe no se toca. */
+.acciones .marca { background: var(--pri-50); color: var(--pri-d); }
+
+.btn { min-height: 48px; padding: 0 24px; border: 2px solid transparent; border-radius: 999px; font-size: 16px; line-height: 20px; }
+.btn .icon { width: 20px; height: 20px; }
+.btn--sec { background: #fff; color: var(--color-primary); border-color: var(--color-primary); }
+@media (hover: hover) and (pointer: fine) {
+  .btn--primary:hover { background: var(--pri-d); }
+  .btn--sec:hover { background: var(--pri-50); color: var(--pri-d); }
+}
+.btn[aria-busy="true"] { opacity: .9; }
+
+.inp { min-height: 48px; padding: 0 14px; border: 1.5px solid var(--field); border-radius: var(--r-md); background: #fff; }
+textarea.inp { padding: 12px 14px; min-height: 120px; line-height: 24px; }
+.inp:focus { outline: 3px solid var(--pri-200); outline-offset: 0; border-color: var(--color-primary); box-shadow: none; }
+.campo { gap: 6px; align-content: start; } /* sin esto, junto a un campo con mensaje de error la fila se estira y el selector baja 3px */
+.campo label { font-size: 15px; line-height: 20px; font-weight: 600; color: var(--text-primary); }
+.error { font-size: 14px; line-height: 20px; font-weight: 600; }
+
+.card { border: 1px solid var(--divider); border-radius: var(--r-lg); padding: 20px 24px; }
+.card b { color: var(--navy); }
+@media (hover: hover) and (pointer: fine) { .card--nav:hover { border-color: var(--color-primary); background: var(--pri-50); } }
+.sint { list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.sint li { padding: 2px 10px; border-radius: var(--r-sm); background: var(--pri-50); border: 1px solid var(--pri-100); color: var(--pri-d); font-size: 14px; line-height: 22px; }
+.aviso { padding: 14px 18px; border: 1px solid var(--pri-200); border-radius: var(--r-md); background: var(--pri-50); color: var(--text-primary); }
+.vacio { padding: 56px 16px; gap: 10px; }
+.vacio .icon { box-sizing: content-box; width: 32px; height: 32px; padding: 20px; margin-bottom: 6px; border-radius: 22px; background: var(--pri-50); color: var(--color-primary); }
+.vacio h3 { font-size: 18px; line-height: 26px; color: var(--navy); }
+.toast { padding: 14px 18px; border: 1px solid var(--divider); border-radius: var(--r-md); }
+.campana-panel { border: 1px solid var(--divider); border-radius: var(--r-lg); }
+.burbuja { border-radius: 16px 16px 4px 16px; }
+/* En la barra del chat, «Dictar» mide su texto más largo («Transcribiendo»): con el relleno de 24px apretaba la caja. */
+.entrada .btn { padding: 0 18px; }
+.vista-ia.card { border-radius: var(--r-lg); }
+
+.barra { margin: 0; padding: 20px 24px 16px; background: #fff; border: 1px solid var(--divider); border-bottom: 0; border-radius: var(--r-lg) var(--r-lg) 0 0;
+  box-shadow: var(--shadow); clip-path: inset(-30px -30px 0 -30px); }
+.barra .inp { max-width: 420px; padding-left: 46px; border-radius: 999px;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2356667B' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='6.5'/%3E%3Cpath d='m16 16 4.5 4.5'/%3E%3C/svg%3E") no-repeat 16px center / 20px; -webkit-appearance: none; appearance: none; }
+.barra .total { padding: 2px 10px; border: 1px solid var(--divider); border-radius: var(--r-sm); background: var(--surface-sunken); color: var(--ink2); }
+.cont { padding: 0 24px 24px; background: #fff; border: 1px solid var(--divider); border-top: 0; border-radius: 0 0 var(--r-lg) var(--r-lg);
+  box-shadow: var(--shadow); clip-path: inset(0 -30px -30px -30px); }
+.cont .tabla-wrap { border: 1px solid var(--divider); border-radius: var(--r-md); box-shadow: none; }
+.tabla th { background: var(--surface-sunken); color: var(--ink2); font-size: 14px; font-weight: 600; border-bottom: 1px solid var(--divider); }
+@media (min-width: 701px) {
+  .tabla td { padding: 14px 16px; border-top: 1px solid var(--divider); vertical-align: middle; }
+  .tabla tbody tr:first-child td { border-top: 0; }
+}
+@media (hover: hover) and (pointer: fine) { .tabla tbody tr:hover { background: var(--pri-50); } }
+.tabla td b { color: var(--navy); font-weight: 600; }
+.tabla td b::before { content: ""; display: inline-block; width: 36px; height: 36px; margin-right: 12px; vertical-align: middle; border-radius: 50%;
+  background: var(--pri-100) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230B4A85' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='8' r='3.5'/%3E%3Cpath d='M5 20a7 7 0 0 1 14 0'/%3E%3C/svg%3E") no-repeat center / 20px; }
+
+@media (max-width: 900px) { .top { padding-left: 24px; padding-right: 24px; } .view { padding-left: 24px; padding-right: 24px; } }
+/* Códigos de paciente y fechas no se parten en dos líneas (el avatar le quita ancho a la columna). */
+@media (min-width: 701px) {
+  .tabla td b, .tabla td[data-label="Fecha"], .tabla td[data-label="Cama"], .tabla td[data-label="Edad"],
+  .tabla td[data-label="Último registro"], .tabla td[data-label="Período"], .tabla td[data-label="Recibido"], .tabla td[data-label="Generado"] { white-space: nowrap; }
+}
+@media (min-width: 701px) and (max-width: 1000px) {
+  .view { padding-left: 16px; padding-right: 16px; }
+  .cont { padding: 0 12px 12px; }
+  .cont .tabla-wrap { overflow-x: auto; }
+  .tabla th { padding-left: 8px; padding-right: 8px; }
+  .tabla td { padding-left: 8px; padding-right: 8px; }
+  .tabla td b { font-size: 14px; }
+  .tabla td b::before { width: 28px; height: 28px; margin-right: 8px; background-size: 16px; }
+}
+@media (max-width: 700px) {
+  .top { padding: 12px 16px; }
+  .top h1 { font-size: 22px; line-height: 28px; }
+  .view { padding: 16px 16px 40px; }
+  .barra { padding: 16px; flex-wrap: wrap; }
+  .barra .inp { max-width: none; }
+  .cont { padding: 0 12px 12px; }
+  /* En un teléfono la caja del chat ocupa su línea y «Dictar» y «Enviar» van debajo: si no, la caja quedaba en
+     una astilla y «Enviar» se salía de la pantalla. Paciente y fecha, uno debajo del otro. */
+  .entrada { flex-wrap: wrap; }
+  .entrada .inp { flex: 1 1 100%; }
+  .entrada .btn { flex: 1 1 0; }
+  .chat-datos { grid-template-columns: 1fr; }
+}
+
+/* La hoja del informe no cambia (ni color, ni radio, ni tipografía): se conserva tal como estaba. */
+.hoja { --color-primary: #3D5AFE; --divider: rgb(0 0 0 / 0.07); --radius-ui: 6px; --shadow: 0 1px 4px rgb(0 0 0 / 0.08);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
