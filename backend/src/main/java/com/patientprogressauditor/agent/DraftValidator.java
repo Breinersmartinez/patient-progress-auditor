@@ -190,6 +190,17 @@ public class DraftValidator {
     // Dias de la semana del informe y de la anterior: se pueden nombrar en el criterio («semana del 12 al 18»).
     private static Set<Integer> baseNumbers(AgentRunContext c) {
         Set<Integer> days = new LinkedHashSet<>();
+        if (c.isPeriod()) {
+            // La consulta (D31) no tiene "semana anterior" fija: el dia nombrable es el limite de su propio periodo
+            // y, si se comparo, el limite del periodo de comparacion (no necesariamente 7 ni 1 dia antes).
+            days.add(c.periodStart().getDayOfMonth());
+            days.add(c.periodEnd().getDayOfMonth());
+            if (c.comparisonStart() != null) {
+                days.add(c.comparisonStart().getDayOfMonth());
+                days.add(c.comparisonEnd().getDayOfMonth());
+            }
+            return days;
+        }
         for (LocalDate d : List.of(c.weekStart(), c.weekEnd(), c.weekStart().minusDays(7), c.weekStart().minusDays(1))) {
             days.add(d.getDayOfMonth());
         }

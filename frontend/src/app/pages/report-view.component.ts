@@ -1,12 +1,17 @@
-import { Component, OnDestroy, OnInit, computed, effect, inject, signal } from '@angular/core';
+import { Component, OnDestroy, computed, effect, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { map } from 'rxjs';
 
 import { apiFailure } from '../core/api-error';
 import { bogotaDay, dCorto, dFull, fechaCorta, periodoTxt, sumar } from '../core/date-es';
 import { EntriesService } from '../core/entries.service';
 import { IconComponent } from '../core/icon.component';
 import { MenuMarkService } from '../core/menu-mark.service';
+import { NotificationsService } from '../core/notifications.service';
 import { Claim, CitedEntry, MonthlyMetrics, ReportContent, ReportDetail, ReportMetrics, ReportsService, TraceStep, VersionView } from '../core/reports.service';
+import { roleHome } from '../core/roles';
+import { SessionService } from '../core/session.service';
 import { symptomName } from '../core/symptoms';
 import { ToastService } from '../core/toast.service';
 import { EmptyStateComponent } from '../ui/empty-state.component';
@@ -49,7 +54,7 @@ const SHORT = 90;
   template: `
     @if (missing()) {
       <app-empty-state title="No encontramos lo que busca" text="Puede que haya cambiado o que su rol no tenga acceso."
-                       [action]="{ text: 'Volver al inicio', path: '/enf/pacientes' }" />
+                       [action]="{ text: 'Volver al inicio', path: home() }" />
     }
     @if (loadError(); as message) {
       <div class="aviso"><svg appIcon="rechazar"></svg><span>{{ message }}</span></div>
@@ -65,7 +70,7 @@ const SHORT = 90;
             {{ traceOpen() ? 'Ocultar cómo se generó' : 'Ver cómo se generó' }}
           </button>
         }
-        @if (d.versions.length > 1) {
+        @if (d.versions.length > 1 && canEdit()) {
           <button class="btn btn--sec" type="button" data-a="ia" [attr.aria-expanded]="aiOpen()" (click)="toggleAi()">
             {{ aiOpen() ? 'Ocultar lo que escribió la IA' : 'Ver lo que escribió la IA' }}
           </button>
@@ -81,13 +86,20 @@ const SHORT = 90;
             <button appProcessButton #approve="processButton" label="Aprobar informe" busyLabel="Aprobando" icon="aprobar"
                     class="btn--primary" data-a="aprobar" (click)="approve_(approve)"></button>
           }
-        } @else if (d.report.status !== 'APROBADO') {
+        } @else if (!approved()) {
+          <!-- Solo enfermeria llega aqui: el medico nunca ve un informe sin aprobar (approved() es siempre true para ENVIADO). -->
           <a class="btn btn--sec" [routerLink]="['/enf/informes/generar', d.report.patientId]">Generar de nuevo</a>
         } @else {
           <button appProcessButton #download="processButton" label="Descargar PDF" busyLabel="Descargando" icon="descargar"
-                  class="btn--sec" data-a="descargar" (click)="downloadPdf(download)"></button>
+                  [class]="isDoctor() ? 'btn--primary' : 'btn--sec'" data-a="descargar" (click)="downloadPdf(download)"></button>
+          @if (d.report.status === 'APROBADO' && canSend()) {
+            <button appProcessButton #send="processButton" label="Enviar al médico" busyLabel="Enviando" icon="enviar"
+                    class="btn--primary" data-a="enviar" (click)="send_(send)"></button>
+          }
         }
-        @if (note(); as text) { <p class="nota">{{ text }}</p> }
+        @if (!isDoctor()) {
+          @if (note(); as text) { <p class="nota">{{ text }}</p> }
+        }
       </div>
 
       @if (pending() && !editing()) {
@@ -176,7 +188,7 @@ const SHORT = 90;
               <span><b>Registros revisados:</b> {{ c.metrics.days_with_entry }} de 7 días</span>
             }
             <span><b>Generado:</b> {{ generated() }}</span>
-            <span><b>Aprobado por:</b> {{ d.report.status === 'APROBADO' && d.report.reviewedBy ? d.report.reviewedBy : 'pendiente de aprobación' }}</span>
+            <span><b>Aprobado por:</b> {{ approved() && d.report.reviewedBy ? d.report.reviewedBy : 'pendiente de aprobación' }}</span>
           </div>
           <h2>Resumen de la evolución</h2>
           @if (editing()) {
@@ -246,7 +258,12 @@ const SHORT = 90;
             <ol data-t="origen">
               @for (source of c.weekly_reports; track source.report_id) {
                 <li>Semana {{ source.week_no }} ({{ weekRange(source.week_start) }}): {{ source.summary }}
-                  <a [routerLink]="['/enf/informes/ver', source.report_id]">Ver el informe de esa semana</a></li>
+                  @if (!isDoctor() || source.sent !== false) {
+                    <a [routerLink]="['/' + prefix(), 'informes', 'ver', source.report_id]">Ver el informe de esa semana</a>
+                  } @else {
+                    <span class="sec"> (no se envió por separado)</span>
+                  }
+                </li>
               }
             </ol>
           }
@@ -259,7 +276,7 @@ const SHORT = 90;
             @for (claim of c.claims; track claim.claim_key; let i = $index) {
               <li [id]="'fuente-' + (i + 1)">[{{ i + 1 }}]
                 @for (source of sources(claim); track source.id; let last = $last) {
-                  <a [routerLink]="['/enf/pacientes/ficha', d.report.patientId]" [attr.title]="'Ver la ficha del paciente'">{{ dCorto(source.date) }}: "{{ source.body }}"</a>@if (!last) { / }
+                  <a [routerLink]="['/' + prefix(), 'pacientes', 'ficha', d.report.patientId]" [attr.title]="'Ver la ficha del paciente'">{{ dCorto(source.date) }}: "{{ source.body }}"</a>@if (!last) { / }
                 }
               </li>
             }
@@ -284,12 +301,14 @@ const SHORT = 90;
     }
   `,
 })
-export class ReportViewComponent implements OnInit, OnDestroy {
+export class ReportViewComponent implements OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly reports = inject(ReportsService);
   private readonly entriesService = inject(EntriesService);
   private readonly toast = inject(ToastService);
+  private readonly sessionService = inject(SessionService);
   private readonly menuMark = inject(MenuMarkService);
+  private readonly notifications = inject(NotificationsService);
 
   protected readonly detail = signal<ReportDetail | null>(null);
   protected readonly missing = signal(false);
@@ -316,6 +335,14 @@ export class ReportViewComponent implements OnInit, OnDestroy {
 
   protected readonly content = computed<ReportContent | undefined>(() => this.detail()?.version.content);
   protected readonly pending = computed(() => this.detail()?.report.status === 'PENDIENTE_REVISION');
+  // Aprobado o enviado: enviar no cambia lo aprobado (D29), asi que el PDF y «Aprobado por» valen para los dos.
+  protected readonly approved = computed(() => ['APROBADO', 'ENVIADO'].includes(this.detail()?.report.status ?? ''));
+  // Los botones salen por permiso y no solo por estado: el servidor decide, la pantalla solo lo refleja.
+  protected readonly canSend = computed(() => this.sessionService.session()?.permissions.includes('REPORTS_SEND') ?? false);
+  protected readonly canEdit = computed(() => this.sessionService.session()?.permissions.includes('REPORTS_UPDATE') ?? false);
+  protected readonly isDoctor = computed(() => this.sessionService.session()?.role === 'MEDICO');
+  protected readonly prefix = this.sessionService.prefix;
+  protected readonly home = computed(() => roleHome(this.sessionService.session()?.role));
   protected readonly statusLabel = computed(() => REPORT_STATUS_LABELS[this.detail()?.report.status ?? ''] ?? '');
   protected readonly period = computed(() => {
     const report = this.detail()?.report;
@@ -333,9 +360,13 @@ export class ReportViewComponent implements OnInit, OnDestroy {
   protected readonly note = computed(() => {
     switch (this.detail()?.report.status) {
       case 'PENDIENTE_REVISION':
-        return 'Revise el texto y las fuentes. Al aprobar, el informe queda guardado y el médico podrá consultarlo.';
+        return 'Revise el texto y las fuentes. Al aprobar, el informe queda guardado, pero todavía no llega al médico.';
       case 'APROBADO':
-        return 'Informe aprobado y guardado. Ya puede consultarlo el médico y descargarlo en PDF.';
+        return 'Informe guardado. Puede descargarlo o enviarlo al médico.';
+      case 'ENVIADO': {
+        const sentAt = this.detail()?.report.sentAt;
+        return `Enviado al médico el ${dFull(bogotaDay(sentAt ?? ''))}.`;
+      }
       default:
         return null;
     }
@@ -388,11 +419,27 @@ export class ReportViewComponent implements OnInit, OnDestroy {
     return c && key && index >= 0 ? { claim: c.claims[index], index: index + 1 } : null;
   });
 
+  // La ruta reutiliza esta misma instancia al pasar de un informe a otro (misma ruta, `:id` distinto: p. ej. la
+  // cita de un paciente o «Ver el informe de esa semana» del mensual); sin leer el `:id` como señal, la pantalla
+  // se quedaba mostrando el informe anterior aunque la URL ya hubiera cambiado.
+  private readonly routeId = toSignal(this.route.paramMap.pipe(map((params) => params.get('id') ?? '')), {
+    initialValue: this.route.snapshot.paramMap.get('id') ?? '',
+  });
+
   constructor() {
-    // «En revisión» o «Aprobados» segun el estado del informe, como `marcar` del mockup.
+    // «En revisión» o «Aprobados» segun el estado del informe, como `marcar` del mockup. El medico solo tiene
+    // «Recibidos»: no hay division por estado que marcar aparte de la que ya trae `data.menu` de la ruta.
     effect(() => {
       const status = this.detail()?.report.status;
-      this.menuMark.path.set(status ? (status === 'PENDIENTE_REVISION' ? '/enf/informes/revision' : '/enf/informes/aprobados') : null);
+      this.menuMark.path.set(
+        this.isDoctor() || !status ? null : status === 'PENDIENTE_REVISION' ? '/enf/informes/revision' : '/enf/informes/aprobados',
+      );
+    });
+
+    effect(() => {
+      const id = this.routeId();
+      this.reset();
+      void this.load(id);
     });
   }
 
@@ -400,14 +447,38 @@ export class ReportViewComponent implements OnInit, OnDestroy {
     this.menuMark.path.set(null);
   }
 
-  async ngOnInit(): Promise<void> {
-    await this.load(this.route.snapshot.paramMap.get('id') ?? '');
+  private reset(): void {
+    this.detail.set(null);
+    this.missing.set(false);
+    this.loadError.set(null);
+    this.editing.set(false);
+    this.draft.set({ summary: '', claims: [] });
+    this.errors.set({});
+    this.formError.set(null);
+    this.rejecting.set(false);
+    this.reason.set('');
+    this.reasonError.set('');
+    this.traceOpen.set(false);
+    this.trace.set(null);
+    this.traceError.set(null);
+    this.aiOpen.set(false);
+    this.aiVersion.set(null);
+    this.entryIndex.set(new Map());
   }
 
   private async load(id: string): Promise<void> {
     try {
-      this.show(await this.reports.get(id));
+      const detail = await this.reports.get(id);
+      // Si mientras tanto la ruta ya pidio otro informe, esta respuesta llego tarde: se descarta
+      // para no pisar lo que el usuario ya esta viendo (navegar de un informe a otro es mas rapido
+      // que una respuesta lenta del servidor).
+      if (this.routeId() === id) {
+        this.show(detail);
+      }
     } catch (e) {
+      if (this.routeId() !== id) {
+        return;
+      }
       const status = (e as { status?: number }).status;
       if (status === 404) {
         this.missing.set(true);
@@ -422,6 +493,8 @@ export class ReportViewComponent implements OnInit, OnDestroy {
     const index = new Map(this.entryIndex());
     Object.values(detail.citations).flat().forEach((entry) => index.set(entry.id, entry));
     this.entryIndex.set(index);
+    // Abrir el informe que avisa lo marca leido (D30): evita que quede sin leer uno que ya se vio.
+    void this.notifications.markReportRead(detail.report.id);
   }
 
   // ---- evidencia ----
@@ -491,6 +564,23 @@ export class ReportViewComponent implements OnInit, OnDestroy {
       try {
         this.show(await this.reports.approve(d.report.id));
         this.toast.show('Informe aprobado y guardado');
+      } catch (e) {
+        this.formError.set(apiFailure(e).message);
+      }
+    });
+  }
+
+  // RF-44: enviar al medico. El aviso dice que se notifico (D30, Pieza 5), como el mockup.
+  protected async send_(button: ProcessButtonComponent): Promise<void> {
+    const d = this.detail();
+    if (!d) {
+      return;
+    }
+    this.formError.set(null);
+    await button.run(async () => {
+      try {
+        this.show(await this.reports.send(d.report.id));
+        this.toast.show('Informe enviado. Se notificó al médico');
       } catch (e) {
         this.formError.set(apiFailure(e).message);
       }

@@ -27,6 +27,9 @@ public class LlmProperties {
     // Tope de TODA una estructuracion (reintentos, esperas y respaldo): la persona espera la respuesta en pantalla.
     private Duration structuringBudget = Duration.ofSeconds(30);
     private Duration agentTimeout = Duration.ofSeconds(60);
+    // Dictado por voz (RF-38): tope de cada llamada y de toda la transcripcion con sus reintentos; la persona espera en pantalla.
+    private Duration transcriptionTimeout = Duration.ofSeconds(20);
+    private Duration transcriptionBudget = Duration.ofSeconds(30);
     private double temperature = 0;
 
     private Groq groq = new Groq();
@@ -43,6 +46,8 @@ public class LlmProperties {
         // y con el modelo de 20B, falla de forma sistematica (omite «comio poco» o hasta el dolor de cabeza).
         private String structuringReasoningEffort = "medium";
         private String agentReasoningEffort = "medium";
+        // Medido el 2026-11-05 (docs/decisiones.md): el mismo texto que whisper-large-v3, 2,8 veces mas barato.
+        private String transcriptionModel = "whisper-large-v3-turbo";
     }
 
     @Getter

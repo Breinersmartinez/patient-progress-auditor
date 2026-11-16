@@ -229,4 +229,64 @@ class MetricsCalculatorTest {
         assertThatThrownBy(() -> MetricsCalculator.compute(PATIENT, oct(20), List.of(), List.of(), Set.of()))
                 .isInstanceOf(IllegalArgumentException.class);
     }
+
+    // Pieza 6 (D31, RF-46): la consulta del medico generaliza `compute` a cualquier periodo y comparacion. El criterio
+    // del paso 3 del plan: pedida como periodo, una semana comparada con la anterior da EXACTAMENTE lo mismo que `compute`.
+    @Test
+    void aWeekRequestedAsAnArbitraryPeriodMatchesComputeExactly() {
+        Data data = new Data();
+        data.entry(oct(13));
+        data.symptom(oct(12), VOMITO);
+        data.symptom(oct(13), VOMITO);
+        data.symptom(oct(14), FIEBRE);
+        data.symptom(oct(20), VOMITO);
+        data.symptom(oct(21), NAUSEAS);
+
+        WeeklyMetrics week = data.compute(Set.of(NAUSEAS));
+        WeeklyMetrics period = MetricsCalculator.computePeriod(PATIENT, WEEK, WEEK.plusDays(6), WEEK.minusDays(7),
+                WEEK.minusDays(1), data.entries, data.events, Set.of(NAUSEAS));
+
+        assertThat(period).isEqualTo(week);
+    }
+
+    @Test
+    void aPeriodWithoutAnyComparisonIsNotComparableAndItsPreviousStartIsNull() {
+        Data data = new Data();
+        data.symptom(oct(20), VOMITO);
+
+        WeeklyMetrics period = MetricsCalculator.computePeriod(PATIENT, oct(19), oct(25), null, null, data.entries, data.events, Set.of());
+
+        assertThat(period.comparison().comparable()).isFalse();
+        assertThat(period.comparison().previousWeekStart()).isNull();
+        assertThat(period.comparison().persistent()).isEmpty();
+        assertThat(period.symptoms()).extracting("symptom").containsExactly(VOMITO);
+    }
+
+    @Test
+    void aPeriodCanBeComparedWithAnyOtherPeriodNotJustTheWeekBefore() {
+        Data data = new Data();
+        data.symptom(oct(5), VOMITO);
+        data.symptom(oct(20), VOMITO);
+        data.symptom(oct(21), FIEBRE);
+
+        // Un rango de 10 dias comparado con otro, mas atras, que no es "los 7 dias anteriores".
+        WeeklyMetrics period = MetricsCalculator.computePeriod(PATIENT, oct(16), oct(25), oct(1), oct(10),
+                data.entries, data.events, Set.of());
+
+        assertThat(period.comparison().comparable()).isTrue();
+        assertThat(period.comparison().previousWeekStart()).isEqualTo(oct(1));
+        assertThat(period.comparison().persistent()).containsExactly(VOMITO);
+        assertThat(period.comparison().newSymptoms()).containsExactly(FIEBRE);
+    }
+
+    @Test
+    void aPeriodDoesNotHaveToStartOnAMonday() {
+        Data data = new Data();
+        data.symptom(oct(21), NAUSEAS);
+
+        WeeklyMetrics period = MetricsCalculator.computePeriod(PATIENT, oct(20), oct(22), null, null, data.entries, data.events, Set.of());
+
+        assertThat(period.entries()).isEqualTo(1);
+        assertThat(period.daysWithoutEntry()).isEqualTo(2);
+    }
 }

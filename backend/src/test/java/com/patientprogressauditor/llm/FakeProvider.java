@@ -18,7 +18,8 @@ import com.sun.net.httpserver.HttpServer;
 // Asi un 429, un 503 o un tiempo agotado son respuestas HTTP reales y no un objeto simulado dentro del adaptador.
 final class FakeProvider implements AutoCloseable {
 
-    record Received(String path, Map<String, List<String>> headers, JsonNode body) {
+    // `body` es el cuerpo como JSON, o null si no lo es (el multipart de una transcripcion); `raw`, los bytes tal cual llegaron.
+    record Received(String path, Map<String, List<String>> headers, JsonNode body, byte[] raw) {
 
         String header(String name) {
             return headers.entrySet().stream().filter(e -> e.getKey().equalsIgnoreCase(name))
@@ -54,8 +55,14 @@ final class FakeProvider implements AutoCloseable {
     FakeProvider() throws IOException {
         server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
         server.createContext("/", exchange -> {
-            JsonNode body = MAPPER.readTree(exchange.getRequestBody());
-            Received received = new Received(exchange.getRequestURI().getPath(), exchange.getRequestHeaders(), body);
+            byte[] raw = exchange.getRequestBody().readAllBytes();
+            JsonNode body;
+            try {
+                body = MAPPER.readTree(raw);
+            } catch (IOException e) {
+                body = null;
+            }
+            Received received = new Received(exchange.getRequestURI().getPath(), exchange.getRequestHeaders(), body, raw);
             requests.add(received);
             Reply reply = handler.apply(received);
             try {

@@ -16,12 +16,17 @@ import com.patientprogressauditor.metrics.WeeklyMetrics;
 // Lo que una ejecucion sabe y las herramientas comparten: de quien es la tarea, de que semana, los alias de las entradas
 // que el agente ha leido (son las unicas que puede citar) y las metricas ya calculadas. En el informe mensual (E13) el
 // periodo son cuatro semanas: `weekStart` es la ULTIMA (donde terminan las claves de cifras sin «@») y `firstWeek` la primera.
+// En la consulta del medico (D31, RF-46, modo "periodo") `firstWeek`/`weekStart` llevan el inicio y el fin de un periodo
+// cualquiera (no una semana que empiece en lunes): `periodStart()`/`periodEnd()` son los nombres claros para leerlos ahi.
 public class AgentRunContext {
 
     private final UUID patientId;
     private final LocalDate weekStart;
     private final LocalDate firstWeek;
     private final boolean monthly;
+    private final boolean period;
+    private final LocalDate comparisonStart;
+    private final LocalDate comparisonEnd;
     private List<ApprovedWeeklyReports.Weekly> weeklyReports = List.of();
     private final Map<String, UUID> entriesByAlias = new LinkedHashMap<>();
     private final Map<UUID, String> aliasByEntry = new HashMap<>();
@@ -39,34 +44,71 @@ public class AgentRunContext {
     }
 
     public AgentRunContext(UUID patientId, LocalDate weekStart) {
-        this(patientId, weekStart, weekStart, false);
+        this(patientId, weekStart, weekStart, false, false, null, null);
     }
 
     // El periodo de un informe mensual: cuatro semanas desde el lunes `firstWeek`.
     public static AgentRunContext monthly(UUID patientId, LocalDate firstWeek) {
-        return new AgentRunContext(patientId, firstWeek.plusWeeks(3), firstWeek, true);
+        return new AgentRunContext(patientId, firstWeek.plusWeeks(3), firstWeek, true, false, null, null);
     }
 
-    private AgentRunContext(UUID patientId, LocalDate weekStart, LocalDate firstWeek, boolean monthly) {
-        if (firstWeek.getDayOfWeek() != DayOfWeek.MONDAY) {
+    // La consulta del medico (D31, RF-46): un periodo cualquiera, sin exigir lunes, con una comparacion opcional
+    // (las dos fechas null si no se compara).
+    public static AgentRunContext period(UUID patientId, LocalDate periodStart, LocalDate periodEnd,
+            LocalDate comparisonStart, LocalDate comparisonEnd) {
+        return new AgentRunContext(patientId, periodEnd, periodStart, false, true, comparisonStart, comparisonEnd);
+    }
+
+    private AgentRunContext(UUID patientId, LocalDate weekStart, LocalDate firstWeek, boolean monthly, boolean period,
+            LocalDate comparisonStart, LocalDate comparisonEnd) {
+        if (!period && firstWeek.getDayOfWeek() != DayOfWeek.MONDAY) {
             throw new IllegalArgumentException("Una semana empieza el lunes: " + firstWeek);
         }
         this.patientId = patientId;
         this.weekStart = weekStart;
         this.firstWeek = firstWeek;
         this.monthly = monthly;
+        this.period = period;
+        this.comparisonStart = comparisonStart;
+        this.comparisonEnd = comparisonEnd;
     }
 
     public boolean isMonthly() {
         return monthly;
     }
 
+    // true solo para una consulta del medico (D31): un periodo cualquiera, no una semana ni un mes de cuatro semanas.
+    public boolean isPeriod() {
+        return period;
+    }
+
+    public LocalDate periodStart() {
+        return firstWeek;
+    }
+
+    public LocalDate periodEnd() {
+        return weekStart;
+    }
+
+    // Null si la consulta no se comparo con otro periodo.
+    public LocalDate comparisonStart() {
+        return comparisonStart;
+    }
+
+    public LocalDate comparisonEnd() {
+        return comparisonEnd;
+    }
+
     public LocalDate firstWeek() {
         return firstWeek;
     }
 
-    // Los lunes de las semanas del periodo (una en el semanal, cuatro en el mensual).
+    // Los lunes de las semanas del periodo (una en el semanal, cuatro en el mensual). En una consulta (periodo libre,
+    // no semanas) no hay nada que iterar por semana: es un solo periodo, con `periodEnd()` como su unica clave de cache.
     public List<LocalDate> weeks() {
+        if (period) {
+            return List.of(weekStart);
+        }
         List<LocalDate> weeks = new java.util.ArrayList<>();
         for (LocalDate w = firstWeek; !w.isAfter(weekStart); w = w.plusWeeks(1)) {
             weeks.add(w);

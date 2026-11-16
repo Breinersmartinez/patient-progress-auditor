@@ -262,7 +262,8 @@ class RunEventsTest {
         jdbc.update("INSERT INTO agent_runs (id, run_type, patient_id, requested_by, period_start, period_end, status) VALUES (?, 'INFORME', ?, ?, ?, ?, 'FALLIDA')",
                 run, patient, UUID.fromString(NURSE), WEEK, WEEK.plusDays(6));
 
-        assertThat(client.send(events(run.toString(), DOCTOR).build(), HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(403);
+        // El medico ve la ruta (CONSULTATIONS_REQUEST, D31) pero esta ejecucion no es suya: 404, no 403 (RN-01).
+        assertThat(client.send(events(run.toString(), DOCTOR).build(), HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(404);
         HttpRequest anonymous = HttpRequest.newBuilder(URI.create(url("/api/runs/" + run + "/events"))).build();
         assertThat(client.send(anonymous, HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(401);
         assertThat(client.send(events(UUID.randomUUID().toString(), NURSE).build(), HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(404);
@@ -271,5 +272,15 @@ class RunEventsTest {
         assertThat(client.send(viaUrl, HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(401);
         HttpRequest other = HttpRequest.newBuilder(URI.create(url("/api/runs/" + run + "?demoUser=" + NURSE))).build();
         assertThat(client.send(other, HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(401);
+    }
+
+    @Test
+    void aNurseCannotStreamAConsultationThatIsNotHers() throws Exception {
+        UUID run = UUID.randomUUID();
+        jdbc.update("INSERT INTO agent_runs (id, run_type, patient_id, requested_by, period_start, period_end, status) VALUES (?, 'CONSULTA', ?, ?, ?, ?, 'FALLIDA')",
+                run, patient, UUID.fromString(DOCTOR), WEEK, WEEK.plusDays(6));
+
+        // D31: una CONSULTA solo la ve quien la pidio, ni siquiera enfermeria (REPORTS_REQUEST no aplica aqui).
+        assertThat(client.send(events(run.toString(), NURSE).build(), HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(404);
     }
 }

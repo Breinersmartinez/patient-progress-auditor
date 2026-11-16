@@ -19,6 +19,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.patientprogressauditor.notification.NotificationService;
 import com.patientprogressauditor.patient.Patient;
 import com.patientprogressauditor.patient.PatientRepository;
 import com.patientprogressauditor.session.AppPrincipal;
@@ -53,7 +54,8 @@ public class EntryService {
 
     // `correctedBody` es la version vigente del texto (null si no hay): la pantalla la muestra, pero `body` sigue siendo el original.
     public record EntryView(UUID id, UUID patientId, String patientAlias, LocalDate entryDate, String body,
-            String authorName, String structuringStatus, Instant createdAt, List<SymptomView> symptoms, String correctedBody) {
+            String authorName, String structuringStatus, Instant createdAt, List<SymptomView> symptoms, String correctedBody,
+            String source) {
     }
 
     private final EntryRepository entries;
@@ -61,15 +63,17 @@ public class EntryService {
     private final EntryVersionRepository versions;
     private final PatientRepository patients;
     private final AppUserRepository users;
+    private final NotificationService notificationService;
     private final Clock clock;
 
     public EntryService(EntryRepository entries, EntryEventRepository events, EntryVersionRepository versions,
-            PatientRepository patients, AppUserRepository users, Clock clock) {
+            PatientRepository patients, AppUserRepository users, NotificationService notificationService, Clock clock) {
         this.entries = entries;
         this.events = events;
         this.versions = versions;
         this.patients = patients;
         this.users = users;
+        this.notificationService = notificationService;
         this.clock = clock;
     }
 
@@ -78,13 +82,18 @@ public class EntryService {
     // queda ESTRUCTURADA. La entrada y sus eventos se guardan en una sola transaccion: todo o nada (RN-11, D27).
     @Transactional
     public EntryView create(UUID patientId, LocalDate entryDate, String body, List<ConfirmedEvent> requestedEvents,
-            Correction correction, AppPrincipal principal) {
+            Correction correction, String source, AppPrincipal principal) {
         Patient patient = patients.findById(patientId).orElseThrow(() -> new NotFoundException("No encontramos ese paciente."));
         if (entryDate.isAfter(LocalDate.now(clock))) {
             throw new FieldException(HttpStatus.BAD_REQUEST, "entryDate", "La fecha del registro no puede ser futura.");
         }
         if (body.indexOf('\u0000') >= 0) {
             throw new FieldException(HttpStatus.BAD_REQUEST, "body", "El registro tiene un carácter que no se puede guardar.");
+        }
+        // Origen del texto (RF-38): VOZ si vino de un dictado; sin valor, TEXTO. El audio nunca llega aqui.
+        Entry.Source origin = source == null || source.isBlank() ? Entry.Source.TEXTO : parse(Entry.Source.class, source);
+        if (origin == null) {
+            throw new FieldException(HttpStatus.BAD_REQUEST, "source", "El origen del registro no es válido.");
         }
         List<EntryEvent> confirmed = requestedEvents == null ? List.of() : toEvents(requestedEvents, principal);
         EntryVersion version = toVersion(correction, body, principal);
@@ -94,6 +103,7 @@ public class EntryService {
         entry.setBody(body);
         entry.setAuthorId(principal.id());
         entry.setStructuringStatus(requestedEvents == null ? Entry.StructuringStatus.SIN_ESTRUCTURAR : Entry.StructuringStatus.ESTRUCTURADA);
+        entry.setSource(origin);
         entries.saveAndFlush(entry);
         confirmed.forEach(event -> event.setEntryId(entry.getId()));
         events.saveAllAndFlush(confirmed);
@@ -101,10 +111,12 @@ public class EntryService {
             version.setEntryId(entry.getId());
             versions.saveAndFlush(version);
         }
+        // Avisa a los demas medicos activos (RF-45, D30): misma transaccion, si falla, falla el guardado entero.
+        notificationService.notifyEntryCreated(patientId, entry.getId(), principal.id());
         return new EntryView(entry.getId(), patientId, patient.getAlias(), entryDate, body, principal.displayName(),
                 entry.getStructuringStatus().name(), entry.getCreatedAt(),
                 confirmed.stream().sorted(Comparator.comparing(EntryService::byCode)).map(EntryService::view).toList(),
-                version == null ? null : version.getBody());
+                version == null ? null : version.getBody(), entry.getSource().name());
     }
 
     // La version corregida (RF-42), o null si no hay nada que guardar: sin texto, o igual al original. No se recorta ni se
@@ -237,6 +249,6 @@ public class EntryService {
                 .stream().collect(Collectors.toMap(AppUser::getId, AppUser::getDisplayName));
         return found.stream().map(e -> new EntryView(e.getId(), e.getPatientId(), patientsById.get(e.getPatientId()).getAlias(),
                 e.getEntryDate(), e.getBody(), authors.getOrDefault(e.getAuthorId(), ""), e.getStructuringStatus().name(),
-                e.getCreatedAt(), symptoms.getOrDefault(e.getId(), List.of()), corrected.get(e.getId()))).toList();
+                e.getCreatedAt(), symptoms.getOrDefault(e.getId(), List.of()), corrected.get(e.getId()), e.getSource().name())).toList();
     }
 }

@@ -1,10 +1,13 @@
 <div class="app">
   @if (session.hasScreens() || !session.session()) {
-    <nav appSidebar id="sb" [modules]="menu" [user]="sidebarUser()" [currentPath]="menuPath()"></nav>
+    <nav appSidebar id="sb" [modules]="menu()" [user]="sidebarUser()" [currentPath]="menuPath()"></nav>
   }
   <div class="main">
     <header class="top">
       <h1 id="titulo">{{ pageTitle.title() }}</h1>
+      @if (session.session()?.role === 'MEDICO') {
+        <app-bell />
+      }
       <button class="btn btn--sec" id="cerrar-sesion" type="button" (click)="session.logout()">Cerrar sesión</button>
     </header>
     <main class="view" id="vista">
@@ -14,7 +17,7 @@
       @if (session.session() && !session.hasScreens()) {
         <div class="vacio" id="sin-pantallas">
           <h3>Su rol aún no tiene pantallas</h3>
-          <p>Su cuenta es de {{ sidebarUser().role.toLowerCase() }}. Por ahora solo el rol de enfermería puede usar la aplicación.</p>
+          <p>Su cuenta es de {{ sidebarUser().role.toLowerCase() }}. Por ahora solo los roles de enfermería y médico pueden usar la aplicación.</p>
         </div>
       } @else {
         <router-outlet />

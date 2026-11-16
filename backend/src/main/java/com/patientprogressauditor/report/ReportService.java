@@ -24,11 +24,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.patientprogressauditor.agent.AgentRun;
 import com.patientprogressauditor.agent.AgentRunRepository;
 import com.patientprogressauditor.agent.AgentStepRepository;
 import com.patientprogressauditor.entry.Entry;
 import com.patientprogressauditor.entry.EntryRepository;
+import com.patientprogressauditor.notification.NotificationService;
 import com.patientprogressauditor.patient.Patient;
 import com.patientprogressauditor.patient.PatientRepository;
 import com.patientprogressauditor.report.ReportEditValidator.Edit;
@@ -41,7 +44,7 @@ import com.patientprogressauditor.web.FieldException;
 import com.patientprogressauditor.web.NotFoundException;
 
 // Lo que se hace con un informe despues de que el agente lo deja: verlo con su evidencia, corregirlo, aprobarlo o
-// rechazarlo. Las reglas (quien ve que, que transiciones existen, que se puede editar) se deciden AQUI, en el servidor.
+// rechazarlo, y enviarlo al medico. Las reglas (quien ve que, que transiciones existen, que se puede editar) se deciden AQUI, en el servidor.
 @Service
 public class ReportService {
 
@@ -49,7 +52,7 @@ public class ReportService {
 
     public record Summary(UUID id, UUID patientId, String patientAlias, Report.Type reportType, LocalDate periodStart,
             LocalDate periodEnd, Report.Status status, String statusReason, Instant generatedAt, String reviewedBy,
-            Instant reviewedAt, String provider, String model) {
+            Instant reviewedAt, String sentBy, Instant sentAt, String provider, String model) {
     }
 
     public record VersionMeta(int versionNo, ReportVersion.Origin origin, String editedBy, Instant createdAt) {
@@ -79,11 +82,12 @@ public class ReportService {
     private final AgentRunRepository runs;
     private final AgentStepRepository steps;
     private final ReportEditValidator editValidator;
+    private final NotificationService notificationService;
     private final Clock clock;
 
     public ReportService(ReportRepository reports, ReportVersionRepository versions, ReportCitationRepository citations,
             PatientRepository patients, EntryRepository entries, AppUserRepository users, AgentRunRepository runs,
-            AgentStepRepository steps, ReportEditValidator editValidator, Clock clock) {
+            AgentStepRepository steps, ReportEditValidator editValidator, NotificationService notificationService, Clock clock) {
         this.reports = reports;
         this.versions = versions;
         this.citations = citations;
@@ -93,6 +97,7 @@ public class ReportService {
         this.runs = runs;
         this.steps = steps;
         this.editValidator = editValidator;
+        this.notificationService = notificationService;
         this.clock = clock;
     }
 
@@ -197,6 +202,22 @@ public class ReportService {
         return detail(id, principal);
     }
 
+    // Enviar al medico (RF-44, D29): solo un aprobado, solo quien tiene REPORTS_SEND (lo exige el controlador). Guarda quien y
+    // cuando; lo aprobado (version, revisor) no cambia.
+    @Transactional
+    public Detail send(UUID id, AppPrincipal principal) {
+        Report report = locked(id);
+        ReportTransitions.require(report, Report.Status.ENVIADO);
+        report.setStatus(Report.Status.ENVIADO);
+        report.setSentBy(principal.id());
+        report.setSentAt(clock.instant());
+        report.setUpdatedAt(clock.instant());
+        reports.saveAndFlush(report);
+        // Avisa a todo medico activo (RF-45, D30): misma transaccion, si falla, falla el envio entero.
+        notificationService.notifyReportSent(report.getPatientId(), report.getId());
+        return detail(id, principal);
+    }
+
     @Transactional
     public Detail reject(UUID id, String reason, AppPrincipal principal) {
         Report report = locked(id);
@@ -230,7 +251,7 @@ public class ReportService {
         List<WeekOption> out = new ArrayList<>();
         perWeek.forEach((monday, count) -> {
             Optional<Report> current = weekly.stream().filter(r -> r.getPeriodStart().equals(monday))
-                    .filter(r -> r.getStatus() == Report.Status.PENDIENTE_REVISION || r.getStatus() == Report.Status.APROBADO).findFirst();
+                    .filter(r -> r.getStatus().current()).findFirst();
             Optional<AgentRun> live = runs.findFirstByPatientIdAndPeriodStartAndRunTypeAndStatusIn(patientId, monday,
                     AgentRun.Type.INFORME, List.of(AgentRun.Status.EN_COLA, AgentRun.Status.EN_CURSO));
             String reason = current.isPresent() ? "Ya hay un informe de esta semana." : live.isPresent() ? "Ya se está generando." : null;
@@ -268,10 +289,12 @@ public class ReportService {
     private List<Summary> summaries(List<Report> found) {
         Map<UUID, String> aliases = patients.findAllById(found.stream().map(Report::getPatientId).collect(Collectors.toSet())).stream()
                 .collect(Collectors.toMap(Patient::getId, Patient::getAlias));
-        Map<UUID, String> reviewers = names(found.stream().map(Report::getReviewedBy).filter(java.util.Objects::nonNull).collect(Collectors.toSet()));
+        Map<UUID, String> reviewers = names(found.stream().flatMap(r -> java.util.stream.Stream.of(r.getReviewedBy(), r.getSentBy()))
+                .filter(java.util.Objects::nonNull).collect(Collectors.toSet()));
         return found.stream().map(r -> new Summary(r.getId(), r.getPatientId(), aliases.get(r.getPatientId()), r.getReportType(),
                 r.getPeriodStart(), r.getPeriodEnd(), r.getStatus(), r.getStatusReason(), r.getCreatedAt(),
-                r.getReviewedBy() == null ? null : name(reviewers, r.getReviewedBy()), r.getReviewedAt(), r.getProvider(), r.getModel())).toList();
+                r.getReviewedBy() == null ? null : name(reviewers, r.getReviewedBy()), r.getReviewedAt(),
+                r.getSentBy() == null ? null : name(reviewers, r.getSentBy()), r.getSentAt(), r.getProvider(), r.getModel())).toList();
     }
 
     private Set<UUID> users(Report report, List<ReportVersion> all) {
@@ -293,8 +316,30 @@ public class ReportService {
         return new VersionMeta(v.getVersionNo(), v.getOrigin(), name(names, v.getEditedBy()), v.getCreatedAt());
     }
 
-    private static VersionView view(ReportVersion v, Map<UUID, String> names) {
-        return new VersionView(v.getVersionNo(), v.getOrigin(), name(names, v.getEditedBy()), v.getCreatedAt(), v.getContent(), v.getPlainText());
+    private VersionView view(ReportVersion v, Map<UUID, String> names) {
+        return new VersionView(v.getVersionNo(), v.getOrigin(), name(names, v.getEditedBy()), v.getCreatedAt(),
+                withWeeklySentFlags(v.getContent()), v.getPlainText());
+    }
+
+    // El mensual congela el resumen de sus cuatro semanas al generarse (ReportContentBuilder): no dice si una semana
+    // se envio por separado. Si una quedo APROBADO sin enviar, el enlace "Ver el informe de esa semana" no debe
+    // aparecerle al medico (extension de D29, decidida el 2026-11-07 con el dueño); por eso se consulta en vivo,
+    // nunca desde lo congelado.
+    private JsonNode withWeeklySentFlags(JsonNode content) {
+        if (content == null || !content.hasNonNull("weekly_reports")) {
+            return content;
+        }
+        ArrayNode weeks = ((ArrayNode) content.get("weekly_reports")).deepCopy();
+        for (JsonNode week : weeks) {
+            if (week.hasNonNull("report_id") && week instanceof ObjectNode weekNode) {
+                UUID weekReportId = UUID.fromString(week.get("report_id").asText());
+                boolean sent = reports.findById(weekReportId).map(r -> r.getStatus() == Report.Status.ENVIADO).orElse(false);
+                weekNode.put("sent", sent);
+            }
+        }
+        ObjectNode result = ((ObjectNode) content).deepCopy();
+        result.set("weekly_reports", weeks);
+        return result;
     }
 
     // Por afirmacion, los registros que cita con su fecha y su texto ORIGINAL (la fuente citable, RN-07).

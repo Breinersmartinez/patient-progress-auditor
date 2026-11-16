@@ -3,6 +3,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
 import { AuthService } from './auth.service';
+import { rolePrefix } from './roles';
 
 export interface Session {
   id: string | null;
@@ -28,7 +29,11 @@ export class SessionService {
   // Fecha de hoy segun el servidor, en America/Bogota (F7): el navegador no decide que dia es.
   readonly today = signal<string | null>(null);
   readonly error = signal<string | null>(null);
-  readonly hasScreens = computed(() => this.session()?.role === 'ENFERMERIA');
+  // Solo enfermería y médico tienen pantallas; administración llega con el Momento 3.
+  readonly hasScreens = computed(() => this.session()?.role === 'ENFERMERIA' || this.session()?.role === 'MEDICO');
+
+  // El prefijo de ruta del rol de la sesión actual (`enf` o `med`), para los enlaces internos de las pantallas compartidas.
+  readonly prefix = computed(() => rolePrefix(this.session()?.role));
 
   async init(): Promise<void> {
     try {

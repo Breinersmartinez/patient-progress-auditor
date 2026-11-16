@@ -54,13 +54,24 @@ describe('SessionService y el interceptor del token', () => {
     expect(service.hasScreens()).toBeTrue();
   });
 
-  it('un medico o un administrador entran, pero no tienen pantallas', async () => {
+  it('el medico entra con pantallas y su prefijo de ruta es med; enfermeria usa enf', async () => {
     await start();
     http.expectOne('/api/session').flush({ ...NURSE, role: 'MEDICO' });
     await tick();
 
     expect(service.session()?.role).toBe('MEDICO');
+    expect(service.hasScreens()).toBeTrue();
+    expect(service.prefix()).toBe('med');
+  });
+
+  it('un administrador entra, pero no tiene pantallas todavia', async () => {
+    await start();
+    http.expectOne('/api/session').flush({ ...NURSE, id: null, role: 'ADMIN' });
+    await tick();
+
+    expect(service.session()?.role).toBe('ADMIN');
     expect(service.hasScreens()).toBeFalse();
+    expect(service.prefix()).toBe('enf');
   });
 
   it('no manda el token a direcciones que no son del API', () => {

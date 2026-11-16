@@ -1,0 +1,19 @@
+# Finales de línea: LF en el repositorio, sea cual sea el sistema operativo de quien clone.
+# run.sh y los demás .sh fallan si llegan con CRLF.
+* text=auto eol=lf
+*.sh text eol=lf
+
+# Binarios: git no los normaliza ni los muestra como texto en los diffs.
+*.xlsx binary
+*.docx binary
+*.pdf binary
+*.zip binary
+*.jar binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
