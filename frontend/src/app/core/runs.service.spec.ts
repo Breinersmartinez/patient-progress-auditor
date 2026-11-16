@@ -3,7 +3,6 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 
 import { EVENT_SOURCE_FACTORY, EventSourceLike, Run, RunStep, RunsService } from './runs.service';
-import { SessionService } from './session.service';
 
 export class FakeEventSource implements EventSourceLike {
   readyState = 1;
@@ -39,7 +38,6 @@ describe('RunsService', () => {
         { provide: EVENT_SOURCE_FACTORY, useValue: (url: string) => sources[sources.push(new FakeEventSource(url)) - 1] },
       ],
     });
-    TestBed.inject(SessionService).currentId.set('u 1');
     http = TestBed.inject(HttpTestingController);
     service = TestBed.inject(RunsService);
   });
@@ -73,7 +71,7 @@ describe('RunsService', () => {
     let end: Run | undefined;
     service.follow('r 1', { onStep: (s) => steps.push(s), onEnd: (r) => (end = r) });
 
-    expect(sources[0].url).toBe('/api/runs/r%201/events?demoUser=u%201');
+    expect(sources[0].url).toBe('/api/runs/r%201/events');
     sources[0].emit('step', { id: 5, seq: 1, type: 'ESTADO', message: 'Consultando', error: false });
     sources[0].emit('step', { id: 6, seq: 2, type: 'HERRAMIENTA', message: 'Leyendo', error: false });
     expect(steps.map((s) => s.message)).toEqual(['Consultando', 'Leyendo']);

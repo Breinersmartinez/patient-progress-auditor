@@ -12,7 +12,7 @@ import { SessionService } from './core/session.service';
 import { ToastService } from './core/toast.service';
 import { SidebarComponent, SidebarUser } from './ui/sidebar.component';
 
-// El armazon del mockup: menu lateral, encabezado con "Ver como" y la zona de la vista.
+// El armazon del mockup: menu lateral, encabezado con "Cerrar sesion" y la zona de la vista.
 @Component({
   selector: 'app-root',
   standalone: true,
@@ -56,11 +56,6 @@ export class AppComponent {
       this.pageTitle.set(typeof title === 'string' ? title : '');
       window.scrollTo(0, 0);
     });
-  }
-
-  protected async choose(event: Event): Promise<void> {
-    await this.session.select((event.target as HTMLSelectElement).value);
-    await this.router.navigateByUrl('/enf/pacientes'); // como el mockup, vuelve al inicio del rol
   }
 
   private deepestData(): Record<string, unknown> {

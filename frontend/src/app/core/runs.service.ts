@@ -2,7 +2,8 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, InjectionToken, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
-import { SessionService } from './session.service';
+import { AuthService } from './auth.service';
+import { FetchEventSource } from './fetch-event-source';
 
 export type RunStatus = 'EN_COLA' | 'EN_CURSO' | 'COMPLETADA' | 'INCOMPLETA' | 'FALLIDA';
 
@@ -53,7 +54,10 @@ export interface EventSourceLike {
 
 export const EVENT_SOURCE_FACTORY = new InjectionToken<(url: string) => EventSourceLike>('EVENT_SOURCE_FACTORY', {
   providedIn: 'root',
-  factory: () => (url: string) => new EventSource(url) as unknown as EventSourceLike,
+  factory: () => {
+    const auth = inject(AuthService);
+    return (url: string) => new FetchEventSource(url, () => auth.token());
+  },
 });
 
 const FINAL: RunStatus[] = ['COMPLETADA', 'INCOMPLETA', 'FALLIDA'];
@@ -61,7 +65,6 @@ const FINAL: RunStatus[] = ['COMPLETADA', 'INCOMPLETA', 'FALLIDA'];
 @Injectable({ providedIn: 'root' })
 export class RunsService {
   private readonly http = inject(HttpClient);
-  private readonly session = inject(SessionService);
   private readonly newEventSource = inject(EVENT_SOURCE_FACTORY);
 
   // `weekStart` es el lunes de la semana o, si `type` es MENSUAL, el lunes de la primera de las cuatro semanas.
@@ -75,12 +78,11 @@ export class RunsService {
     return firstValueFrom(this.http.get<Run>(`/api/runs/${encodeURIComponent(id)}`));
   }
 
-  // Sigue la ejecucion por SSE. EventSource no permite cabeceras: el usuario viaja en ?demoUser= (solo en esta ruta, E4).
-  // Si la conexion se corta, el navegador reconecta solo con Last-Event-ID y el servidor reanuda; ademas se consulta el
+  // Sigue la ejecucion por SSE con el token en la cabecera Authorization (ver fetch-event-source.ts).
+  // Si la conexion se corta, se reconecta con Last-Event-ID y el servidor reanuda; ademas se consulta el
   // estado, por si la ejecucion termino mientras no habia conexion. Devuelve la funcion que cierra el seguimiento.
   follow(runId: string, follower: RunFollower): () => void {
-    const url = `/api/runs/${encodeURIComponent(runId)}/events?demoUser=${encodeURIComponent(this.session.currentId() ?? '')}`;
-    const source = this.newEventSource(url);
+    const source = this.newEventSource(`/api/runs/${encodeURIComponent(runId)}/events`);
     let closed = false;
     const finish = (run: Run): void => {
       if (!closed) {
