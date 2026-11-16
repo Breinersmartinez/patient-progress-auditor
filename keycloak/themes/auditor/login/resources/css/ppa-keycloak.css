@@ -1,0 +1,43 @@
+/*
+ * Adaptaciones del CSS del prototipo (ppa.css, copia literal) para Keycloak.
+ * Cada regla dice por qué existe.
+ */
+
+/* El antetítulo "Acceso a PGRP" estaba fijo en el CSS del prototipo: ahora sale de
+   messages_es.properties vía data-antetitulo. Mismo aspecto, otro origen del texto. */
+.fside .fhead::before, .ccard .fhead::before { content: attr(data-antetitulo); }
+
+/* "¿Olvidaste tu contraseña?" y "Volver a ingresar" son <a> (navegan a URLs de Keycloak) donde el
+   prototipo usa <button class="link">. PatternFly subraya y recolorea los <a> en :hover (también
+   en pantallas táctiles, donde el hover queda pegado). Se restaura el comportamiento del prototipo:
+   subrayado solo con puntero fino. */
+a.link, a.link:hover, a.link:focus { text-decoration: none; color: var(--color-primary); }
+@media (hover: hover) and (pointer: fine) { a.link:hover { text-decoration: underline; } }
+
+/* ---- Código de recuperación (ppa-otp.css) ---- */
+/* En el prototipo el botón es una demostración (<div>, sin clic). En Keycloak es el botón real del
+   formulario: se le devuelve el clic. */
+.obtn { pointer-events: auto; cursor: pointer; }
+/* Input real del código: invisible y encima de las 6 cajas, que muestran lo que se escribe.
+   16px evita que el navegador del celular haga zoom al enfocar. */
+.ppa-codigo { position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; opacity: 0; font-size: 16px; caret-color: transparent; cursor: text; }
+/* "Reenviar código" aparece al terminar la cuenta regresiva, con el mismo aspecto que el contador
+   del prototipo ("Reenviar en 00:39"). */
+.ppa-reenviar { padding: 0; border: 0; background: none; font: inherit; font-weight: 600; color: var(--accent); cursor: pointer; }
+@media (hover: hover) and (pointer: fine) { .ppa-reenviar:hover { text-decoration: underline; } }
+.ppa-reenviar:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; border-radius: 2px; }
+/* Error del código (incorrecto o anulado). El prototipo no tiene estado de error: se usa el aviso
+   .ferr de ppa_alta_propuestas.html, mismo sistema de diseño. */
+.ppa-ferr { margin: 12px 0 0; display: flex; align-items: flex-start; gap: 8px; max-width: 40ch; padding: 10px 12px; border-radius: var(--radius-ui); background: color-mix(in srgb, var(--color-danger) 10%, var(--surface)); color: var(--text-primary); font-size: 14px; text-align: left; }
+.ppa-ferr .icon { flex: none; width: 18px; height: 18px; margin-top: 2px; color: var(--color-danger); }
+
+/* ---- Crear contraseña (ppa-alta.css) ---- */
+/* Mientras se muestra el check de "Verificado con éxito" el formulario se ve atenuado y no recibe
+   clics; vuelve a la normalidad al pasar al estado "Crea tu contraseña". */
+.pform.ppa-espera { opacity: 0.4; pointer-events: none; transition: opacity 300ms ease-out; }
+.pform { transition: opacity 300ms ease-out; }
+/* "Contraseña creada": el prototipo reconoce la tarjeta por href="ppa_login2.html". En Keycloak el
+   enlace va a la aplicación, así que se marca con data-creada. Mismas reglas que ppa-alta.css. */
+.A:has([data-creada]) .card { display: flex; flex-direction: column; min-height: 452px; }
+@media (max-width: 560px) { .A:has([data-creada]) .card { min-height: 432px; } }
+.A:has([data-creada]) .card .acts { margin-top: 35px; } .A:has([data-creada]) .card .slot { display: none; } .A:has([data-creada]) .card .cen { margin-top: 20px; }
