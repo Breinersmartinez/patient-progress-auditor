@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.patientprogressauditor.entry.EntryService.EntryView;
-import com.patientprogressauditor.session.DemoPrincipal;
+import com.patientprogressauditor.session.AppPrincipal;
 import com.patientprogressauditor.structuring.Proposal;
 import com.patientprogressauditor.structuring.StructuringService;
 import com.patientprogressauditor.web.FieldException;
@@ -66,7 +66,7 @@ public class EntryController {
     @PostMapping("/patients/{patientId}/entries/propose")
     @PreAuthorize("hasAuthority('ENTRIES_CREATE')")
     public Proposal propose(@PathVariable UUID patientId, @Valid @RequestBody ProposeRequest request,
-            @AuthenticationPrincipal DemoPrincipal principal) {
+            @AuthenticationPrincipal AppPrincipal principal) {
         return structuring.propose(patientId, request.body(), principal);
     }
 
@@ -74,7 +74,7 @@ public class EntryController {
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAuthority('ENTRIES_CREATE')")
     public EntryView create(@PathVariable UUID patientId, @Valid @RequestBody CreateEntryRequest request,
-            @AuthenticationPrincipal DemoPrincipal principal) {
+            @AuthenticationPrincipal AppPrincipal principal) {
         EntryService.Correction correction = request.correction() == null ? null
                 : new EntryService.Correction(request.correction().body(), request.correction().origin());
         return service.create(patientId, request.entryDate(), request.body(), request.events(), correction, principal);

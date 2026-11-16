@@ -34,7 +34,7 @@ import com.patientprogressauditor.patient.PatientRepository;
 import com.patientprogressauditor.report.ReportEditValidator.Edit;
 import com.patientprogressauditor.run.RunService;
 import com.patientprogressauditor.run.RunService.StepView;
-import com.patientprogressauditor.session.DemoPrincipal;
+import com.patientprogressauditor.session.AppPrincipal;
 import com.patientprogressauditor.user.AppUser;
 import com.patientprogressauditor.user.AppUserRepository;
 import com.patientprogressauditor.web.FieldException;
@@ -98,7 +98,7 @@ public class ReportService {
 
     // ---- lectura ----
 
-    public List<Summary> list(DemoPrincipal principal, Report.Status status, UUID patientId, Report.Type type) {
+    public List<Summary> list(AppPrincipal principal, Report.Status status, UUID patientId, Report.Type type) {
         List<Report.Status> visible = ReportVisibility.statusesFor(principal).stream().map(Report.Status::valueOf).toList();
         // Pedir un estado que el rol no ve no es un error: simplemente no hay nada.
         List<Report.Status> wanted = status == null ? visible : visible.stream().filter(s -> s == status).toList();
@@ -111,7 +111,7 @@ public class ReportService {
         return summaries(found);
     }
 
-    public Detail detail(UUID id, DemoPrincipal principal) {
+    public Detail detail(UUID id, AppPrincipal principal) {
         Report report = visible(id, principal);
         List<ReportVersion> all = versions.findByReportIdOrderByVersionNoAsc(id);
         ReportVersion current = current(report, all);
@@ -133,7 +133,7 @@ public class ReportService {
     }
 
     // Los pasos de la ejecucion que produjo el informe: la evidencia de que consulto el agente (RF-24).
-    public List<StepView> trace(UUID id, DemoPrincipal principal) {
+    public List<StepView> trace(UUID id, AppPrincipal principal) {
         Report report = visible(id, principal);
         if (report.getRunId() == null) {
             return List.of();
@@ -144,7 +144,7 @@ public class ReportService {
     // ---- edicion y decision ----
 
     @Transactional
-    public Detail edit(UUID id, Edit edit, DemoPrincipal principal) {
+    public Detail edit(UUID id, Edit edit, AppPrincipal principal) {
         Report report = locked(id);
         ReportTransitions.requireEditable(report);
         List<ReportVersion> all = versions.findByReportIdOrderByVersionNoAsc(id);
@@ -184,7 +184,7 @@ public class ReportService {
     }
 
     @Transactional
-    public Detail approve(UUID id, DemoPrincipal principal) {
+    public Detail approve(UUID id, AppPrincipal principal) {
         Report report = locked(id);
         ReportTransitions.require(report, Report.Status.APROBADO);
         List<ReportVersion> all = versions.findByReportIdOrderByVersionNoAsc(id);
@@ -198,7 +198,7 @@ public class ReportService {
     }
 
     @Transactional
-    public Detail reject(UUID id, String reason, DemoPrincipal principal) {
+    public Detail reject(UUID id, String reason, AppPrincipal principal) {
         Report report = locked(id);
         ReportTransitions.require(report, Report.Status.RECHAZADO);
         report.setStatus(Report.Status.RECHAZADO);
@@ -248,13 +248,13 @@ public class ReportService {
     }
 
     // Un informe que el rol no puede ver se trata como inexistente: no se revela que esta.
-    private Report visible(UUID id, DemoPrincipal principal) {
+    private Report visible(UUID id, AppPrincipal principal) {
         return reports.findById(id)
                 .filter(r -> ReportVisibility.statusesFor(principal).contains(r.getStatus().name()))
                 .orElseThrow(() -> new NotFoundException("No encontramos ese informe."));
     }
 
-    private static boolean isDoctor(DemoPrincipal principal) {
+    private static boolean isDoctor(AppPrincipal principal) {
         return !ReportVisibility.statusesFor(principal).contains(Report.Status.PENDIENTE_REVISION.name());
     }
 

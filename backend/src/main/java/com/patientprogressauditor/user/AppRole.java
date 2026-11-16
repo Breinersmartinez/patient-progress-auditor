@@ -24,6 +24,7 @@ import lombok.Setter;
 @NoArgsConstructor
 public class AppRole {
 
+    public static final String ADMIN = "ADMIN";
     public static final String NURSING = "ENFERMERIA";
     public static final String DOCTOR = "MEDICO";
     public static final String AGENT = "AGENTE";

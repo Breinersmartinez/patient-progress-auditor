@@ -2,6 +2,7 @@ package com.patientprogressauditor.seed;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import com.patientprogressauditor.support.TestAuth;
 
 import java.time.LocalDate;
 import java.util.HashSet;
@@ -176,7 +177,7 @@ class SeededReportsTest {
 
     @Test
     void theDoctorSeesTheFourApprovedAndNotThePendingOne() throws Exception {
-        String list = mockMvc.perform(get("/api/reports").header("X-Demo-User", DOCTOR)).andReturn().getResponse().getContentAsString();
+        String list = mockMvc.perform(get("/api/reports").with(TestAuth.as(DOCTOR))).andReturn().getResponse().getContentAsString();
         JsonNode reports = mapper.readTree(list);
         List<String> seededIds = jdbc.queryForList("SELECT id::text FROM reports WHERE " + SEEDED, String.class);
         long visibleSeeded = 0;
@@ -188,7 +189,7 @@ class SeededReportsTest {
         }
         assertThat(visibleSeeded).isEqualTo(4);
         UUID pending = DemoDataSeeder.reportId("P-021", LocalDate.of(2026, 10, 12));
-        assertThat(mockMvc.perform(get("/api/reports/" + pending).header("X-Demo-User", DOCTOR)).andReturn().getResponse().getStatus()).isEqualTo(404);
-        assertThat(mockMvc.perform(get("/api/reports/" + pending).header("X-Demo-User", NURSE)).andReturn().getResponse().getStatus()).isEqualTo(200);
+        assertThat(mockMvc.perform(get("/api/reports/" + pending).with(TestAuth.as(DOCTOR))).andReturn().getResponse().getStatus()).isEqualTo(404);
+        assertThat(mockMvc.perform(get("/api/reports/" + pending).with(TestAuth.as(NURSE))).andReturn().getResponse().getStatus()).isEqualTo(200);
     }
 }

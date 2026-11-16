@@ -2,7 +2,7 @@ package com.patientprogressauditor.report;
 
 import java.util.List;
 
-import com.patientprogressauditor.session.DemoPrincipal;
+import com.patientprogressauditor.session.AppPrincipal;
 
 // Que estados de informe puede ver cada rol. El medico solo ve APROBADO (RN-01, RF-28); lo decide el servidor,
 // no la pantalla. Enfermeria ve todos los estados.
@@ -13,7 +13,7 @@ public final class ReportVisibility {
     private ReportVisibility() {
     }
 
-    public static List<String> statusesFor(DemoPrincipal principal) {
+    public static List<String> statusesFor(AppPrincipal principal) {
         if (DOCTOR.equals(principal.role())) {
             return List.of(Report.Status.APROBADO.name());
         }

@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import com.patientprogressauditor.support.TestAuth;
 
 import java.time.LocalDate;
 import java.util.UUID;
@@ -128,7 +129,7 @@ class MonthlyEligibilityTest {
     @Test
     void monthsListsTheWindowsNewestFirstWithTheStateOfEachWeek() throws Exception {
         UUID p014 = fx.patient("P-014");
-        mockMvc.perform(get("/api/patients/" + p014 + "/report-months").header("X-Demo-User", NURSE))
+        mockMvc.perform(get("/api/patients/" + p014 + "/report-months").with(TestAuth.as(NURSE)))
                 .andExpect(status().isOk())
                 // P-014 tiene cinco semanas (21-sep a 25-oct): dos ventanas
                 .andExpect(jsonPath("$.length()").value(2))
@@ -145,14 +146,14 @@ class MonthlyEligibilityTest {
 
     @Test
     void aPatientWithoutFourWeeksHasNoWindows() throws Exception {
-        mockMvc.perform(get("/api/patients/" + fx.patient("P-040") + "/report-months").header("X-Demo-User", NURSE))
+        mockMvc.perform(get("/api/patients/" + fx.patient("P-040") + "/report-months").with(TestAuth.as(NURSE)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
     }
 
     @Test
     void onlyNursingCanListMonthsAndTheyNeedAKnownPatient() throws Exception {
-        mockMvc.perform(get("/api/patients/" + p033 + "/report-months").header("X-Demo-User", DOCTOR)).andExpect(status().isForbidden());
-        mockMvc.perform(get("/api/patients/" + UUID.randomUUID() + "/report-months").header("X-Demo-User", NURSE)).andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/patients/" + p033 + "/report-months").with(TestAuth.as(DOCTOR))).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/patients/" + UUID.randomUUID() + "/report-months").with(TestAuth.as(NURSE))).andExpect(status().isNotFound());
         mockMvc.perform(get("/api/patients/" + p033 + "/report-months")).andExpect(status().isUnauthorized());
     }
 }

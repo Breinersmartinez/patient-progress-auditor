@@ -23,7 +23,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import com.patientprogressauditor.report.Report;
 import com.patientprogressauditor.run.RunService.RunView;
 import com.patientprogressauditor.run.RunService.StepView;
-import com.patientprogressauditor.session.DemoPrincipal;
+import com.patientprogressauditor.session.AppPrincipal;
 
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -57,7 +57,7 @@ public class RunController {
 
     // Responde 202 al instante con el id; 200 si ya habia una ejecucion viva de ese paciente y semana (la misma, sin lanzar otra).
     @PostMapping
-    public ResponseEntity<RunView> request(@Valid @RequestBody RequestRun request, @AuthenticationPrincipal DemoPrincipal principal) {
+    public ResponseEntity<RunView> request(@Valid @RequestBody RequestRun request, @AuthenticationPrincipal AppPrincipal principal) {
         RunService.Requested requested = service.request(request.patientId(), request.weekStart(),
                 request.type() == null ? Report.Type.SEMANAL : request.type(), request.request(), principal);
         return ResponseEntity.status(requested.created() ? HttpStatus.ACCEPTED : HttpStatus.OK).body(requested.run());

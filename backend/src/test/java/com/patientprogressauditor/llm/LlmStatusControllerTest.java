@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import com.patientprogressauditor.support.TestAuth;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,7 +31,7 @@ class LlmStatusControllerTest {
 
     @Test
     void listsPrimaryAndBackupAndNeverLeaksAKey() throws Exception {
-        mockMvc.perform(get("/api/llm/status").header("X-Demo-User", NURSE))
+        mockMvc.perform(get("/api/llm/status").with(TestAuth.as(NURSE)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.available").value(true))
                 .andExpect(jsonPath("$.warning").doesNotExist())
@@ -45,7 +46,7 @@ class LlmStatusControllerTest {
 
     @Test
     void anyChosenUserCanSeeItAndNoUserIsRejected() throws Exception {
-        mockMvc.perform(get("/api/llm/status").header("X-Demo-User", DOCTOR)).andExpect(status().isOk());
+        mockMvc.perform(get("/api/llm/status").with(TestAuth.as(DOCTOR))).andExpect(status().isOk());
         mockMvc.perform(get("/api/llm/status")).andExpect(status().isUnauthorized());
     }
 

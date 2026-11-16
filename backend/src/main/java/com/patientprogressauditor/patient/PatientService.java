@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.patientprogressauditor.entry.EntryRepository;
 import com.patientprogressauditor.report.ReportRepository;
 import com.patientprogressauditor.report.ReportVisibility;
-import com.patientprogressauditor.session.DemoPrincipal;
+import com.patientprogressauditor.session.AppPrincipal;
 import com.patientprogressauditor.web.FieldException;
 import com.patientprogressauditor.web.NotFoundException;
 
@@ -50,7 +50,7 @@ public class PatientService {
     }
 
     @Transactional(readOnly = true)
-    public List<PatientView> list(DemoPrincipal principal) {
+    public List<PatientView> list(AppPrincipal principal) {
         List<Patient> all = patients.findAll().stream()
                 .sorted(Comparator.comparing(Patient::getAlias, String.CASE_INSENSITIVE_ORDER)).toList();
         Map<UUID, LocalDate> lastEntries = entries.findLastEntryDates().stream()
@@ -60,7 +60,7 @@ public class PatientService {
     }
 
     @Transactional(readOnly = true)
-    public PatientView get(UUID id, DemoPrincipal principal) {
+    public PatientView get(UUID id, AppPrincipal principal) {
         Patient patient = patients.findById(id).orElseThrow(() -> new NotFoundException("No encontramos ese paciente."));
         LocalDate lastEntry = entries.findLastEntryDates(List.of(id)).stream()
                 .map(EntryRepository.LastEntry::getLastDate).findFirst().orElse(null);
@@ -68,7 +68,7 @@ public class PatientService {
     }
 
     @Transactional
-    public PatientView create(NewPatient request, DemoPrincipal principal) {
+    public PatientView create(NewPatient request, AppPrincipal principal) {
         String alias = request.alias() == null ? "" : request.alias().trim();
         if (alias.isEmpty()) {
             throw new FieldException(HttpStatus.BAD_REQUEST, "alias", "Escriba el código del paciente.");
@@ -94,7 +94,7 @@ public class PatientService {
         return view(patient, null, null);
     }
 
-    private Map<UUID, LastReport> lastReports(DemoPrincipal principal) {
+    private Map<UUID, LastReport> lastReports(AppPrincipal principal) {
         Map<UUID, LastReport> result = new HashMap<>();
         for (ReportRepository.LatestReport r : reports.findLatestPerPatient(ReportVisibility.statusesFor(principal))) {
             result.put(r.getPatientId(),

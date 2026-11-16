@@ -27,7 +27,7 @@ import com.patientprogressauditor.llm.LlmUnavailableException;
 import com.patientprogressauditor.llm.ResponseSchema;
 import com.patientprogressauditor.llm.StructuredResult;
 import com.patientprogressauditor.patient.PatientRepository;
-import com.patientprogressauditor.session.DemoPrincipal;
+import com.patientprogressauditor.session.AppPrincipal;
 import com.patientprogressauditor.web.NotFoundException;
 
 // Propone los eventos de una entrada (D27). Es UNA llamada corta, sin herramientas, en la misma peticion: la persona
@@ -59,7 +59,7 @@ public class StructuringService {
         this.schema = StructuringPrompt.schema(mapper);
     }
 
-    public Proposal propose(UUID patientId, String text, DemoPrincipal principal) {
+    public Proposal propose(UUID patientId, String text, AppPrincipal principal) {
         if (!patients.existsById(patientId)) {
             throw new NotFoundException("No encontramos ese paciente.");
         }

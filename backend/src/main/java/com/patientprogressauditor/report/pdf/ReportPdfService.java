@@ -13,7 +13,7 @@ import org.springframework.stereotype.Service;
 import com.patientprogressauditor.report.Report;
 import com.patientprogressauditor.report.ReportService;
 import com.patientprogressauditor.report.ReportService.Detail;
-import com.patientprogressauditor.session.DemoPrincipal;
+import com.patientprogressauditor.session.AppPrincipal;
 import com.patientprogressauditor.web.FieldException;
 
 import net.sf.jasperreports.engine.JRException;
@@ -46,7 +46,7 @@ public class ReportPdfService {
         this.reports = reports;
     }
 
-    public Pdf render(UUID id, DemoPrincipal principal) {
+    public Pdf render(UUID id, AppPrincipal principal) {
         Detail detail = reports.detail(id, principal);
         if (detail.report().status() != Report.Status.APROBADO) {
             String state = switch (detail.report().status()) {

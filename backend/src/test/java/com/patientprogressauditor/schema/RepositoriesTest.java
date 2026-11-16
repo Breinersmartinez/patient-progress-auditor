@@ -109,7 +109,7 @@ class RepositoriesTest {
 
         assertThat(loaded.getRoles()).extracting(AppRole::getCode).containsExactly("ENFERMERIA");
         assertThat(permissions).contains("REPORTS_APPROVE", "ENTRIES_CREATE");
-        assertThat(users.findByDemoTrueAndActiveTrueOrderByDisplayName()).extracting(AppUser::getId).contains(nurse.getId());
+        assertThat(users.findByEmailIgnoreCaseAndActiveTrue(nurse.getEmail().toUpperCase())).map(AppUser::getId).contains(nurse.getId());
     }
 
     @Test
