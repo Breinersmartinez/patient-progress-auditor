@@ -94,6 +94,17 @@ class SessionEndpointsTest {
     }
 
     @Test
+    void aDeactivatedAdminIsCutOffImmediatelyToo() throws Exception {
+        jdbc.update("UPDATE app_users SET active = false WHERE email = 'admin@example.test'");
+        mockMvc.perform(get("/api/session").with(TestAuth.token("admin@example.test", "ADMIN"))).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void anAdminTokenWithoutAnAccountIs403() throws Exception {
+        mockMvc.perform(get("/api/session").with(TestAuth.token("otro.admin@example.test", "ADMIN"))).andExpect(status().isForbidden());
+    }
+
+    @Test
     void theEmailMatchIgnoresCase() throws Exception {
         mockMvc.perform(get("/api/session").with(TestAuth.token("MARCELA.ROJAS@EXAMPLE.TEST", "ENFERMERIA")))
                 .andExpect(status().isOk())
@@ -101,11 +112,12 @@ class SessionEndpointsTest {
     }
 
     @Test
-    void anAdminNeedsNoAccountAndReadsNoClinicalData() throws Exception {
+    void anAdminHasAnAccountButReadsNoClinicalData() throws Exception {
         mockMvc.perform(get("/api/session").with(TestAuth.token("admin@example.test", "ADMIN")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.role").value("ADMIN"))
-                .andExpect(jsonPath("$.id").doesNotExist());
+                .andExpect(jsonPath("$.displayName").value("Administrador Auditor"))
+                .andExpect(jsonPath("$.id").isNotEmpty());
         mockMvc.perform(get("/api/patients").with(TestAuth.token("admin@example.test", "ADMIN"))).andExpect(status().isForbidden());
         mockMvc.perform(get("/api/entries").with(TestAuth.token("admin@example.test", "ADMIN"))).andExpect(status().isForbidden());
         mockMvc.perform(get("/api/reports").with(TestAuth.token("admin@example.test", "ADMIN"))).andExpect(status().isForbidden());

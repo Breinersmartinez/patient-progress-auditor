@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api")
 public class SessionController {
 
-    // `id` es nulo para ADMIN (no tiene AppUser). El rol sin pantallas (MEDICO, ADMIN) se resuelve en el front.
+    // `id` es el del AppUser del correo del token (tambien para ADMIN).
     public record SessionView(UUID id, String displayName, String role, List<String> permissions) {
     }
 
