@@ -19,7 +19,7 @@ interface SystemStatus {
 }
 
 // Sesion de la persona que inicio sesion en Keycloak. El servidor devuelve su nombre, rol y permisos (GET /api/session).
-// Por ahora solo enfermeria tiene pantallas; medico y administracion ven un aviso con "Cerrar sesion".
+// Cada rol tiene sus pantallas (`enf`, `med`, `adm`).
 @Injectable({ providedIn: 'root' })
 export class SessionService {
   private readonly http = inject(HttpClient);
@@ -29,8 +29,8 @@ export class SessionService {
   // Fecha de hoy segun el servidor, en America/Bogota (F7): el navegador no decide que dia es.
   readonly today = signal<string | null>(null);
   readonly error = signal<string | null>(null);
-  // Solo enfermería y médico tienen pantallas; administración llega con el Momento 3.
-  readonly hasScreens = computed(() => this.session()?.role === 'ENFERMERIA' || this.session()?.role === 'MEDICO');
+  // Los tres roles tienen pantallas: enfermería y médico las clínicas, administración la gestión de usuarios (RF-33).
+  readonly hasScreens = computed(() => ['ENFERMERIA', 'MEDICO', 'ADMIN'].includes(this.session()?.role ?? ''));
 
   // El prefijo de ruta del rol de la sesión actual (`enf` o `med`), para los enlaces internos de las pantallas compartidas.
   readonly prefix = computed(() => rolePrefix(this.session()?.role));

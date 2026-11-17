@@ -64,14 +64,14 @@ describe('SessionService y el interceptor del token', () => {
     expect(service.prefix()).toBe('med');
   });
 
-  it('un administrador entra, pero no tiene pantallas todavia', async () => {
+  it('un administrador entra y tiene sus pantallas (gestión de usuarios, prefijo adm)', async () => {
     await start();
-    http.expectOne('/api/session').flush({ ...NURSE, id: null, role: 'ADMIN' });
+    http.expectOne('/api/session').flush({ ...NURSE, role: 'ADMIN' });
     await tick();
 
     expect(service.session()?.role).toBe('ADMIN');
-    expect(service.hasScreens()).toBeFalse();
-    expect(service.prefix()).toBe('enf');
+    expect(service.hasScreens()).toBeTrue();
+    expect(service.prefix()).toBe('adm');
   });
 
   it('no manda el token a direcciones que no son del API', () => {

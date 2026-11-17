@@ -4,7 +4,7 @@ import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { filter, map, startWith } from 'rxjs';
 
 import { IconComponent } from './core/icon.component';
-import { DOCTOR_MENU, NURSING_MENU } from './core/menu';
+import { ADMIN_MENU, DOCTOR_MENU, NURSING_MENU } from './core/menu';
 import { MenuMarkService } from './core/menu-mark.service';
 import { NotificationsService } from './core/notifications.service';
 import { PageTitleService } from './core/page-title.service';
@@ -29,8 +29,11 @@ export class AppComponent {
   private readonly router = inject(Router);
   private readonly menuMark = inject(MenuMarkService);
 
-  // El menu de cada rol (D26): el del medico aun no tiene «Armar informe» (Pieza 6).
-  protected readonly menu = computed(() => (this.session.session()?.role === 'MEDICO' ? DOCTOR_MENU : NURSING_MENU));
+  // El menu de cada rol, segun el rol del token.
+  protected readonly menu = computed(() => {
+    const role = this.session.session()?.role;
+    return role === 'MEDICO' ? DOCTOR_MENU : role === 'ADMIN' ? ADMIN_MENU : NURSING_MENU;
+  });
 
   // Ruta actual y opcion del menu que le corresponde.
   private readonly navigation = toSignal(
