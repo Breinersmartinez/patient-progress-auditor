@@ -54,6 +54,8 @@ services:
       KC_DB_PASSWORD: "${KC_DB_PASSWORD:?KC_DB_PASSWORD no esta definido, ejecute ./run.sh}"
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_BOOTSTRAP_ADMIN_USERNAME:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: "${KC_BOOTSTRAP_ADMIN_PASSWORD:?KC_BOOTSTRAP_ADMIN_PASSWORD no esta definido, ejecute ./run.sh}"
+      # Secreto del cliente de servicio `auditor-admin`: el realm lo toma al importarse (${...} en auditor-realm.json).
+      AUDITOR_ADMIN_CLIENT_SECRET: "${AUDITOR_ADMIN_CLIENT_SECRET:?AUDITOR_ADMIN_CLIENT_SECRET no esta definido, ejecute ./run.sh}"
       # La URL publica fija el emisor de los tokens: el navegador y el backend deben verla igual.
       KC_HOSTNAME: http://localhost:${KC_PORT:-7070}
     ports:
@@ -107,6 +109,13 @@ services:
       # El emisor es la URL publica de Keycloak; las claves se piden por la red de Compose.
       OIDC_ISSUER: http://localhost:${KC_PORT:-7070}/realms/auditor
       OIDC_JWKS_URI: http://keycloak:8080/realms/auditor/protocol/openid-connect/certs
+      # Gestion de usuarios (docs/admin-usuarios): el backend llama a la API de administracion de Keycloak por la red de
+      # Compose con el cliente de servicio, y el enlace de la invitacion vuelve a la interfaz publica.
+      KC_ADMIN_URL: http://keycloak:8080
+      KC_ADMIN_REALM: auditor
+      KC_ADMIN_CLIENT_ID: auditor-admin
+      AUDITOR_ADMIN_CLIENT_SECRET: "${AUDITOR_ADMIN_CLIENT_SECRET:?AUDITOR_ADMIN_CLIENT_SECRET no esta definido, ejecute ./run.sh}"
+      APP_PUBLIC_URL: http://localhost:${FRONTEND_PORT:-4200}
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     healthcheck:
