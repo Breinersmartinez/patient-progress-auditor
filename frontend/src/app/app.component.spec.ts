@@ -25,6 +25,7 @@ describe('AppComponent (armazón del mockup)', () => {
   beforeEach(async () => {
     select.calls.reset();
     fakeSession.error.set(null);
+    fakeSession.session.set({ id: 'n2', displayName: 'Marcela Rojas', role: 'ENFERMERIA', permissions: [] });
     await TestBed.configureTestingModule({
       providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter(routes), { provide: SessionService, useValue: fakeSession }],
     }).compileComponents();
@@ -60,6 +61,45 @@ describe('AppComponent (armazón del mockup)', () => {
     expect(root.querySelector('h1#titulo')?.textContent).toBe('No encontrado');
   });
 
+  it('con un médico, el menú es «Mis pacientes» e «Informes → Recibidos» del mockup', async () => {
+    fakeSession.session.set({ id: 'm1', displayName: 'Dr. Andrés Salazar', role: 'MEDICO', permissions: [] });
+    const root: HTMLElement = (await open('/med/pacientes')).nativeElement;
+
+    const items = Array.from(root.querySelectorAll('#sb .sb-item .sb-text')).map((el) => el.textContent?.trim());
+    expect(items).toEqual(['Mis pacientes', 'Informes']);
+    expect(root.querySelector('h1#titulo')?.textContent).toBe('Mis pacientes');
+  });
+
+  it('la guarda de rol: un médico que entra a una ruta de enfermería va a su propio inicio', async () => {
+    fakeSession.session.set({ id: 'm1', displayName: 'Dr. Andrés Salazar', role: 'MEDICO', permissions: [] });
+    const root: HTMLElement = (await open('/enf/pacientes')).nativeElement;
+
+    expect(TestBed.inject(Router).url).toBe('/med/pacientes');
+    expect(root.querySelector('h1#titulo')?.textContent).toBe('Mis pacientes');
+  });
+
+  it('la guarda de rol: una enfermera que entra a una ruta del médico va a su propio inicio', async () => {
+    const root: HTMLElement = (await open('/med/informes/recibidos')).nativeElement;
+
+    expect(TestBed.inject(Router).url).toBe('/enf/pacientes');
+    expect(root.querySelector('h1#titulo')?.textContent).toBe('Pacientes');
+  });
+
+  it('la ruta por defecto depende del rol de la sesión, no siempre de enfermería', async () => {
+    fakeSession.session.set({ id: 'm1', displayName: 'Dr. Andrés Salazar', role: 'MEDICO', permissions: [] });
+    const root: HTMLElement = (await open('/')).nativeElement;
+
+    expect(TestBed.inject(Router).url).toBe('/med/pacientes');
+    expect(root.querySelector('h1#titulo')?.textContent).toBe('Mis pacientes');
+  });
+
+  it('"No encontrado" vuelve al inicio del rol del médico, no al de enfermería', async () => {
+    fakeSession.session.set({ id: 'm1', displayName: 'Dr. Andrés Salazar', role: 'MEDICO', permissions: [] });
+    const root: HTMLElement = (await open('/nada/que/ver')).nativeElement;
+
+    expect(root.querySelector('.vacio a')?.getAttribute('href')).toBe('/med/pacientes');
+  });
+
   it('"Ver como" lista solo las enfermeras, deja marcada la elegida y cambia de usuario', async () => {
     const fixture = await open('/enf/pacientes');
     const selectElement: HTMLSelectElement = fixture.nativeElement.querySelector('select#rol');
@@ -79,6 +119,16 @@ describe('AppComponent (armazón del mockup)', () => {
     const root: HTMLElement = (await open('/enf/pacientes')).nativeElement;
 
     expect(root.querySelector('.aviso')?.textContent).toContain('No se pudo conectar con el servidor.');
+  });
+
+  // D30, RF-45: la campana es solo del medico; enfermeria no tiene el permiso NOTIFICATIONS_READ.
+  it('con un médico, el encabezado trae la campana; con enfermería, no', async () => {
+    const enfermera: HTMLElement = (await open('/enf/pacientes')).nativeElement;
+    expect(enfermera.querySelector('header .campana')).toBeNull();
+
+    fakeSession.session.set({ id: 'm1', displayName: 'Dr. Andrés Salazar', role: 'MEDICO', permissions: [] });
+    const medico: HTMLElement = (await open('/med/pacientes')).nativeElement;
+    expect(medico.querySelector('header .campana')).not.toBeNull();
   });
 
   it('los avisos (toast) salen en la zona con aria-live y se quitan solos', async () => {

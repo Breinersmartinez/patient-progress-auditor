@@ -35,15 +35,27 @@ describe('SessionService y el interceptor del usuario elegido', () => {
     await Promise.resolve();
   }
 
-  it('toma la fecha del servidor y ofrece solo enfermeras', async () => {
+  it('toma la fecha del servidor y ofrece enfermeras y médicos (D26)', async () => {
     await start();
     const request = http.expectOne('/api/session');
     expect(request.request.headers.get('X-Demo-User')).toBe('n1');
     request.flush({ ...USERS[0], permissions: ['PATIENTS_READ'] });
 
     expect(service.today()).toBe('2026-10-28');
-    expect(service.selectable().map((u) => u.displayName)).toEqual(['Camilo Torres', 'Marcela Rojas']);
+    expect(service.selectable().map((u) => u.displayName)).toEqual(['Camilo Torres', 'Marcela Rojas', 'Dr. Andrés Salazar']);
     expect(service.demoUsers().length).toBe(3);
+  });
+
+  it('el prefijo de ruta sale del rol de la sesión (enf por defecto, med para el médico)', async () => {
+    await start();
+    http.expectOne('/api/session').flush({ ...USERS[0], permissions: [] });
+    await Promise.resolve();
+    expect(service.prefix()).toBe('enf');
+
+    const change = service.select('m1');
+    http.expectOne('/api/session').flush({ ...USERS[2], permissions: [] });
+    await change;
+    expect(service.prefix()).toBe('med');
   });
 
   it('recuerda al usuario elegido y lo vuelve a usar al abrir', async () => {

@@ -17,7 +17,9 @@ Portal de documentación técnica del proyecto. Cada documento describe un probl
 | [decisiones/semana08.md](decisiones/semana08.md) | Datos: consulta directa a la base, sin RAG, con lo medido | Vigente |
 | [decisiones/semana10.md](decisiones/semana10.md) | Línea base de medición: las cuatro cifras contra la solución convencional | Vigente |
 | [prueba_companero.md](prueba_companero.md) | Plantilla de la prueba en frío con una persona ajena al código | Por llenar antes del tag |
-| seguridad.md · gobernanza.md · respuesta_auditoria.md | Modelo de amenazas, ficha de gobernanza y respuesta a la auditoría cruzada | Momento 3 (por crear) |
+| [gobernanza.md](gobernanza.md) | Ficha de gobernanza: las cinco preguntas, respondidas con lo que el sistema hace hoy | v0.1 del 3-nov; se reescribe sobre `seguridad.md` |
+| [PLAN_M3.md](PLAN_M3.md) | Plan del Momento 3; hoy solo trae la pieza de Langfuse (D28), con el resumen de cada paso | En construcción |
+| seguridad.md · respuesta_auditoria.md | Modelo de amenazas y respuesta a la auditoría cruzada | Momento 3 (por crear) |
 
 ### 03 — Engineering
 
@@ -42,10 +44,20 @@ Portal de documentación técnica del proyecto. Cada documento describe un probl
 | Documento | Qué es | Relacionado con |
 |---|---|---|
 | [git-commit-prefixes.md](06-contribution/git-commit-prefixes.md) | Convención de mensajes de commit (Conventional Commits) del monorepo | AGENTS.md |
+| [CONTRIBUTING.md](../CONTRIBUTING.md) | Ramas, commits, pruebas, pull requests y herramientas de IA de cada integrante | AGENTS.md · CI/CD (04) |
+
+### Entregables y gestión del proyecto
+
+| Documento | Qué es | Estado |
+|---|---|---|
+| [entregables/RESUMEN_EJECUTIVO.md](entregables/RESUMEN_EJECUTIVO.md) | Resumen ejecutivo de las fases 1 y 2 | Vigente |
+| [entregables/EDT_M2_Patient_Progress_Auditor.xlsx](entregables/EDT_M2_Patient_Progress_Auditor.xlsx) | EDT del Momento 2 con los IDs de tarea (1.1 a 15.2); es la que vale de las dos | Vigente |
+| [entregables/EDT_M2.xlsx](entregables/EDT_M2.xlsx) | Versión anterior de la EDT, conservada por historial | Reemplazada |
 
 ## Convenciones del portal
 
 - **Nombres de archivo**: inglés, `kebab-case`, una palabra de dominio por documento.
 - **Prefijo numérico** por categoría: establece el orden de lectura y evita que GitHub ordene alfabéticamente rompiendo la cronología conceptual.
 - **Cada documento referencia a sus dependientes** (tabla "Relacionado con") y no duplica contenido que ya vive en otro.
+- **Lo personal no se versiona:** los prompts de trabajo (`docs/prompts/`) y la configuración de herramientas de IA ajenas a Claude Code (`.opencode/`, `.codex/`…) están en `.gitignore`.
 - **Los nombres que exige el curso mandan** sobre la convención anterior: `docs/SPEC.md`, `docs/PLAN.md` y `docs/decisiones/` son los nombres oficiales (ver la sección "Estructura de entrega" de `AGENTS.md`).

@@ -30,11 +30,11 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
-// Ejecuciones del agente (D24): se piden, se consultan y se siguen en vivo. Solo enfermeria (REPORTS_REQUEST); la traza
-// muestra el texto de los registros del paciente.
+// Ejecuciones del agente (D24): se piden, se consultan y se siguen en vivo. Pedirlas (POST) es solo de enfermeria
+// (REPORTS_REQUEST); leerlas y seguirlas las ve tambien el medico (CONSULTATIONS_REQUEST, D31, RF-46) pero solo para
+// sus propias consultas (RunService.visible). La traza muestra el texto de los registros del paciente.
 @RestController
 @RequestMapping("/api/runs")
-@PreAuthorize("hasAuthority('REPORTS_REQUEST')")
 public class RunController {
 
     public record RequestRun(@NotNull(message = "Elija el paciente.") UUID patientId,
@@ -57,6 +57,7 @@ public class RunController {
 
     // Responde 202 al instante con el id; 200 si ya habia una ejecucion viva de ese paciente y semana (la misma, sin lanzar otra).
     @PostMapping
+    @PreAuthorize("hasAuthority('REPORTS_REQUEST')")
     public ResponseEntity<RunView> request(@Valid @RequestBody RequestRun request, @AuthenticationPrincipal DemoPrincipal principal) {
         RunService.Requested requested = service.request(request.patientId(), request.weekStart(),
                 request.type() == null ? Report.Type.SEMANAL : request.type(), request.request(), principal);
@@ -64,22 +65,25 @@ public class RunController {
     }
 
     @GetMapping("/{id}")
-    public RunView get(@PathVariable UUID id) {
-        return service.get(id);
+    @PreAuthorize("hasAuthority('REPORTS_REQUEST') or hasAuthority('CONSULTATIONS_REQUEST')")
+    public RunView get(@PathVariable UUID id, @AuthenticationPrincipal DemoPrincipal principal) {
+        return service.get(id, principal);
     }
 
     // La traza completa (cualquier tipo de ejecucion), con parametros y resultado de cada paso. `after`: solo los de id mayor.
     @GetMapping("/{id}/steps")
-    public List<StepView> steps(@PathVariable UUID id, @RequestParam(defaultValue = "0") long after) {
-        return service.steps(id, after);
+    @PreAuthorize("hasAuthority('REPORTS_REQUEST') or hasAuthority('CONSULTATIONS_REQUEST')")
+    public List<StepView> steps(@PathVariable UUID id, @RequestParam(defaultValue = "0") long after, @AuthenticationPrincipal DemoPrincipal principal) {
+        return service.steps(id, after, principal);
     }
 
     // SSE. Reanuda con la cabecera Last-Event-ID (la manda EventSource al reconectar) o con ?after=.
     @GetMapping(value = "/{id}/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @PreAuthorize("hasAuthority('REPORTS_REQUEST') or hasAuthority('CONSULTATIONS_REQUEST')")
     public SseEmitter events(@PathVariable UUID id,
             @RequestHeader(value = "Last-Event-ID", required = false) String lastEventId,
-            @RequestParam(required = false) Long after, HttpServletResponse response) {
-        service.get(id);
+            @RequestParam(required = false) Long after, HttpServletResponse response, @AuthenticationPrincipal DemoPrincipal principal) {
+        service.get(id, principal);
         long from = after != null ? after : parse(lastEventId);
         // nginx acumula la respuesta salvo que se le diga que no (D24); no-transform evita que otro intermediario la reescriba.
         response.setHeader("X-Accel-Buffering", "no");

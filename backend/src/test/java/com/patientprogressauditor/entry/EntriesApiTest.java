@@ -56,6 +56,34 @@ class EntriesApiTest {
         return jdbc.queryForObject("SELECT id FROM patients WHERE alias = ?", UUID.class, alias);
     }
 
+    // --- Origen del texto (RF-38): VOZ si vino de un dictado ---
+
+    private ResultActions createWithSource(String source) throws Exception {
+        java.util.Map<String, Object> body = new java.util.HashMap<>(java.util.Map.of("entryDate", "2026-10-20", "body", "Comió poco."));
+        body.put("source", source);
+        return mockMvc.perform(post("/api/patients/" + newPatient + "/entries").header("X-Demo-User", NURSE)
+                .contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(body)));
+    }
+
+    @Test
+    void aDictatedEntryIsStoredWithSourceVoz() throws Exception {
+        String id = mapper.readTree(createWithSource("VOZ").andExpect(status().isCreated())
+                .andExpect(jsonPath("$.source").value("VOZ")).andReturn().getResponse().getContentAsString()).path("id").asText();
+
+        assertThat(jdbc.queryForObject("SELECT source FROM entries WHERE id = ?::uuid", String.class, id)).isEqualTo("VOZ");
+    }
+
+    @Test
+    void anEntryWithoutSourceIsTexto() throws Exception {
+        create(NURSE, newPatient, "2026-10-20", "Durmió bien.").andExpect(status().isCreated()).andExpect(jsonPath("$.source").value("TEXTO"));
+        createWithSource(null).andExpect(status().isCreated()).andExpect(jsonPath("$.source").value("TEXTO"));
+    }
+
+    @Test
+    void anUnknownSourceIsRejected() throws Exception {
+        createWithSource("AUDIO").andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields.source").value("El origen del registro no es válido."));
+    }
+
     @Test
     void theTextIsStoredExactlyAsWrittenAndTheEntryIsNotStructured() throws Exception {
         String text = "  vomito 2 veces\n\tmuy decaido,   sin apetito... áéíóú ñ ¿qué? 😀  \n\n";

@@ -94,6 +94,13 @@ public class ReportController {
         return service.approve(id, principal);
     }
 
+    // Enviar al medico un informe aprobado (RF-44, D29): permiso propio, solo de enfermeria.
+    @PostMapping("/reports/{id}/send")
+    @PreAuthorize("hasAuthority('REPORTS_SEND')")
+    public Detail send(@PathVariable UUID id, @AuthenticationPrincipal DemoPrincipal principal) {
+        return service.send(id, principal);
+    }
+
     @PostMapping("/reports/{id}/reject")
     @PreAuthorize("hasAuthority('REPORTS_APPROVE')")
     public Detail reject(@PathVariable UUID id, @Valid @RequestBody RejectRequest request, @AuthenticationPrincipal DemoPrincipal principal) {

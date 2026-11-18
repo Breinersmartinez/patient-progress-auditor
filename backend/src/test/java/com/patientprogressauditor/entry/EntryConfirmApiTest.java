@@ -286,4 +286,89 @@ class EntryConfirmApiTest {
         assertThat(jdbc.queryForObject("SELECT confirmed_by::text FROM entry_events WHERE entry_id = (SELECT id FROM entries WHERE patient_id = ?)",
                 String.class, patient)).isEqualTo(DOCTOR);
     }
+
+    // --- texto corregido (RF-42, E19) ---
+
+    private static final String NOTE = "dolor de cabeza intenso desde la mañana tuvo diarea dos veces comio poko";
+    private static final String FIXED = "Dolor de cabeza intenso desde la mañana. Tuvo diarrea dos veces. Comió poco.";
+
+    @Test
+    void theProposalCarriesTheCorrectedTextAndSavesNothing() throws Exception {
+        modelAnswers("{\"events\":[],\"correctedText\":\"" + FIXED + "\"}");
+        int versions = count("entry_versions");
+
+        propose(NURSE, NOTE).andExpect(status().isOk()).andExpect(jsonPath("$.correctedText").value(FIXED));
+
+        assertThat(count("entry_versions")).isEqualTo(versions);
+    }
+
+    @Test
+    void aCorrectionThatChangesTheContentIsDroppedButTheSymptomsStillComeAndTheTraceSaysWhy() throws Exception {
+        modelAnswers("{\"events\":[{\"symptom\":\"DIARREA\",\"intensity\":\"SIN_INDICAR\",\"occurrences\":3}],"
+                + "\"correctedText\":\"Tuvo diarrea tres veces.\"}");
+
+        propose(NURSE, "tuvo diarea dos veces").andExpect(status().isOk())
+                .andExpect(jsonPath("$.correctedText").doesNotExist())
+                .andExpect(jsonPath("$.failure").doesNotExist())
+                .andExpect(jsonPath("$.events.length()").value(1));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM agent_steps WHERE message LIKE 'Se descartó el texto corregido%'", Integer.class))
+                .isEqualTo(1);
+    }
+
+    @Test
+    void confirmingWithACorrectionKeepsTheOriginalAndSavesTheVersionWithWhoAndHow() throws Exception {
+        confirm(NURSE, mapper.writeValueAsString(java.util.Map.of("entryDate", "2026-10-27", "body", NOTE, "events", List.of(),
+                "correction", java.util.Map.of("body", FIXED, "origin", "IA_ACEPTADA"))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.body").value(NOTE))
+                .andExpect(jsonPath("$.correctedBody").value(FIXED));
+
+        assertThat(jdbc.queryForObject("SELECT body FROM entries WHERE patient_id = ?", String.class, patient)).isEqualTo(NOTE);
+        java.util.Map<String, Object> version = jdbc.queryForMap("""
+                SELECT body, origin, version_no, created_by::text AS who FROM entry_versions
+                WHERE entry_id = (SELECT id FROM entries WHERE patient_id = ?)""", patient);
+        assertThat(version.get("body")).isEqualTo(FIXED);
+        assertThat(version.get("origin")).isEqualTo("IA_ACEPTADA");
+        assertThat(((Number) version.get("version_no")).intValue()).isEqualTo(1);
+        assertThat(version.get("who")).isEqualTo(NURSE);
+        mockMvc.perform(get("/api/patients/" + patient + "/entries").header("X-Demo-User", NURSE))
+                .andExpect(jsonPath("$[0].body").value(NOTE))
+                .andExpect(jsonPath("$[0].correctedBody").value(FIXED));
+        mockMvc.perform(get("/api/entries").header("X-Demo-User", DOCTOR))
+                .andExpect(jsonPath("$[?(@.patientAlias=='P-902')].correctedBody").value(FIXED));
+    }
+
+    @Test
+    void aCorrectionTheNurseEditedIsSavedAsEditedWithoutTheModelsRules() throws Exception {
+        confirm(NURSE, mapper.writeValueAsString(java.util.Map.of("entryDate", "2026-10-27", "body", NOTE, "events", List.of(),
+                "correction", java.util.Map.of("body", FIXED + " Sin fiebre.", "origin", "IA_EDITADA"))))
+                .andExpect(status().isCreated());
+        assertThat(jdbc.queryForObject("SELECT origin FROM entry_versions", String.class)).isEqualTo("IA_EDITADA");
+    }
+
+    @Test
+    void noVersionIsSavedWhenThereIsNoCorrectionOrItEqualsTheOriginalOrIsBlank() throws Exception {
+        int versions = count("entry_versions");
+        confirm(NURSE, "{\"entryDate\":\"2026-10-27\",\"body\":\"Sin novedades.\",\"events\":[]}")
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.correctedBody").doesNotExist());
+        confirm(NURSE, "{\"entryDate\":\"2026-10-26\",\"body\":\"Sin novedades.\",\"events\":[],"
+                + "\"correction\":{\"body\":\"Sin novedades.\",\"origin\":\"IA_ACEPTADA\"}}").andExpect(status().isCreated());
+        confirm(NURSE, "{\"entryDate\":\"2026-10-25\",\"body\":\"Sin novedades.\",\"events\":[],"
+                + "\"correction\":{\"body\":\"   \",\"origin\":\"IA_EDITADA\"}}").andExpect(status().isCreated());
+
+        assertThat(count("entry_versions")).isEqualTo(versions);
+    }
+
+    @Test
+    void aBadCorrectionIsRejectedAndNothingIsSaved() throws Exception {
+        int entries = count("entries");
+        String head = "{\"entryDate\":\"2026-10-27\",\"body\":\"Sin novedades.\",\"events\":[],\"correction\":";
+        confirm(NURSE, head + "{\"body\":\"Todo bien.\",\"origin\":\"MAGIA\"}}").andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fields.correction").value("El origen del texto corregido no es válido."));
+        confirm(NURSE, mapper.writeValueAsString(java.util.Map.of("entryDate", "2026-10-27", "body", "x", "correction",
+                java.util.Map.of("body", "y".repeat(4001), "origin", "MANUAL")))).andExpect(status().isBadRequest());
+        confirm(NURSE, head + "{\"body\":\"Todo\\u0000bien.\",\"origin\":\"MANUAL\"}}").andExpect(status().isBadRequest());
+
+        assertThat(count("entries")).isEqualTo(entries);
+    }
 }

@@ -123,13 +123,26 @@ class ReportPdfApiTest {
     void aSeededApprovedReportPrintsWithItsRealFiguresAndSources() throws Exception {
         UUID p014 = fx.patient("P-014");
         UUID report = jdbc.queryForObject("SELECT id FROM reports WHERE patient_id = ? AND period_start = '2026-10-12' AND status = 'APROBADO'", UUID.class, p014);
+        // Aprobado y sin enviar: enfermeria lo imprime; el medico no sabe que existe (D29).
+        mockMvc.perform(get("/api/reports/" + report + "/pdf").header("X-Demo-User", DOCTOR)).andExpect(status().isNotFound());
 
-        String text = text(pdf(DOCTOR, report));
+        String text = text(pdf(NURSE, report));
 
         assertThat(text).contains("Paciente P-014, semana del 12 al 18 de octubre de 2026").contains("Aprobado por: Marcela Rojas")
                 .contains("Dolor de hueso persiste: 1 día esta semana y 1 día la semana anterior.")
                 .contains("Patrón a destacar");
         assertThat(squash(text)).contains(squash("Síntoma Período de comparación Esta semana Registros 7 7 Dolor de hueso 1 día 1 día Vómito 1 día No registrado"));
+    }
+
+    @Test
+    void aSeededSentReportPrintsForTheDoctorWithTheApprover() throws Exception {
+        UUID p014 = fx.patient("P-014");
+        UUID report = jdbc.queryForObject("SELECT id FROM reports WHERE patient_id = ? AND period_start = '2026-10-05' AND status = 'ENVIADO'", UUID.class, p014);
+
+        for (String user : List.of(DOCTOR, NURSE)) {
+            String text = text(pdf(user, report));
+            assertThat(text).contains("Paciente P-014, semana del 5 al 11 de octubre de 2026").contains("Aprobado por: Marcela Rojas");
+        }
     }
 
     @Test
@@ -147,14 +160,19 @@ class ReportPdfApiTest {
     }
 
     @Test
-    void theDoctorGetsTheSamePdfOnceApproved() throws Exception {
+    void theDoctorGetsTheSamePdfOnlyOnceNursingSendsIt() throws Exception {
         UUID report = fx.report(p033, W, "PENDIENTE_REVISION");
         mockMvc.perform(get("/api/reports/" + report + "/pdf").header("X-Demo-User", DOCTOR)).andExpect(status().isNotFound());
 
         mockMvc.perform(post("/api/reports/" + report + "/approve").header("X-Demo-User", NURSE).contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isOk());
+        // Aprobado no es enviado: el medico todavia no lo ve ni lo imprime (D29).
+        mockMvc.perform(get("/api/reports/" + report + "/pdf").header("X-Demo-User", DOCTOR)).andExpect(status().isNotFound());
+
+        mockMvc.perform(post("/api/reports/" + report + "/send").header("X-Demo-User", NURSE)).andExpect(status().isOk());
 
         assertThat(text(pdf(DOCTOR, report))).contains("Aprobado por: Camilo Torres").contains(report.toString());
+        assertThat(text(pdf(NURSE, report))).contains("Aprobado por: Camilo Torres");
     }
 
     @Test
@@ -181,13 +199,15 @@ class ReportPdfApiTest {
     void aMonthlyReportPrintsTheEvolutionTableAndItsFourSourceReports() throws Exception {
         UUID p014 = fx.patient("P-014");
         LocalDate start = LocalDate.of(2026, 9, 21);
-        List<UUID> weekly = jdbc.queryForList("SELECT id FROM reports WHERE patient_id = ? AND report_type = 'SEMANAL' AND status = 'APROBADO' ORDER BY period_start", UUID.class, p014);
+        List<UUID> weekly = jdbc.queryForList("SELECT id FROM reports WHERE patient_id = ? AND report_type = 'SEMANAL' AND status IN ('APROBADO', 'ENVIADO') ORDER BY period_start", UUID.class, p014);
         UUID monthly = UUID.randomUUID();
         UUID version = UUID.randomUUID();
         Entry cited = fx.weekEntries(p014, start).get(0);
         jdbc.update("""
-                INSERT INTO reports (id, patient_id, report_type, period_start, period_end, status, requested_by, reviewed_by, reviewed_at, approved_version_no)
-                VALUES (?, ?, 'MENSUAL', ?, ?, 'APROBADO', ?, ?, now(), 1)""", monthly, p014, start, start.plusDays(27), UUID.fromString(NURSE), UUID.fromString(NURSE));
+                INSERT INTO reports (id, patient_id, report_type, period_start, period_end, status, requested_by, reviewed_by, reviewed_at,
+                    approved_version_no, sent_by, sent_at)
+                VALUES (?, ?, 'MENSUAL', ?, ?, 'ENVIADO', ?, ?, now(), 1, ?, now())""", monthly, p014, start, start.plusDays(27), UUID.fromString(NURSE),
+                UUID.fromString(NURSE), UUID.fromString(NURSE));
         jdbc.update("INSERT INTO report_versions (id, report_id, version_no, origin, content) VALUES (?, ?, 1, 'MODELO', ?::jsonb)", version, monthly, monthlyContent(start, weekly, cited).toString());
         jdbc.update("INSERT INTO report_citations (report_version_id, claim_key, entry_id) VALUES (?, 'c1', ?)", version, cited.getId());
 

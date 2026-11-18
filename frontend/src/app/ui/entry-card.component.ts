@@ -12,7 +12,13 @@ import { symptomText } from '../core/symptoms';
   template: `
     <article class="card">
       <b>{{ date() }}</b>
-      <p>{{ entry().body }}</p>
+      <p>{{ entry().correctedBody || entry().body }}</p>
+      @if (entry().correctedBody) {
+        <details class="original">
+          <summary class="sec">Ver el texto original</summary>
+          <p class="sec">{{ entry().body }}</p>
+        </details>
+      }
       @if (symptoms().length) {
         <ul class="sint">
           @for (text of symptoms(); track $index) { <li>{{ text }}</li> }

@@ -1,7 +1,19 @@
 # REQUISITOS — Patient Progress Auditor
 
-> **Estado:** borrador v0.4 para aprobación · **Fase del ciclo de vida:** 2 — Análisis de requisitos · **Fecha:** 2026-10-28
-> **Base:** `docs/SPEC.md` v0.7 (§1–§3, objetivos OBJ-01 a OBJ-16), `AGENTS.md`, las rúbricas del curso *Ingeniería de Aplicaciones con IA* y lo dicho por el profesor en la clase del 24 de octubre de 2026.
+> **Estado:** borrador v0.10 para aprobación · **Fase del ciclo de vida:** 2 — Análisis de requisitos · **Fecha:** 2026-11-08
+> **Base:** `docs/SPEC.md` v0.13 (§1–§3, objetivos OBJ-01 a OBJ-16), `AGENTS.md`, las rúbricas del curso *Ingeniería de Aplicaciones con IA* y lo dicho por el profesor en la clase del 24 de octubre de 2026.
+>
+> **Cambios de la v0.10 (consulta del médico, paso 2 de la Pieza 6 de `docs/PLAN_M3.md`, 8 de noviembre de 2026):** se agrega RF-46 («Armar informe»: el médico arma su propia consulta de un período, hasta 31 días, redactada por el agente) con hito M3, por D31 y por fidelidad al mockup vA; se agrega RN-12 (la consulta no es un informe del historial, lleva siempre la marca «Consulta del médico») y CU-11 (Armar y consultar su propia evolución). Los RF pasan de 45 a 46 y los de hito M3 puro de 5 a 6 (RF-31, RF-33, RF-34, RF-44, RF-45 y RF-46); los M2-N (29 puros, más las 2 mixtas con M3), los M2-S (7) y los Opc (2) no cambian.
+>
+> **Cambios de la v0.9 (notificaciones al médico, paso 2 de la Pieza 5 de `docs/PLAN_M3.md`, 8 de noviembre de 2026):** se agrega RF-45 (la campana de notificaciones del médico) con hito M3, por D30 y por fidelidad al mockup vA. Los RF pasan de 44 a 45 y los de hito M3 puro de 4 a 5 (RF-31, RF-33, RF-34, RF-44 y RF-45); los M2-N (29 puros, más las 2 mixtas con M3), los M2-S (7) y los Opc (2) no cambian. No se agrega ninguna RN: aprobar sin enviar sigue sin notificar porque RN-01 ya lo exige.
+>
+> **Cambios de la v0.8 (módulo del médico, pantallas, paso 2 de la Pieza 4 de `docs/PLAN_M3.md`, 7 de noviembre de 2026):** se precisa RF-30 y la fila de D12 en §8 con la interfaz decidida por el equipo el 2026-11-05 (botón «Nuevo registro» en la ficha del médico, ruta `#/med/registro/nuevo/:id`). No cambia ningún RF, RN ni CU, ni los conteos por hito: esta pieza no trae requisito nuevo.
+>
+> **Cambios de la v0.7 (decisión del equipo del 7 de noviembre de 2026):** se agrega RF-44 (enviar al médico un informe aprobado) con hito M3, por D29 y por fidelidad al mockup vA, y RN-01 se reescribe: un informe llega al médico en estado `ENVIADO`, no en `APROBADO`. RF-23 suma el estado `ENVIADO`; RF-28, RF-29, RF-37, RN-02, RN-10, CU-04, CU-05 y CU-09 se ajustan (un informe enviado cuenta como aprobado para el mensual y el PDF). Los RF pasan de 43 a 44 y los de hito M3 de 3 a 4 (RF-31, RF-33, RF-34 y RF-44); los M2-N (29), los M2-S (7) y los Opc (2) no cambian. RF-23 y RF-28 conservan su hito M2-N: lo que cambia en ellos (el estado `ENVIADO` y que el médico vea solo enviados) se construye en el Momento 3.
+>
+> **Cambios de la v0.6 (decisión del equipo del 5 de noviembre de 2026):** se construye RF-38 (dictado por voz), que sigue con hito Opc; no cambia ningún ID ni conteo. Se agrega su supuesto en §8 (D14 precisada): Whisper en Groq, audio sin guardar en ninguna parte, una ejecución `TRANSCRIPCION` por dictado y los formatos de los navegadores actuales.
+>
+> **Cambios de la v0.5 (decisión del equipo del 3 de noviembre de 2026):** se agrega RF-43 (trazas y costo por consulta en Langfuse Cloud, opcional y solo con metadatos) con hito Opc, por la recomendación del profesor (D28). Los RF pasan de 42 a 43 y los opcionales de 1 a 2 (RF-38 y RF-43); el resto de los conteos por hito no cambia. RF-43 desarrolla RNF-06 (costo por tarea) y RNF-07 (trazas consultables) sin sustituir a RF-22, y respeta RNF-02.
 >
 > **Cambios de la v0.4 (pantalla de registro del equipo y decisiones del 28 de octubre de 2026):** RF-06 pasa de derivar eventos «de cada entrada» a proponerlos al registrarla, con intensidad y veces, y se resuelve dónde se derivan los eventos (D27, propuesta). Se agregan RF-40 (confirmar, editar, quitar, agregar o descartar antes de guardar) y RF-41 (si la estructuración falla, guardar solo el texto o agregar a mano) al núcleo del Momento 2, RF-42 (texto corregido como versión, con el original intacto) como M2-S, y la regla RN-11 (la IA solo propone). RF-02 aclara que el texto se guarda tal como se escribió y RF-05 que la semilla trae los eventos ya confirmados. Se ajustan RN-07, CU-01, el modelo conceptual y §8. El núcleo del Momento 2 queda en 31 RF, los M2-S en 6, el Momento 3 en 3 y los opcionales en 2; en total son 42 RF. Ese día el equipo también decidió que el `JWT_SECRET` y la protección con JWT esperan al Momento 3 (D23, RNF-13), que Java se queda en 17 (D9) y que el conjunto sintético tiene 5 pacientes y 18 semanas-paciente (D11, RF-05).
 >
@@ -25,9 +37,9 @@
 |---|---|---|---|
 | Enfermería | No releer todos los registros ni redactar el informe a mano cada semana | [Equipo] | RF-08 a RF-13 |
 | Enfermería | Ver la evolución frente a semanas anteriores sin que se pierda un síntoma que reaparece | [Equipo] | RF-07, RF-10 |
-| Enfermería | Revisar rápido con la evidencia a la mano, corregir y aprobar | [Propuesta] | RF-24 a RF-27 |
+| Enfermería | Revisar rápido con la evidencia a la mano, corregir, aprobar y enviar al médico | [Propuesta] | RF-24 a RF-27, RF-44 |
 | Enfermería | Registrar cada día sin fricción: texto libre, con los síntomas propuestos por la IA para confirmar en un paso y, opcionalmente, voz | [Equipo] | RF-02, RF-06, RF-40, RF-38 |
-| Médico | Recibir informes consistentes y aprobados que muestren la evolución en el tiempo | [Equipo] | RF-28, RF-29, RF-36 |
+| Médico | Recibir informes consistentes, aprobados y enviados por enfermería, que muestren la evolución en el tiempo | [Equipo] | RF-28, RF-29, RF-36 |
 | Médico | Registrar entradas diarias cuando le corresponda | [Equipo] | RF-30 |
 | Administrador | Gestionar usuarios y permisos sin acceder a datos clínicos (Momento 3) | [Propuesta] | RF-31 a RF-34 |
 | Evaluador del curso | Levantar el repositorio con una IA que solo lee el README, sin pasos manuales; ver en 6 minutos el ciclo completo con el agente funcionando, límites, trazas y fallos forzados; y que el equipo justifique cada decisión técnica | [Curso] | RF-05, RF-16 a RF-22, RNF-08, RNF-13, RNF-14 |
@@ -41,22 +53,24 @@
 | CU-01 Registrar entrada diaria | Enfermería, Médico | Escribe (o dicta) cómo está el paciente hoy, revisa los síntomas que propone la IA y confirma | RF-02, RF-03, RF-06, RF-30, RF-38, RF-40, RF-41, RF-42 |
 | CU-02 Generar borrador semanal | Enfermería | Pide el informe de un paciente y una semana; el agente lo redacta | RF-06 a RF-22 |
 | CU-03 Revisar y corregir | Enfermería | Lee el borrador, abre la evidencia y lo corrige | RF-24, RF-25 |
-| CU-04 Aprobar o rechazar | Enfermería | Decide; el sistema registra quién y cuándo | RF-23, RF-26, RF-27, RF-35 |
-| CU-05 Consultar informes aprobados | Médico | Ve la evolución del paciente por período | RF-28, RF-29 |
+| CU-04 Aprobar, rechazar o enviar | Enfermería | Decide; el sistema registra quién y cuándo. Un informe aprobado se envía al médico | RF-23, RF-26, RF-27, RF-35, RF-44 |
+| CU-05 Consultar informes enviados | Médico | Ve la evolución del paciente por período | RF-28, RF-29 |
 | CU-06 Gestionar usuarios y permisos (Momento 3) | Administrador | Crea usuarios, ve y edita permisos | RF-31 a RF-34 |
 | CU-07 Ver la traza de una ejecución | Enfermería; equipo en la demo | Ve qué consultó el agente y con qué resultado | RF-22 |
 | CU-08 Generar informe mensual | Enfermería | Consolida cuatro semanas completas con informe semanal aprobado (RN-10) | RF-36 |
-| CU-09 Exportar a PDF | Médico, Enfermería | Descarga un informe aprobado | RF-37 |
+| CU-09 Exportar a PDF | Médico, Enfermería | Descarga un informe aprobado o enviado (el médico, solo uno enviado) | RF-37 |
 | CU-10 Levantar la aplicación en frío | Evaluador del curso, compañero | Clona el repositorio público, sigue el README, ejecuta `./run.sh`, abre la aplicación y elige un usuario de demostración (D26); desde el Momento 3 inicia sesión con sus credenciales | RF-05, RF-39, RNF-08, RNF-13 |
+| CU-11 Armar y consultar su propia evolución | Médico | Elige un paciente y un período (semana, mes o rango) y arma una consulta redactada por el agente, solo para él, sin que pase por enfermería ni quede en el historial | RF-46 |
 
-### Flujo crítico: generar → revisar → aprobar → consultar
+### Flujo crítico: generar → revisar → aprobar → enviar → consultar
 
 1. Enfermería elige paciente y período (una semana, o un mes de cuatro semanas aprobadas con RF-36 y RN-10) y pide el borrador (RF-08).
 2. El agente consulta con sus herramientas, decide cuántas semanas anteriores revisar y redacta. El código valida el esquema, las citas y las cifras (RF-09 a RF-13).
 3. El informe queda `PENDIENTE_REVISION`, o `INCOMPLETO` si se agotó un límite (RF-17).
 4. Enfermería lee, abre la evidencia y corrige si hace falta (RF-24, RF-25).
 5. Enfermería aprueba (RF-26) o rechaza con motivo (RF-27).
-6. El médico ve el informe aprobado (RF-28).
+6. Enfermería envía el informe aprobado al médico (RF-44).
+7. El médico ve el informe enviado (RF-28).
 
 **Excepciones:** semana sin datos suficientes, el informe lo declara (RF-14) · fallo del proveedor, mensaje honesto y respaldo (RF-19) · entrada con instrucciones, se trata como dato (RF-21).
 
@@ -129,19 +143,22 @@
 
 | ID | El sistema debe… | Hito | Traza | Criterio de aceptación (sí/no) |
 |---|---|---|---|---|
-| RF-23 | Manejar los estados del informe `PENDIENTE_REVISION`, `INCOMPLETO`, `APROBADO` y `RECHAZADO`, con transiciones validadas en el servidor | M2-N | OBJ-05 | ¿Una transición no definida es rechazada por el servidor? |
+| RF-23 | Manejar los estados del informe `PENDIENTE_REVISION`, `INCOMPLETO`, `APROBADO`, `ENVIADO` (desde el Momento 3, D29) y `RECHAZADO`, con transiciones validadas en el servidor | M2-N | OBJ-05 | ¿Una transición no definida es rechazada por el servidor? |
 | RF-24 | Mostrar a enfermería el informe en lenguaje claro y, a un clic, la evidencia: entradas citadas, criterio de comparación y llamadas de herramientas | M2-N | OBJ-06 | ¿Desde el informe se llega a cada entrada citada en un clic? |
 | RF-25 | Permitir a enfermería editar el borrador antes de aprobar, conservando la versión original del modelo y las ediciones | M2-N | OBJ-06 | Tras editar, ¿existen la versión del modelo y la editada? |
 | RF-26 | Permitir aprobar un informe solo al rol enfermería y registrar quién y cuándo | M2-N | OBJ-05 | ¿Un usuario médico recibe rechazo al aprobar, y el informe aprobado muestra aprobador y fecha? |
 | RF-27 | Permitir a enfermería rechazar un informe con motivo y pedir uno nuevo | M2-S | OBJ-05 | ¿El rechazo guarda el motivo y permite generar un nuevo borrador? |
+| RF-44 | Permitir a enfermería enviar al médico un informe `APROBADO` («Enviar al médico»): el informe pasa a `ENVIADO`, queda quién y cuándo lo envió y solo desde ese momento lo ve el médico. No hay envío automático ni por correo (D29) | M3 | OBJ-05 | ¿Solo enfermería envía, solo un informe aprobado se puede enviar y el médico solo ve el informe una vez enviado? |
 
 ### 3.5 Consulta del médico
 
 | ID | El sistema debe… | Hito | Traza | Criterio de aceptación (sí/no) |
 |---|---|---|---|---|
-| RF-28 | Permitir al médico listar pacientes y consultar los informes `APROBADO` por paciente y período, del más reciente al más antiguo | M2-N | OBJ-05 | ¿Un informe pendiente, incompleto o rechazado NO aparece para el médico? |
-| RF-29 | Mostrar al médico, en un informe aprobado, la evidencia que lo respalda | M2-S | OBJ-06 | ¿Desde un informe aprobado el médico llega a las entradas citadas? |
-| RF-30 | Permitir al médico registrar entradas diarias (supuesto D12) | M2-S | OBJ-15 | ¿Un usuario médico crea una entrada y queda con su autoría? |
+| RF-28 | Permitir al médico listar pacientes y consultar los informes `ENVIADO` por paciente y período, del más reciente al más antiguo | M2-N | OBJ-05 | ¿Un informe pendiente, incompleto, rechazado o aprobado sin enviar NO aparece para el médico? |
+| RF-29 | Mostrar al médico, en un informe enviado, la evidencia que lo respalda | M2-S | OBJ-06 | ¿Desde un informe enviado el médico llega a las entradas citadas? |
+| RF-30 | Permitir al médico registrar entradas diarias (D12, decidida; interfaz: botón «Nuevo registro» en la ficha, `#/med/registro/nuevo/:id`, módulo del médico Pieza 4) | M2-S | OBJ-15 | ¿Un usuario médico crea una entrada y queda con su autoría? |
+| RF-45 | Avisar a cada médico activo, con una campana en el encabezado, de una entrada guardada de un paciente (menos si el autor es él mismo) y de un informe —semanal o mensual— enviado; marcar leída una notificación al abrir la ficha del paciente, al pulsar la notificación o al abrir el informe que avisa; mostrar un punto en la campana y junto al paciente en «Mis pacientes» mientras haya alguna sin leer (D30) | M3 | OBJ-15 | ¿Un médico distinto del autor recibe la notificación de un registro y la de un informe enviado, y las dos se marcan leídas al abrir la ficha, la notificación o el informe, apagando los puntos? |
+| RF-46 | Permitir al médico armar, desde «Armar informe», una consulta de un paciente para un período que elija (una semana, un mes o un rango de hasta 31 días), con o sin comparación con otro período; la consulta la redacta el agente con las mismas reglas del informe (cifras del código, cada afirmación citada, sin diagnóstico), se muestra como «Informe de consulta» con la marca «Consulta del médico», no entra al historial ni a ninguna lista de enfermería, no notifica, solo la ve quien la pidió y se puede descargar en PDF (D31) | M3 | OBJ-15 | ¿El médico arma una consulta de los tres tipos de período, la ve con su marca, nadie más la ve, no aparece en ninguna lista ni genera notificación, y un período sin registros o un rango de más de 31 días se rechaza sin crear ejecución? |
 
 ### 3.6 Usuarios, roles y auditoría
 
@@ -161,8 +178,9 @@
 | ID | El sistema debe… | Hito | Traza | Criterio de aceptación (sí/no) |
 |---|---|---|---|---|
 | RF-36 | Generar el informe mensual de cuatro semanas completas consecutivas (RN-10), a partir de las entradas y eventos de esas semanas, mostrando la evolución semana a semana. Solo se genera si las cuatro semanas tienen informe semanal aprobado; si falta alguna, no se genera y se indica cuál. Pasa por la misma revisión de enfermería antes de llegar al médico (RN-01, RN-02) | M2-N | OBJ-03 | Con cuatro semanas con informe semanal aprobado, ¿el informe muestra la evolución por semana, y con una semana sin aprobar el sistema no lo genera e indica cuál falta? |
-| RF-37 | Exportar a PDF un informe aprobado, con aprobador, fecha, id del informe y nota de asistencia de IA (D13: JasperReports, desde el 29-oct) | M2-S | — | ¿El texto extraído del PDF contiene la aprobación? |
+| RF-37 | Exportar a PDF un informe aprobado o enviado, con aprobador, fecha, id del informe y nota de asistencia de IA (D13: JasperReports, desde el 29-oct) | M2-S | — | ¿El texto extraído del PDF contiene la aprobación? |
 | RF-38 | Dictar una entrada por voz con transcripción editable antes de guardar, origen `VOZ` y sin guardar el audio (D14) | Opc | — | ¿La entrada dictada se puede corregir antes de guardar y queda con origen `VOZ` sin audio almacenado? |
+| RF-43 | Enviar a Langfuse Cloud, de forma opcional y solo si hay llaves, la traza de cada ejecución del modelo (informe semanal, informe mensual y estructuración de una entrada): una generación por llamada, con proveedor, modelo, tokens de entrada y salida, latencia, costo en USD calculado por el código a precio de lista y resultado, más el total por ejecución. Solo metadatos: nunca texto de notas, prompts ni respuestas, ni el id del paciente. Si Langfuse falta o falla, el informe y el registro siguen igual (D28) | Opc | OBJ-11, RNF-02, RNF-06, RNF-07 | Con las llaves puestas, ¿el costo de cada ejecución en Langfuse coincide, a seis decimales, con el que guarda la aplicación (salvo las ejecuciones con costo vacío allí) y la búsqueda de una frase de una nota sintética en el panel no devuelve nada? Sin llaves, o con Langfuse inalcanzable, ¿el informe y el registro de entradas funcionan igual? |
 
 ---
 
@@ -191,8 +209,8 @@
 
 | ID | Regla | Origen |
 |---|---|---|
-| RN-01 | Un informe solo llega al médico en estado `APROBADO` | [Equipo] |
-| RN-02 | Solo enfermería aprueba; la transición se valida en el servidor | [Equipo] |
+| RN-01 | Un informe solo llega al médico cuando enfermería lo aprobó y lo envió, es decir, en estado `ENVIADO`. El médico no ve uno `PENDIENTE_REVISION`, `INCOMPLETO`, `RECHAZADO` ni uno `APROBADO` sin enviar | [Equipo] (D6, D29; reescrita el 2026-11-07, antes decía `APROBADO`) |
+| RN-02 | Solo enfermería aprueba y envía; las transiciones se validan en el servidor | [Equipo] |
 | RN-03 | El informe describe evolución documentada; no diagnostica ni recomienda tratamiento o dosis | [Equipo] |
 | RN-04 | Toda cifra del informe la calcula el código, no el LLM | [Equipo] |
 | RN-05 | Toda afirmación del informe cita al menos una entrada | [Curso] |
@@ -200,8 +218,9 @@
 | RN-07 | El agente nunca modifica las entradas originales; el texto corregido (RF-42) es una versión aparte y el original sigue siendo la fuente citable | [Equipo] |
 | RN-08 | Si faltan datos, el informe lo declara y no los rellena | [Equipo] |
 | RN-09 | Se permiten varias entradas el mismo día; dentro del día se ordenan por hora de creación | [Propuesta] |
-| RN-10 | Un mes son cuatro semanas completas consecutivas (lunes a domingo, RN-06). El informe mensual solo se genera si cada una tiene informe semanal `APROBADO`; si falta alguna, no se genera y se indica cuál | [Equipo] (semanas aprobadas) · [Propuesta] (cuatro semanas y no mes calendario) (D4) |
+| RN-10 | Un mes son cuatro semanas completas consecutivas (lunes a domingo, RN-06). El informe mensual solo se genera si cada una tiene informe semanal aprobado (`APROBADO` o `ENVIADO`, D29); si falta alguna, no se genera y se indica cuál | [Equipo] (semanas aprobadas) · [Propuesta] (cuatro semanas y no mes calendario) (D4) |
 | RN-11 | La IA solo propone: ningún evento queda guardado sin confirmación de una persona, y el modelo no agrega lo que el texto no dice (intensidad «sin indicar» y veces vacías si no se indican, sin negaciones convertidas en síntomas y sin diagnóstico) | [Equipo] (confirmación humana) · [Propuesta] (no agregar lo que el texto no dice) (D27) |
+| RN-12 | La consulta que el médico arma («Armar informe») no es un informe del historial: no tiene estado, no la revisa enfermería, no aparece en «Recibidos» ni en la ficha, no notifica y no la ve nadie más que el médico que la pidió. Siempre lleva la marca «Consulta del médico» y la nota de que no pasó por la revisión de enfermería ni contiene diagnóstico | [Propuesta] (D31) |
 
 ---
 
@@ -215,7 +234,7 @@ Solo entidades y relaciones. Atributos, tipos y tablas están en `docs/DICCIONAR
 | Paciente | Persona seguida, identificada por id interno | Tiene muchas entradas e informes |
 | Entrada | Registro diario en texto libre (fecha, autor, texto original, versión corregida si la hay y marca «sin estructurar») | Pertenece a un paciente; tiene eventos derivados |
 | Evento | Dato estructurado propuesto por el LLM y confirmado por una persona (tipo, descripción normalizada, intensidad, veces, fecha, origen y quién lo confirmó) | Enlaza a su entrada original |
-| Informe | Documento por paciente y período, con estado, contenido estructurado, versión del modelo, versión editada, aprobador y fecha | Tiene afirmaciones; tiene una ejecución del agente |
+| Informe | Documento por paciente y período, con estado, contenido estructurado, versión del modelo, versión editada, aprobador y fecha, y quién y cuándo lo envió al médico | Tiene afirmaciones; tiene una ejecución del agente |
 | Afirmación | Frase del informe con su cita | Referencia una o más entradas |
 | Ejecución del agente | Traza de pasos: herramienta, parámetros, resultado, ms, tokens | Asociada a un informe |
 | Auditoría | Acción sensible: quién, cuándo, antes y después | Referencia al objeto afectado |
@@ -230,17 +249,17 @@ Solo entidades y relaciones. Atributos, tipos y tablas están en `docs/DICCIONAR
 | OBJ-02 Patrones que reaparecen | RF-06, RF-07, RF-10 |
 | OBJ-03 Informe mensual | RF-36 |
 | OBJ-04 Cifras por código | RF-04, RF-06, RF-07, RF-13, RF-40 |
-| OBJ-05 Revisión humana exigida | RF-01, RF-03, RF-09, RF-23, RF-26 a RF-28, RF-35, RF-40, RF-42 |
+| OBJ-05 Revisión humana exigida | RF-01, RF-03, RF-09, RF-23, RF-26 a RF-28, RF-35, RF-40, RF-42, RF-44 |
 | OBJ-06 Fuente y criterio visibles | RF-12, RF-24, RF-25, RF-29, RF-42 |
 | OBJ-07 Datos insuficientes | RF-14, RF-41 |
 | OBJ-08 No diagnosticar | RF-15 |
 | OBJ-09 Límites y parada | RF-09, RF-16, RF-17 |
 | OBJ-10 Resiliencia y proveedor | RF-18, RF-19, RF-20, RF-41 |
-| OBJ-11 Medición y trazas | RF-22, RNF-05 a RNF-07; entregables `eval/` y `docs/decisiones.md` (cifras; detalle en `docs/decisiones/semana10.md`) |
+| OBJ-11 Medición y trazas | RF-22, RF-43, RNF-05 a RNF-07; entregables `eval/` y `docs/decisiones.md` (cifras; detalle en `docs/decisiones/semana10.md`) |
 | OBJ-12 Necesidad del LLM y del agente | RF-10; entregable: decisiones del agente y comparación contra la plantilla sin LLM |
 | OBJ-13 Entrega autosuficiente y plan B | RF-05, RF-19, RF-39, RNF-08, RNF-13 |
 | OBJ-14 Seguridad y gobernanza | RF-21, RF-35, RNF-01 a RNF-03; entregables del Momento 3 |
-| OBJ-15 Permisos por rol | RF-30 a RF-34, RF-39 |
+| OBJ-15 Permisos por rol | RF-30 a RF-34, RF-39, RF-45, RF-46 |
 | OBJ-16 Decisiones técnicas justificadas | RNF-11, RNF-14; entregable `docs/decisiones.md` |
 
 Todos los objetivos tienen al menos un requisito o un entregable asociado.
@@ -254,12 +273,16 @@ Para poder avanzar, el análisis usa estos supuestos. Si cambian, se actualiza e
 | Tema | Supuesto de trabajo | Afecta | Decisión en SPEC §7 |
 |---|---|---|---|
 | Origen de los registros | Captura mínima propia más datos sintéticos cargados por script | RF-02, RF-05 | D5 |
-| Visibilidad al médico | Solo ve informes `APROBADO` | RF-28, RN-01 | D6 |
+| Visibilidad al médico | Decidido el 2026-11-07: solo ve informes `ENVIADO` (enfermería los aprueba y los envía); era supuesto `APROBADO` | RF-28, RF-44, RN-01 | D6, D29 |
 | Qué es una semana | Lunes a domingo; compara con la anterior y el agente decide cuántas más atrás, con tope | RN-06, RF-10 | D10 |
-| El médico registra | Sí | RF-30 | D12 |
+| El médico registra | Sí; interfaz decidida el 2026-11-05: botón «Nuevo registro» en su ficha, `#/med/registro/nuevo/:id`, misma pantalla que enfermería | RF-30 | D12 |
+| Notificaciones al médico | Decidido el 2026-11-05: campana con un registro nuevo (menos el propio) y un informe enviado, con sus puntos, fiel al mockup vA; requisito nuevo | RF-45 | D30 |
+| Consulta del médico («Armar informe») | Decidido el 2026-11-05: el médico arma su propia consulta de un período, de sus propias entradas, sin pasar por enfermería ni entrar al historial; requisito nuevo. Tope del rango medido en 31 días (no el año del mockup) | RF-46, RN-12 | D31 |
 | Catálogo de métricas | El de RF-07 es una propuesta; conviene validarlo con una persona de enfermería | RF-07, RF-11 | D18 |
 | Disparo de la generación | Manual (botón) en M2; programado al cierre de semana queda para M3 | RF-08 | D19 |
 | Consulta libre al pedir el informe | Sin campo libre en M2; el caso de rechazo se construye con una entrada que pide un diagnóstico | RF-15 | D20 |
+| Dictado por voz | Opcional (Momento 3): Whisper en Groq (`whisper-large-v3-turbo`, configurable) detrás de un puerto; el audio no se guarda en la base, ni en disco, ni en registros o trazas; cada dictado es una ejecución `TRANSCRIPCION` con traza y costo; formatos de los navegadores actuales (webm, ogg y mp4); si no se oyó voz, no se envía | RF-38, RNF-02, RF-22, RF-43 | D14 |
+| Trazas y costo en Langfuse | Adicional opcional del Momento 3: Langfuse Cloud (Estados Unidos), solo metadatos, costo calculado por el código; sin llaves la aplicación arranca igual | RF-43, RNF-02, RNF-13 | D28 |
 | Forma de entrega | Enlace al repositorio público de GitHub, sin ZIP; el privado es opcional según el profesor | RNF-01, RNF-08, RNF-12 | D21 |
 | Arranque y llave del API | Una IA del profesor ejecuta solo el README; la llave se toma del entorno o se pide por consola; sin llave ni terminal, arranca igual y avisa que falta la llave | RNF-13 | D22 |
 | Usuarios de demostración | Sembrados al arrancar desde el Momento 2 (enfermería y médico, nombres ficticios, sin credenciales) para que cada acción tenga un autor identificable; credenciales sintéticas en el README y administrador desde el Momento 3 | RF-05, RF-35, RF-39 | D23 |
@@ -269,7 +292,7 @@ Para poder avanzar, el análisis usa estos supuestos. Si cambian, se actualiza e
 | Patrón de integración | Ejecución asíncrona del agente con eventos de progreso por SSE | RF-22, RNF-05 | D24 |
 | Evaluaciones y observabilidad | En clase el profesor las trató como deseables; la rúbrica escrita las puntúa; versión mínima: 3 a 5 casos dorados con script y traza visible en la app | RF-22, OBJ-11 | D25 |
 
-**Estado de las decisiones de la SPEC §7:** decididas D1, D2, D3, D4, D5, D7, D8, D9, D10, D11, D12, D13, D14, D17, D21, D22, D23, D24; propuesta D15 solo en sus modelos (el orden Groq principal y Gemini respaldo está decidido); decidida D27 (28-oct); decidida también D26 (confirmada el 2026-10-28); supuestos D6, D19, D20, D25; por confirmar D18; descartada D16.
+**Estado de las decisiones de la SPEC §7:** decididas D1, D2, D3, D4, D5, D7, D8, D9, D10, D11, D12, D13, D14, D17, D21, D22, D23, D24; propuesta D15 solo en sus modelos (el orden Groq principal y Gemini respaldo está decidido); decidida D27 (28-oct); decidida también D26 (confirmada el 2026-10-28); decidida D29 (2026-11-07) y con ella D6; decidida D30 (2026-11-05), con lo marcado **[Propuesta]** dentro construido en la Pieza 5; decidida D31 (2026-11-05), con lo marcado **[Propuesta]** dentro por construir en la Pieza 6; supuestos D19, D20, D25; por confirmar D18; descartada D16.
 
 **Para el diseño (no bloquean el análisis):** proveedor del LLM (D15, propuesta), cómo recibe el profesor la llave si no tiene una (parte pendiente de D22), valores de intensidad y tipos de evento de la estructuración (D27, D18) y qué hace «Descartar». Ya decididas: stack con Java 17 (D9), conjunto sintético de 5 pacientes y 18 semanas-paciente con un paciente de cuatro semanas aprobadas para el mensual (D11), `JWT_SECRET` y JWT en el Momento 3 (D23), estrategia de datos (D8), motor de PDF (D13), voz (D14), patrón de integración (D24) y dónde se derivan los eventos (al registrar la entrada, D27 propuesta).
 
@@ -278,7 +301,7 @@ Para poder avanzar, el análisis usa estos supuestos. Si cambian, se actualiza e
 ## 9. Criterios de salida de la fase de análisis
 
 - [x] Cada objetivo de la SPEC tiene al menos un requisito o entregable (§7). Verificado el 2026-10-25, incluido OBJ-16.
-- [x] Cada requisito funcional tiene un criterio que se responde con sí o no. Verificado el 2026-10-25 en los 39 RF y el 2026-10-28 en RF-40 a RF-42 (42 RF).
+- [x] Cada requisito funcional tiene un criterio que se responde con sí o no. Verificado el 2026-10-25 en los 39 RF, el 2026-10-28 en RF-40 a RF-42, el 2026-11-03 en RF-43, el 2026-11-07 en RF-44, el 2026-11-08 en RF-45 y en RF-46 (46 RF).
 - [ ] Los dos integrantes revisaron los supuestos de trabajo de §8.
 - [ ] El catálogo de métricas (RF-07) y la estructura del informe (RF-11) se validaron con una persona de enfermería, o quedó registrado que no se pudo.
 - [ ] La SPEC se actualizó con las decisiones D18 a D20 y los supuestos confirmados (D18 a D20 ya están en la SPEC; faltan los supuestos confirmados, incluidos D21 a D27).

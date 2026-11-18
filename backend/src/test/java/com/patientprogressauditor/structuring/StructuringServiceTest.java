@@ -29,6 +29,8 @@ import com.patientprogressauditor.entry.Intensity;
 import com.patientprogressauditor.entry.Symptom;
 import com.patientprogressauditor.llm.Attempt;
 import com.patientprogressauditor.llm.InvalidOutputException;
+import com.patientprogressauditor.llm.LangfuseExporter;
+import com.patientprogressauditor.llm.LangfuseRun;
 import com.patientprogressauditor.llm.LlmException.Kind;
 import com.patientprogressauditor.llm.LlmGateway;
 import com.patientprogressauditor.llm.LlmMessage;
@@ -53,6 +55,7 @@ class StructuringServiceTest {
                        {"symptom":"APETITO_BAJO","intensity":"SIN_INDICAR","occurrences":null}]}""";
 
     @MockitoBean private LlmGateway gateway;
+    @MockitoBean private LangfuseExporter langfuse;
     @Autowired private StructuringService service;
     @Autowired private AgentRunRepository runs;
     @Autowired private AgentStepRepository steps;
@@ -78,6 +81,13 @@ class StructuringServiceTest {
 
     private List<AgentStep> stepsOf(UUID runId) {
         return steps.findByRunIdOrderBySeqAsc(runId);
+    }
+
+    // La traza que la estructuracion entrego a Langfuse al cerrar: una sola por ejecucion.
+    private LangfuseRun sent() {
+        ArgumentCaptor<LangfuseRun> captor = ArgumentCaptor.forClass(LangfuseRun.class);
+        verify(langfuse).export(captor.capture());
+        return captor.getValue();
     }
 
     @Test
@@ -194,6 +204,77 @@ class StructuringServiceTest {
         assertThat(proposal.events()).isEmpty();
         assertThat(proposal.failure()).startsWith("La IA devolvió una respuesta que no cumple el formato esperado.");
         assertThat(runs.findById(proposal.runId()).orElseThrow().getStopReason()).isEqualTo(AgentRun.StopReason.SALIDA_INVALIDA);
+    }
+
+    // --- Langfuse (D28, RF-43): lo que la estructuracion entrega al cerrar ---
+
+    @Test
+    void aSuccessfulProposalSendsOneTraceWithTheIdAndTheCostOfItsRunRow() throws Exception {
+        when(gateway.structured(any(), any())).thenReturn(result(ANSWER, false, false,
+                List.of(new Attempt("groq", "openai/gpt-oss-120b", 1, null, 1100, null, 300, 80))));
+
+        Proposal proposal = service.propose(patient(), EXAMPLE, nurse());
+
+        LangfuseRun sent = sent();
+        AgentRun run = runs.findById(proposal.runId()).orElseThrow();
+        assertThat(sent.runId()).isEqualTo(proposal.runId());
+        assertThat(sent.type()).isEqualTo("ESTRUCTURACION");
+        assertThat(sent.status()).isEqualTo("COMPLETADA");
+        assertThat(sent.stopReason()).isEqualTo("EXITO");
+        assertThat(sent.attempts()).hasSize(1);
+        assertThat(sent.costUsd()).isEqualByComparingTo(run.getCostUsd());
+        assertThat(sent.tokensIn()).isEqualTo(run.getTokensIn());
+    }
+
+    @Test
+    void aCorrectedOutputAfterAFallbackSendsEveryAttemptInOrder() throws Exception {
+        List<Attempt> attempts = List.of(
+                new Attempt("groq", "openai/gpt-oss-120b", 1, Kind.UNAVAILABLE, 800, "HTTP 503"),
+                new Attempt("gemini", "gemini-3.5-flash-lite", 1, null, 1500, null, 200, 50),
+                new Attempt("gemini", "gemini-3.5-flash-lite", 1, null, 1400, null, 260, 60));
+        when(gateway.structured(any(), any())).thenReturn(result(ANSWER, true, true, attempts));
+
+        service.propose(patient(), EXAMPLE, nurse());
+
+        LangfuseRun sent = sent();
+        assertThat(sent.attempts()).extracting(Attempt::provider).containsExactly("groq", "gemini", "gemini");
+        assertThat(sent.attempts()).extracting(Attempt::failure).containsExactly(Kind.UNAVAILABLE, null, null);
+        assertThat(sent.tokensIn()).isEqualTo(460);
+        // Precio de Gemini: 460 * 0,30 + 110 * 2,50 por millon de tokens. El intento caido no suma.
+        assertThat(sent.costUsd()).isEqualByComparingTo("0.000413");
+    }
+
+    @Test
+    void aFailedProposalSendsItsFailedAttemptsWithNoCost() {
+        when(gateway.structured(any(), any())).thenThrow(new LlmUnavailableException("No se pudo obtener respuesta de la IA.",
+                List.of(new Attempt("groq", "openai/gpt-oss-120b", 4, Kind.RATE_LIMIT, 200, "HTTP 429"))));
+
+        service.propose(patient(), EXAMPLE, nurse());
+
+        LangfuseRun sent = sent();
+        assertThat(sent.status()).isEqualTo("FALLIDA");
+        assertThat(sent.stopReason()).isEqualTo("PROVEEDOR_NO_DISPONIBLE");
+        assertThat(sent.attempts()).hasSize(1).noneMatch(Attempt::succeeded);
+        assertThat(sent.costUsd()).isNull();
+    }
+
+    // Hallazgo 1 del paso 1 de docs/PLAN_M3.md: con la salida invalida tras el reintento ya se gastaron tokens, pero la
+    // aplicacion deja agent_runs.cost_usd vacio. Langfuse si suma ese gasto: es la unica ejecucion donde los dos difieren y
+    // el criterio de aceptacion 1 la excluye. Si algun dia agent_runs guarda ese costo, esta prueba debe cambiar.
+    @Test
+    void anOutputThatNeverValidatesIsTheOneRunWhereLangfuseKnowsACostTheRunRowDoesNot() {
+        when(gateway.structured(any(), any())).thenThrow(new InvalidOutputException(
+                "La IA devolvió una respuesta que no cumple el formato esperado.", "esto no es json",
+                List.of("no es JSON válido"), List.of(new Attempt("groq", "openai/gpt-oss-120b", 1, null, 10, null, 300, 80),
+                        new Attempt("groq", "openai/gpt-oss-120b", 1, null, 10, null, 320, 90))));
+
+        Proposal proposal = service.propose(patient(), EXAMPLE, nurse());
+
+        LangfuseRun sent = sent();
+        assertThat(sent.stopReason()).isEqualTo("SALIDA_INVALIDA");
+        assertThat(sent.attempts()).hasSize(2);
+        assertThat(runs.findById(proposal.runId()).orElseThrow().getCostUsd()).isNull();
+        assertThat(sent.costUsd()).isEqualByComparingTo("0.000195");
     }
 
     @Test

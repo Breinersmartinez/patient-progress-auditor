@@ -2,7 +2,10 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, TestRequest, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { BehaviorSubject } from 'rxjs';
 
+import { SessionService } from '../core/session.service';
+import { ToastService } from '../core/toast.service';
 import { ReportViewComponent } from './report-view.component';
 
 const CONTENT = {
@@ -68,13 +71,19 @@ describe('ReportViewComponent (vInfVer y hojaHTML del mockup)', () => {
   let http: HttpTestingController;
   let root: HTMLElement;
   let settle: () => Promise<void>;
+  // La ruta reutiliza el componente al pasar de un informe a otro (misma ruta, :id distinto): este sujeto simula
+  // el paramMap real de Angular, para poder empujarle un id nuevo sin recrear el componente (ver "navegar...").
+  let paramMap: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
 
-  async function open(answer: object | 404 = detail()) {
+  // Por defecto, la sesion de una enfermera (puede editar, aprobar y enviar); el medico no tiene ninguno de los tres.
+  async function open(answer: object | 404 = detail(), permissions: string[] = ['REPORTS_READ', 'REPORTS_UPDATE', 'REPORTS_APPROVE', 'REPORTS_SEND']) {
+    paramMap = new BehaviorSubject(convertToParamMap({ id: 'rep1' }));
     TestBed.configureTestingModule({
       providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([]),
-        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: 'rep1' }) } } }],
+        { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: 'rep1' }) }, paramMap } }],
     });
     http = TestBed.inject(HttpTestingController);
+    TestBed.inject(SessionService).session.set({ id: 'n1', displayName: 'Camilo Torres', role: 'ENFERMERIA', permissions });
     const fixture = TestBed.createComponent(ReportViewComponent);
     fixture.detectChanges();
     const request = http.expectOne('/api/reports/rep1');
@@ -144,7 +153,9 @@ describe('ReportViewComponent (vInfVer y hojaHTML del mockup)', () => {
   it('en revision ofrece rechazar, editar y aprobar, y avisa que es la vista previa del medico', async () => {
     await open();
     expect(Array.from(root.querySelectorAll('.acciones [data-a]')).map((b) => b.getAttribute('data-a'))).toEqual(['traza', 'rechazar', 'editar', 'aprobar']);
-    expect(text('.acciones .nota')).toContain('Revise el texto y las fuentes.');
+    // El texto del mockup (vInfVer): aprobar guarda, pero todavia no llega al medico.
+    expect(text('.acciones .nota')).toBe('Revise el texto y las fuentes. Al aprobar, el informe queda guardado, pero todavía no llega al médico.');
+    expect(root.querySelector('[data-a="enviar"]')).toBeNull();
     expect(root.querySelector('.aviso')!.textContent).toContain('Esta es la vista previa tal como la verá el médico.');
   });
 
@@ -157,15 +168,85 @@ describe('ReportViewComponent (vInfVer y hojaHTML del mockup)', () => {
     await settle();
 
     expect(text('.acciones .est')).toBe('Aprobado');
-    expect(text('.acciones .nota')).toBe('Informe aprobado y guardado. Ya puede consultarlo el médico y descargarlo en PDF.');
+    expect(text('.acciones .nota')).toBe('Informe guardado. Puede descargarlo o enviarlo al médico.');
     expect(text('.hoja .meta')).toContain('Aprobado por: Camilo Torres');
     expect(root.querySelector('[data-a="aprobar"]')).toBeNull();
     expect(root.querySelector('[data-a="editar"]')).toBeNull();
     expect(root.querySelector('[data-a="descargar"]')).toBeTruthy();
+    expect(root.querySelector('[data-a="enviar"]')).toBeTruthy();
     expect(root.textContent).not.toContain('vista previa tal como la verá el médico');
   });
 
   const APPROVED = () => detail({ approvedVersionNo: 1 }, { status: 'APROBADO', reviewedBy: 'Camilo Torres', reviewedAt: '2026-10-29T16:00:00Z' });
+
+  const SENT = () => detail({ approvedVersionNo: 1 }, { status: 'ENVIADO', reviewedBy: 'Camilo Torres', reviewedAt: '2026-10-29T16:00:00Z',
+    sentBy: 'Camilo Torres', sentAt: '2026-10-30T15:00:00Z' });
+
+  it('un informe aprobado ofrece «Descargar PDF» y «Enviar al médico», como el mockup (D29)', async () => {
+    await open(APPROVED());
+    expect(Array.from(root.querySelectorAll('.acciones [data-a]')).map((b) => b.getAttribute('data-a'))).toEqual(['traza', 'descargar', 'enviar']);
+    // El boton de proceso lleva en el DOM su texto y el de «en curso» («Enviando»), como en el mockup.
+    expect(text('[data-a="descargar"]')).toBe('Descargar PDFDescargando');
+    expect(text('[data-a="enviar"]')).toBe('Enviar al médicoEnviando');
+    expect(root.querySelector('[data-a="enviar"]')!.classList).toContain('btn--primary');
+    expect(root.querySelector('[data-a="descargar"]')!.classList).toContain('btn--sec');
+  });
+
+  it('enviar llama al servidor y deja el informe «Enviado», con su nota y solo «Descargar PDF»', async () => {
+    await open(APPROVED());
+    const toast = TestBed.inject(ToastService);
+    await click('[data-a="enviar"]');
+    const request = http.expectOne('/api/reports/rep1/send');
+    expect(request.request.method).toBe('POST');
+    request.flush(SENT());
+    await settle();
+
+    expect(text('.acciones .est')).toBe('Enviado');
+    expect(text('.acciones .nota')).toBe('Enviado al médico el 30 de octubre de 2026.');
+    expect(text('.hoja .meta')).toContain('Aprobado por: Camilo Torres');
+    expect(root.querySelector('[data-a="enviar"]')).toBeNull();
+    expect(root.querySelector('[data-a="descargar"]')).toBeTruthy();
+    expect(root.textContent).not.toContain('Generar de nuevo');
+    // D30 (Pieza 5): el aviso dice que se notifico, como el mockup.
+    expect(toast.toasts().map((t) => t.text)).toEqual(['Informe enviado. Se notificó al médico']);
+  });
+
+  it('un informe enviado abierto de nuevo muestra «Enviado», «Aprobado por» y no se puede volver a enviar', async () => {
+    await open(SENT());
+    expect(text('.acciones .est')).toBe('Enviado');
+    expect(text('.acciones .nota')).toBe('Enviado al médico el 30 de octubre de 2026.');
+    expect(text('.hoja .meta')).toContain('Aprobado por: Camilo Torres');
+    expect(Array.from(root.querySelectorAll('.acciones [data-a]')).map((b) => b.getAttribute('data-a'))).toEqual(['traza', 'descargar']);
+    expect(root.textContent).not.toContain('Generar de nuevo');
+  });
+
+  it('si el servidor no deja enviar (409), lo explica en un aviso y el informe sigue aprobado', async () => {
+    await open(APPROVED());
+    await click('[data-a="enviar"]');
+    http.expectOne('/api/reports/rep1/send').flush({ message: 'No se puede enviar este informe: ya fue enviado al médico y no se modifica.' },
+      { status: 409, statusText: 'Conflict' });
+    await settle();
+    expect(root.querySelector('[role="alert"]')!.textContent).toContain('No se puede enviar este informe');
+    expect(text('.acciones .est')).toBe('Aprobado');
+    expect(root.querySelector('[data-a="enviar"]')).toBeTruthy();
+  });
+
+  it('sin el permiso REPORTS_SEND (p. ej. el médico) no sale «Enviar al médico», aunque el informe esté aprobado', async () => {
+    await open(APPROVED(), ['REPORTS_READ']);
+    expect(root.querySelector('[data-a="enviar"]')).toBeNull();
+    expect(root.querySelector('[data-a="descargar"]')).toBeTruthy();
+  });
+
+  it('el médico ve un enviado con «Descargar PDF» primario y sin la nota de enfermería, como el mockup', async () => {
+    await open(SENT(), ['REPORTS_READ']);
+    TestBed.inject(SessionService).session.set({ id: 'm1', displayName: 'Dr. Andrés Salazar', role: 'MEDICO', permissions: ['REPORTS_READ'] });
+    await settle();
+
+    expect(Array.from(root.querySelectorAll('.acciones [data-a]')).map((b) => b.getAttribute('data-a'))).toEqual(['traza', 'descargar']);
+    expect(root.querySelector('[data-a="descargar"]')!.classList).toContain('btn--primary');
+    expect(root.querySelector('[data-a="descargar"]')!.classList).not.toContain('btn--sec');
+    expect(root.querySelector('.acciones .nota')).toBeNull();
+  });
 
   it('«Descargar PDF» solo existe en un informe aprobado', async () => {
     await open();
@@ -367,6 +448,15 @@ describe('ReportViewComponent (vInfVer y hojaHTML del mockup)', () => {
     expect(text('[data-t="version-ia"]')).toContain(CONTENT.claims[1].text);
   });
 
+  it('sin REPORTS_UPDATE (el médico) no ofrece «Ver lo que escribió la IA», aunque haya más de una versión (E12a)', async () => {
+    await open(detail({
+      version: { versionNo: 2, origin: 'ENFERMERIA', editedBy: 'Camilo Torres', createdAt: 'y', content: { ...CONTENT, summary: 'Resumen corregido.' } },
+      versions: [{ versionNo: 1, origin: 'MODELO', createdAt: 'x' }, { versionNo: 2, origin: 'ENFERMERIA', editedBy: 'Camilo Torres', createdAt: 'y' }],
+    }), ['REPORTS_READ']);
+
+    expect(root.querySelector('[data-a="ia"]')).toBeNull();
+  });
+
   it('un informe que no existe (o que el rol no ve) dice «No encontramos lo que busca»', async () => {
     await open(404);
     expect(root.textContent).toContain('No encontramos lo que busca');
@@ -407,5 +497,131 @@ describe('ReportViewComponent (vInfVer y hojaHTML del mockup)', () => {
     ]);
     // Se aprueba como cualquier informe pendiente
     expect(root.querySelector('[data-a="aprobar"]')).toBeTruthy();
+  });
+
+  it('el médico, en un mensual enviado, no ve el enlace de la semana que no se envió por separado (D29, 2026-11-07)', async () => {
+    const content = {
+      ...MONTHLY_CONTENT,
+      weekly_reports: MONTHLY_CONTENT.weekly_reports.map((w, i) => ({ ...w, sent: i < 3 })),
+    };
+    await open(
+      detail({ version: { versionNo: 1, origin: 'MODELO', createdAt: '2026-10-29T15:00:00Z', content }, citations: { c1: CITATIONS['c1'] } },
+        { id: 'rep1', reportType: 'MENSUAL', periodStart: '2026-09-21', periodEnd: '2026-10-18', status: 'ENVIADO', sentAt: '2026-10-30T15:00:00Z' }),
+      ['REPORTS_READ'],
+    );
+    TestBed.inject(SessionService).session.set({ id: 'm1', displayName: 'Dr. Andrés Salazar', role: 'MEDICO', permissions: ['REPORTS_READ'] });
+    await settle();
+
+    const rows = Array.from(root.querySelectorAll('.hoja ol[data-t="origen"] li'));
+    expect(rows.length).toBe(4);
+    rows.slice(0, 3).forEach((row) => {
+      expect(row.querySelector('a')).not.toBeNull();
+    });
+    expect(rows[3].querySelector('a')).toBeNull();
+    expect(rows[3].textContent).toContain('no se envió por separado');
+  });
+
+  it('enfermería ve el enlace de las cuatro semanas del mensual, aunque alguna no esté enviada', async () => {
+    const content = {
+      ...MONTHLY_CONTENT,
+      weekly_reports: MONTHLY_CONTENT.weekly_reports.map((w, i) => ({ ...w, sent: i < 3 })),
+    };
+    await open(detail({ version: { versionNo: 1, origin: 'MODELO', createdAt: '2026-10-29T15:00:00Z', content }, citations: { c1: CITATIONS['c1'] } },
+      { id: 'rep1', reportType: 'MENSUAL', periodStart: '2026-09-21', periodEnd: '2026-10-18' }));
+
+    const rows = Array.from(root.querySelectorAll('.hoja ol[data-t="origen"] li'));
+    expect(rows.every((row) => row.querySelector('a') !== null)).toBeTrue();
+  });
+
+  it('navegar de un informe a otro por la misma ruta (misma instancia) recarga el contenido, no se queda con el anterior', async () => {
+    await open(detail({}, { id: 'rep1', patientAlias: 'P-014' }));
+    expect(text('.acciones .izq b')).toBe('Informe de P-014');
+
+    paramMap.next(convertToParamMap({ id: 'rep2' }));
+    await settle();
+    const request = http.expectOne('/api/reports/rep2');
+    request.flush(detail({}, { id: 'rep2', patientAlias: 'P-021' }));
+    await settle();
+
+    expect(text('.acciones .izq b')).toBe('Informe de P-021');
+  });
+
+  it('si una respuesta vieja llega tarde (ya se navegó a otro informe), no pisa lo que se está viendo', async () => {
+    await open(detail({}, { id: 'rep1', patientAlias: 'P-014' }));
+
+    paramMap.next(convertToParamMap({ id: 'rep2' }));
+    await settle();
+    const lenta = http.expectOne('/api/reports/rep2');
+
+    paramMap.next(convertToParamMap({ id: 'rep3' }));
+    await settle();
+    const rapida = http.expectOne('/api/reports/rep3');
+    rapida.flush(detail({}, { id: 'rep3', patientAlias: 'P-033' }));
+    await settle();
+    expect(text('.acciones .izq b')).toBe('Informe de P-033');
+
+    // rep2 responde tarde, despues de rep3: no debe pisar lo que ya se ve.
+    lenta.flush(detail({}, { id: 'rep2', patientAlias: 'P-021' }));
+    await settle();
+    expect(text('.acciones .izq b')).toBe('Informe de P-033');
+  });
+
+  describe('D30, RF-45: abrir el informe marca leída su notificación', () => {
+    async function openAsDoctor(answer: object): Promise<void> {
+      paramMap = new BehaviorSubject(convertToParamMap({ id: 'rep1' }));
+      TestBed.configureTestingModule({
+        providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([]),
+          { provide: ActivatedRoute, useValue: { snapshot: { paramMap: convertToParamMap({ id: 'rep1' }) }, paramMap } }],
+      });
+      http = TestBed.inject(HttpTestingController);
+      TestBed.inject(SessionService).session.set({ id: 'm1', displayName: 'Dr. Andrés Salazar', role: 'MEDICO', permissions: ['REPORTS_READ'] });
+      const fixture = TestBed.createComponent(ReportViewComponent);
+      fixture.detectChanges();
+      http.expectOne('/api/reports/rep1').flush(answer);
+      root = fixture.nativeElement;
+      settle = async () => { await new Promise((resolve) => setTimeout(resolve)); fixture.detectChanges(); };
+      await settle();
+    }
+
+    it('con una notificación de ese informe sin leer, la pide marcar leída', async () => {
+      await openAsDoctor(SENT());
+
+      const list = http.expectOne('/api/notifications');
+      list.flush([
+        { id: 'n1', type: 'REPORT', patientId: 'p1', patientAlias: 'P-014', reportId: 'rep1', reportType: 'SEMANAL',
+          createdAt: '2026-10-30T15:05:00Z', read: false },
+      ]);
+      await settle();
+
+      const mark = http.expectOne('/api/notifications/n1/read');
+      expect(mark.request.method).toBe('POST');
+      mark.flush(null);
+    });
+
+    it('sin ninguna notificación de ese informe, no pide marcar nada (solo consulta la lista)', async () => {
+      await openAsDoctor(SENT());
+
+      const list = http.expectOne('/api/notifications');
+      list.flush([
+        { id: 'n2', type: 'ENTRY', patientId: 'p9', patientAlias: 'P-021', entryId: 'e9', entryDate: '2026-10-25',
+          createdAt: '2026-10-25T19:10:00Z', read: false },
+      ]);
+      await settle();
+
+      expect(http.match('/api/notifications/n2/read').length).toBe(0);
+    });
+
+    it('una notificación ya leída de ese informe no se vuelve a marcar', async () => {
+      await openAsDoctor(SENT());
+
+      const list = http.expectOne('/api/notifications');
+      list.flush([
+        { id: 'n3', type: 'REPORT', patientId: 'p1', patientAlias: 'P-014', reportId: 'rep1', reportType: 'SEMANAL',
+          createdAt: '2026-10-30T15:05:00Z', read: true },
+      ]);
+      await settle();
+
+      expect(http.match('/api/notifications/n3/read').length).toBe(0);
+    });
   });
 });

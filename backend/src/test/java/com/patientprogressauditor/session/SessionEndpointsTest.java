@@ -2,6 +2,7 @@ package com.patientprogressauditor.session;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -92,6 +93,17 @@ class SessionEndpointsTest {
     void queryParameterDoesNotReplaceTheHeaderOutsideTheSseRoute() throws Exception {
         mockMvc.perform(get("/api/session").param("demoUser", PermissionMatrixTest.MARCELA))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void aPostToTheApiNeedsNoCsrfTokenBecauseTheUserTravelsInAHeader() throws Exception {
+        // 401 (falta el usuario) y no 403 (CSRF): el filtro CSRF no actua sobre /api/**.
+        mockMvc.perform(post("/api/entries")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void csrfProtectionStaysOnOutsideTheApi() throws Exception {
+        mockMvc.perform(post("/fuera-de-la-api")).andExpect(status().isForbidden());
     }
 
     @Test

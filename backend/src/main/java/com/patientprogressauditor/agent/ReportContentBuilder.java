@@ -39,6 +39,9 @@ public class ReportContentBuilder {
     }
 
     public ObjectNode build(ObjectNode model, AgentRunContext context) {
+        if (context.isPeriod()) {
+            return buildPeriod(model, context);
+        }
         if (context.isMonthly()) {
             return buildMonthly(model, context);
         }
@@ -50,6 +53,31 @@ public class ReportContentBuilder {
         content.setAll(model);
         content.set("metrics", MetricsView.of(week, mapper));
         content.set("insufficient_data", insufficient(week));
+        if (DiagnosisGuard.asksForDiagnosisOrTreatment(context.request())) {
+            content.put("out_of_scope", DiagnosisGuard.OUT_OF_SCOPE);
+        } else {
+            content.putNull("out_of_scope");
+        }
+        return content;
+    }
+
+    // La consulta del medico (D31, RF-46): misma forma que el semanal (resumen, cifras, patron, fuentes cabe igual en
+    // el esquema, confirmado en el paso 1 de la Pieza 6), con un periodo y una comparacion libres en vez de una semana
+    // fija. Sin comparacion, `compared_with` queda null (nunca una fecha inventada).
+    private ObjectNode buildPeriod(ObjectNode model, AgentRunContext context) {
+        WeeklyMetrics data = context.metrics(context.periodEnd(), w -> metrics.period(context.patientId(), context.periodStart(),
+                context.periodEnd(), context.comparisonStart(), context.comparisonEnd()));
+        ObjectNode content = mapper.createObjectNode();
+        ObjectNode period = content.putObject("period");
+        period.put("start", context.periodStart().toString()).put("end", context.periodEnd().toString());
+        if (context.comparisonStart() == null) {
+            period.putNull("compared_with");
+        } else {
+            period.put("compared_with", context.comparisonStart().toString());
+        }
+        content.setAll(model);
+        content.set("metrics", MetricsView.of(data, mapper));
+        content.set("insufficient_data", insufficient(data));
         if (DiagnosisGuard.asksForDiagnosisOrTreatment(context.request())) {
             content.put("out_of_scope", DiagnosisGuard.OUT_OF_SCOPE);
         } else {
@@ -104,7 +132,10 @@ public class ReportContentBuilder {
             w.datesWithoutEntry().forEach(d -> dates.add(d.toString()));
             node.put("text", "No hay registros " + (w.datesWithoutEntry().size() == 1 ? "el " : "los días ") + days(w.datesWithoutEntry()) + ".");
         }
-        if (!w.comparison().comparable()) {
+        // Si `previousWeekStart` es null, nadie pidio comparar (solo pasa en una consulta, D31): no hay nada que
+        // declarar insuficiente, porque no hubo intento de comparacion. Si tiene fecha pero no es comparable, si
+        // hubo un periodo con el que comparar y no tenia registros.
+        if (!w.comparison().comparable() && w.comparison().previousWeekStart() != null) {
             out.addObject().put("kind", "SEMANA_ANTERIOR_SIN_REGISTROS").put("text",
                     "La semana anterior (" + MetricsView.period(w.comparison().previousWeekStart())
                             + ") no tiene registros: no se puede comparar y no se afirma qué síntomas aparecieron o desaparecieron.");

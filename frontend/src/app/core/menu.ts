@@ -10,7 +10,7 @@ export interface MenuModule {
   sub?: MenuLink[];
 }
 
-// ROLES.enf del mockup. El menu del medico y el del administrador no se construyen en esta entrega.
+// ROLES.enf del mockup. El menu del administrador no se construye en esta entrega.
 export const NURSING_MENU: MenuModule[] = [
   { text: 'Pacientes', icon: 'pacientes', path: '/enf/pacientes' },
   {
@@ -28,6 +28,19 @@ export const NURSING_MENU: MenuModule[] = [
       { text: 'Generar informe', path: '/enf/informes/generar' },
       { text: 'En revisión', path: '/enf/informes/revision' },
       { text: 'Aprobados', path: '/enf/informes/aprobados' },
+    ],
+  },
+];
+
+// ROLES.med del mockup, con «Armar informe» (D31, RF-46, Pieza 6 de docs/PLAN_M3.md).
+export const DOCTOR_MENU: MenuModule[] = [
+  { text: 'Mis pacientes', icon: 'pacientes', path: '/med/pacientes' },
+  {
+    text: 'Informes',
+    icon: 'informes',
+    sub: [
+      { text: 'Recibidos', path: '/med/informes/recibidos' },
+      { text: 'Armar informe', path: '/med/informes/armar' },
     ],
   },
 ];

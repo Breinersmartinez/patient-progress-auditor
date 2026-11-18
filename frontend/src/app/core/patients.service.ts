@@ -19,6 +19,9 @@ export interface Patient {
   admittedOn?: string;
   lastEntryDate?: string;
   lastReport?: LastReport;
+  // El punto de "Mis pacientes" (D30, RF-45): el servidor lo calcula; para enfermeria siempre llega en falso.
+  // Opcional aqui porque las pruebas existentes construyen un `Patient` sin este campo.
+  hasUnreadNotifications?: boolean;
 }
 
 export interface NewPatient {

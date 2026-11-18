@@ -6,6 +6,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.patientprogressauditor.entry.EntryRepository;
+import com.patientprogressauditor.notification.NotificationService;
 import com.patientprogressauditor.report.ReportRepository;
 import com.patientprogressauditor.report.ReportVisibility;
 import com.patientprogressauditor.session.DemoPrincipal;
@@ -25,13 +27,15 @@ import com.patientprogressauditor.web.NotFoundException;
 public class PatientService {
 
     private static final String ALIAS_TAKEN = "Ya existe un paciente con ese código.";
+    private static final String DOCTOR_ROLE = "MEDICO";
 
     public record LastReport(UUID id, String type, LocalDate periodStart, LocalDate periodEnd, String status) {
     }
 
     // Lo que ve la pantalla: nunca viaja al proveedor del LLM (RNF-02). El ultimo informe respeta el rol (RN-01).
+    // `hasUnreadNotifications` es el punto de "Mis pacientes" (RF-45, D30): solo se calcula para el medico.
     public record PatientView(UUID id, String alias, String bed, Short age, LocalDate admittedOn,
-            LocalDate lastEntryDate, LastReport lastReport) {
+            LocalDate lastEntryDate, LastReport lastReport, boolean hasUnreadNotifications) {
     }
 
     public record NewPatient(String alias, String bed, Integer age, LocalDate admittedOn) {
@@ -40,12 +44,15 @@ public class PatientService {
     private final PatientRepository patients;
     private final EntryRepository entries;
     private final ReportRepository reports;
+    private final NotificationService notificationService;
     private final Clock clock;
 
-    public PatientService(PatientRepository patients, EntryRepository entries, ReportRepository reports, Clock clock) {
+    public PatientService(PatientRepository patients, EntryRepository entries, ReportRepository reports,
+            NotificationService notificationService, Clock clock) {
         this.patients = patients;
         this.entries = entries;
         this.reports = reports;
+        this.notificationService = notificationService;
         this.clock = clock;
     }
 
@@ -56,7 +63,8 @@ public class PatientService {
         Map<UUID, LocalDate> lastEntries = entries.findLastEntryDates().stream()
                 .collect(Collectors.toMap(EntryRepository.LastEntry::getPatientId, EntryRepository.LastEntry::getLastDate));
         Map<UUID, LastReport> lastReports = lastReports(principal);
-        return all.stream().map(p -> view(p, lastEntries.get(p.getId()), lastReports.get(p.getId()))).toList();
+        Set<UUID> unread = unreadPatientIds(principal);
+        return all.stream().map(p -> view(p, lastEntries.get(p.getId()), lastReports.get(p.getId()), unread.contains(p.getId()))).toList();
     }
 
     @Transactional(readOnly = true)
@@ -64,7 +72,7 @@ public class PatientService {
         Patient patient = patients.findById(id).orElseThrow(() -> new NotFoundException("No encontramos ese paciente."));
         LocalDate lastEntry = entries.findLastEntryDates(List.of(id)).stream()
                 .map(EntryRepository.LastEntry::getLastDate).findFirst().orElse(null);
-        return view(patient, lastEntry, lastReports(principal).get(id));
+        return view(patient, lastEntry, lastReports(principal).get(id), unreadPatientIds(principal).contains(id));
     }
 
     @Transactional
@@ -91,7 +99,7 @@ public class PatientService {
             // Dos altas a la vez con el mismo codigo: la gana uq_patients_alias.
             throw new FieldException(HttpStatus.CONFLICT, "alias", ALIAS_TAKEN);
         }
-        return view(patient, null, null);
+        return view(patient, null, null, false);
     }
 
     private Map<UUID, LastReport> lastReports(DemoPrincipal principal) {
@@ -103,7 +111,15 @@ public class PatientService {
         return result;
     }
 
-    private static PatientView view(Patient p, LocalDate lastEntry, LastReport lastReport) {
-        return new PatientView(p.getId(), p.getAlias(), p.getBed(), p.getAge(), p.getAdmittedOn(), lastEntry, lastReport);
+    // Solo el medico tiene notificaciones (NOTIFICATIONS_READ, D30): para enfermeria siempre vacio, sin consultar nada.
+    private Set<UUID> unreadPatientIds(DemoPrincipal principal) {
+        if (!DOCTOR_ROLE.equals(principal.role())) {
+            return Set.of();
+        }
+        return Set.copyOf(notificationService.patientsWithUnread(principal));
+    }
+
+    private static PatientView view(Patient p, LocalDate lastEntry, LastReport lastReport, boolean hasUnread) {
+        return new PatientView(p.getId(), p.getAlias(), p.getBed(), p.getAge(), p.getAdmittedOn(), lastEntry, lastReport, hasUnread);
     }
 }

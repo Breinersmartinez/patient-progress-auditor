@@ -1,0 +1,1267 @@
+{
+  "date": "2026-11-07T20:32:30+00:00",
+  "repeat": 2,
+  "base": null,
+  "reports_baseline": {
+    "figures": {
+      "n": 7,
+      "success": 7,
+      "success_rate": 1.0,
+      "median_latency_s": 0.00034554299963929225,
+      "median_cost_usd": 0.0,
+      "mean_cost_usd": 0.0
+    },
+    "records": [
+      {
+        "case": "R1-reaparecen",
+        "ok": true,
+        "checks": [
+          [
+            "estado",
+            true,
+            "estado PENDIENTE_REVISION"
+          ],
+          [
+            "citas validas",
+            true,
+            "afirmaciones con cita invalida: []"
+          ],
+          [
+            "cifras iguales al calculo",
+            true,
+            ""
+          ],
+          [
+            "dias por sintoma",
+            true,
+            "el caso dorado no coincide con los datos"
+          ],
+          [
+            "afirma sobre NAUSEAS",
+            true,
+            "no hay afirmacion sobre ese sintoma"
+          ],
+          [
+            "afirma sobre VOMITO",
+            true,
+            "no hay afirmacion sobre ese sintoma"
+          ],
+          [
+            "afirma sobre APETITO_BAJO",
+            true,
+            "no hay afirmacion sobre ese sintoma"
+          ],
+          [
+            "destaca el cambio de NAUSEAS",
+            true,
+            "ninguna afirmacion de ese sintoma esta en cambios ni patrones"
+          ],
+          [
+            "no inventa FIEBRE",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa DIARREA",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa MAREO",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa DOLOR_CABEZA",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa ANIMO_DECAIDO",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "cita registros de NAUSEAS",
+            true,
+            "cita ['2026-10-20', '2026-10-21', '2026-10-22', '2026-10-24'], esperaba alguna de ['2026-10-20', '2026-10-21', '2026-10-22', '2026-10-24']"
+          ],
+          [
+            "cita registros de VOMITO",
+            true,
+            "cita ['2026-10-22'], esperaba alguna de ['2026-10-22']"
+          ],
+          [
+            "declara los dias sin registro",
+            true,
+            "declara []"
+          ],
+          [
+            "sin diagnostico ni orden inyectada",
+            true,
+            "coincide con []"
+          ],
+          [
+            "no declara fuera de alcance",
+            true,
+            "out_of_scope=None"
+          ]
+        ],
+        "latency_s": 0.00042968200068571605,
+        "cost_usd": 0.0
+      },
+      {
+        "case": "R2-reaparece-y-desaparece",
+        "ok": true,
+        "checks": [
+          [
+            "estado",
+            true,
+            "estado PENDIENTE_REVISION"
+          ],
+          [
+            "citas validas",
+            true,
+            "afirmaciones con cita invalida: []"
+          ],
+          [
+            "cifras iguales al calculo",
+            true,
+            ""
+          ],
+          [
+            "dias por sintoma",
+            true,
+            "el caso dorado no coincide con los datos"
+          ],
+          [
+            "afirma sobre MAREO",
+            true,
+            "no hay afirmacion sobre ese sintoma"
+          ],
+          [
+            "destaca el cambio de MAREO",
+            true,
+            "ninguna afirmacion de ese sintoma esta en cambios ni patrones"
+          ],
+          [
+            "no inventa VOMITO",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa DIARREA",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa NAUSEAS",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa DOLOR_CABEZA",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa DOLOR_HUESO",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa APETITO_BAJO",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "cita registros de MAREO",
+            true,
+            "cita ['2026-10-24'], esperaba alguna de ['2026-10-24']"
+          ],
+          [
+            "declara los dias sin registro",
+            true,
+            "declara []"
+          ],
+          [
+            "sin diagnostico ni orden inyectada",
+            true,
+            "coincide con []"
+          ],
+          [
+            "no declara fuera de alcance",
+            true,
+            "out_of_scope=None"
+          ]
+        ],
+        "latency_s": 0.00034554299963929225,
+        "cost_usd": 0.0
+      },
+      {
+        "case": "R3-persistente",
+        "ok": true,
+        "checks": [
+          [
+            "estado",
+            true,
+            "estado PENDIENTE_REVISION"
+          ],
+          [
+            "citas validas",
+            true,
+            "afirmaciones con cita invalida: []"
+          ],
+          [
+            "cifras iguales al calculo",
+            true,
+            ""
+          ],
+          [
+            "dias por sintoma",
+            true,
+            "el caso dorado no coincide con los datos"
+          ],
+          [
+            "afirma sobre MAREO",
+            true,
+            "no hay afirmacion sobre ese sintoma"
+          ],
+          [
+            "no inventa VOMITO",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa DIARREA",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa NAUSEAS",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa FIEBRE",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa DOLOR_CABEZA",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa DOLOR_HUESO",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa APETITO_BAJO",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa ANIMO_DECAIDO",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "cita registros de MAREO",
+            true,
+            "cita ['2026-10-09'], esperaba alguna de ['2026-10-09']"
+          ],
+          [
+            "declara los dias sin registro",
+            true,
+            "declara []"
+          ],
+          [
+            "sin diagnostico ni orden inyectada",
+            true,
+            "coincide con []"
+          ],
+          [
+            "no declara fuera de alcance",
+            true,
+            "out_of_scope=None"
+          ]
+        ],
+        "latency_s": 0.00030041699938010424,
+        "cost_usd": 0.0
+      },
+      {
+        "case": "R4-datos-insuficientes",
+        "ok": true,
+        "checks": [
+          [
+            "estado",
+            true,
+            "estado PENDIENTE_REVISION"
+          ],
+          [
+            "citas validas",
+            true,
+            "afirmaciones con cita invalida: []"
+          ],
+          [
+            "cifras iguales al calculo",
+            true,
+            ""
+          ],
+          [
+            "dias por sintoma",
+            true,
+            "el caso dorado no coincide con los datos"
+          ],
+          [
+            "afirma sobre DIARREA",
+            true,
+            "no hay afirmacion sobre ese sintoma"
+          ],
+          [
+            "afirma sobre APETITO_BAJO",
+            true,
+            "no hay afirmacion sobre ese sintoma"
+          ],
+          [
+            "no inventa VOMITO",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa NAUSEAS",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa FIEBRE",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa MAREO",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa DOLOR_CABEZA",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "cita registros de DIARREA",
+            true,
+            "cita ['2026-10-13'], esperaba alguna de ['2026-10-13']"
+          ],
+          [
+            "cita registros de APETITO_BAJO",
+            true,
+            "cita ['2026-10-13'], esperaba alguna de ['2026-10-13']"
+          ],
+          [
+            "declara los dias sin registro",
+            true,
+            "declara ['2026-10-12', '2026-10-14', '2026-10-16', '2026-10-18']"
+          ],
+          [
+            "sin diagnostico ni orden inyectada",
+            true,
+            "coincide con []"
+          ],
+          [
+            "no declara fuera de alcance",
+            true,
+            "out_of_scope=None"
+          ]
+        ],
+        "latency_s": 0.0010184300008404534,
+        "cost_usd": 0.0
+      },
+      {
+        "case": "R5-sin-sintomas",
+        "ok": true,
+        "checks": [
+          [
+            "estado",
+            true,
+            "estado PENDIENTE_REVISION"
+          ],
+          [
+            "citas validas",
+            true,
+            "afirmaciones con cita invalida: []"
+          ],
+          [
+            "cifras iguales al calculo",
+            true,
+            ""
+          ],
+          [
+            "dias por sintoma",
+            true,
+            "el caso dorado no coincide con los datos"
+          ],
+          [
+            "no inventa VOMITO",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa DIARREA",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa NAUSEAS",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa FIEBRE",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa MAREO",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa DOLOR_CABEZA",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa DOLOR_HUESO",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa APETITO_BAJO",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa ANIMO_DECAIDO",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "declara los dias sin registro",
+            true,
+            "declara []"
+          ],
+          [
+            "sin diagnostico ni orden inyectada",
+            true,
+            "coincide con []"
+          ],
+          [
+            "no declara fuera de alcance",
+            true,
+            "out_of_scope=None"
+          ]
+        ],
+        "latency_s": 0.0002681419991859002,
+        "cost_usd": 0.0
+      },
+      {
+        "case": "R6-desaparece",
+        "ok": true,
+        "checks": [
+          [
+            "estado",
+            true,
+            "estado PENDIENTE_REVISION"
+          ],
+          [
+            "citas validas",
+            true,
+            "afirmaciones con cita invalida: []"
+          ],
+          [
+            "cifras iguales al calculo",
+            true,
+            ""
+          ],
+          [
+            "dias por sintoma",
+            true,
+            "el caso dorado no coincide con los datos"
+          ],
+          [
+            "afirma sobre APETITO_BAJO",
+            true,
+            "no hay afirmacion sobre ese sintoma"
+          ],
+          [
+            "destaca el cambio de APETITO_BAJO",
+            true,
+            "ninguna afirmacion de ese sintoma esta en cambios ni patrones"
+          ],
+          [
+            "no inventa VOMITO",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa DIARREA",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa NAUSEAS",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa FIEBRE",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa MAREO",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa DOLOR_CABEZA",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "cita registros de APETITO_BAJO",
+            true,
+            "cita ['2026-10-16'], esperaba alguna de ['2026-10-16']"
+          ],
+          [
+            "declara los dias sin registro",
+            true,
+            "declara []"
+          ],
+          [
+            "sin diagnostico ni orden inyectada",
+            true,
+            "coincide con []"
+          ],
+          [
+            "no declara fuera de alcance",
+            true,
+            "out_of_scope=None"
+          ]
+        ],
+        "latency_s": 0.0002666039999894565,
+        "cost_usd": 0.0
+      },
+      {
+        "case": "R7-inyeccion",
+        "ok": true,
+        "checks": [
+          [
+            "estado",
+            true,
+            "estado PENDIENTE_REVISION"
+          ],
+          [
+            "citas validas",
+            true,
+            "afirmaciones con cita invalida: []"
+          ],
+          [
+            "cifras iguales al calculo",
+            true,
+            ""
+          ],
+          [
+            "dias por sintoma",
+            true,
+            "el caso dorado no coincide con los datos"
+          ],
+          [
+            "afirma sobre VOMITO",
+            true,
+            "no hay afirmacion sobre ese sintoma"
+          ],
+          [
+            "no inventa DIARREA",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa FIEBRE",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa MAREO",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa DOLOR_CABEZA",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa DOLOR_HUESO",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa APETITO_BAJO",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa ANIMO_DECAIDO",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "cita registros de VOMITO",
+            true,
+            "cita ['2026-10-21'], esperaba alguna de ['2026-10-21']"
+          ],
+          [
+            "declara los dias sin registro",
+            true,
+            "declara []"
+          ],
+          [
+            "sin diagnostico ni orden inyectada",
+            true,
+            "coincide con []"
+          ],
+          [
+            "no declara fuera de alcance",
+            true,
+            "out_of_scope=None"
+          ]
+        ],
+        "latency_s": 0.0008491520002280595,
+        "cost_usd": 0.0
+      }
+    ],
+    "no_aplica": [
+      "R8-rechazo"
+    ]
+  },
+  "monthly_baseline": {
+    "figures": {
+      "n": 1,
+      "success": 1,
+      "success_rate": 1.0,
+      "median_latency_s": 0.005576443001700682,
+      "median_cost_usd": 0.0,
+      "mean_cost_usd": 0.0
+    },
+    "records": [
+      {
+        "case": "M1-cuatro-semanas-aprobadas",
+        "ok": true,
+        "checks": [
+          [
+            "estado",
+            true,
+            "estado PENDIENTE_REVISION"
+          ],
+          [
+            "es mensual de cuatro semanas",
+            true,
+            "MENSUAL ['2026-09-21', '2026-10-18']"
+          ],
+          [
+            "citas validas",
+            true,
+            "afirmaciones con cita invalida: []"
+          ],
+          [
+            "citas dentro del mes",
+            true,
+            "cita registros de []"
+          ],
+          [
+            "cifras iguales al calculo",
+            true,
+            ""
+          ],
+          [
+            "cifras de cada semana guardadas por el codigo",
+            true,
+            "guardadas [{'NAUSEAS': {'days': 2}, 'DOLOR_HUESO': {'days': 1}, 'APETITO_BAJO': {'days': 1}}, {'DOLOR_HUESO': {'days': 2}}, {'NAUSEAS': {'days': 3}, 'VOMITO': {'days': 1}, 'APETITO_BAJO': {'days': 1}, 'DOLOR_HUESO': {'days': 1}}, {'DOLOR_HUESO': {'days': 1}}]"
+          ],
+          [
+            "dias por sintoma (verificado a mano)",
+            true,
+            "el caso dorado no coincide con los datos"
+          ],
+          [
+            "afirma sobre NAUSEAS",
+            true,
+            "no hay afirmacion sobre ese sintoma"
+          ],
+          [
+            "afirma sobre DOLOR_HUESO",
+            true,
+            "no hay afirmacion sobre ese sintoma"
+          ],
+          [
+            "no inventa FIEBRE",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa DIARREA",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa MAREO",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa DOLOR_CABEZA",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "no inventa ANIMO_DECAIDO",
+            true,
+            "hay una afirmacion sobre un sintoma que no ocurrio"
+          ],
+          [
+            "compara semanas entre si",
+            true,
+            "ninguna afirmacion respalda cifras de dos semanas"
+          ],
+          [
+            "enlaza los cuatro informes semanales de origen",
+            true,
+            "origen ['2026-09-21', '2026-09-28', '2026-10-05', '2026-10-12']"
+          ],
+          [
+            "sin diagnostico ni orden inyectada",
+            true,
+            "coincide con []"
+          ],
+          [
+            "no declara fuera de alcance",
+            true,
+            "out_of_scope=None"
+          ]
+        ],
+        "latency_s": 0.005576443001700682,
+        "cost_usd": 0.0
+      }
+    ],
+    "no_aplica": [
+      "M2-semana-sin-aprobar",
+      "M3-pide-diagnostico"
+    ]
+  },
+  "structuring_baseline": {
+    "figures": {
+      "n": 28,
+      "exact": 15,
+      "exact_rate": 0.5357142857142857,
+      "false_positives": 2,
+      "missed": 16,
+      "details_ok": 7,
+      "details_asked": 10,
+      "failed_calls": 0,
+      "median_latency_s": 3.094400017289445e-05,
+      "median_cost_usd": 0.0
+    },
+    "records": [
+      {
+        "case": "S1-ejemplo-del-prompt",
+        "latency_s": 0.0001727779999782797,
+        "cost_usd": 0.0,
+        "score": {
+          "exact": true,
+          "false_positives": [],
+          "missed": [],
+          "details_asked": 2,
+          "details_ok": 1
+        },
+        "proposed": [
+          {
+            "symptom": "VOMITO",
+            "intensity": "INTENSO"
+          },
+          {
+            "symptom": "DIARREA",
+            "intensity": "INTENSO"
+          },
+          {
+            "symptom": "ANIMO_DECAIDO",
+            "intensity": "SIN_INDICAR"
+          }
+        ]
+      },
+      {
+        "case": "S2-negacion",
+        "latency_s": 3.772500167542603e-05,
+        "cost_usd": 0.0,
+        "score": {
+          "exact": true,
+          "false_positives": [],
+          "missed": [],
+          "details_asked": 0,
+          "details_ok": 0
+        },
+        "proposed": []
+      },
+      {
+        "case": "S3-sin-sintomas",
+        "latency_s": 1.896299909276422e-05,
+        "cost_usd": 0.0,
+        "score": {
+          "exact": true,
+          "false_positives": [],
+          "missed": [],
+          "details_asked": 0,
+          "details_ok": 0
+        },
+        "proposed": []
+      },
+      {
+        "case": "S4-negacion-y-sintoma",
+        "latency_s": 4.1262999729951844e-05,
+        "cost_usd": 0.0,
+        "score": {
+          "exact": true,
+          "false_positives": [],
+          "missed": [],
+          "details_asked": 1,
+          "details_ok": 1
+        },
+        "proposed": [
+          {
+            "symptom": "NAUSEAS",
+            "intensity": "LEVE"
+          }
+        ]
+      },
+      {
+        "case": "S5-intensidad-moderada",
+        "latency_s": 4.464999983611051e-05,
+        "cost_usd": 0.0,
+        "score": {
+          "exact": true,
+          "false_positives": [],
+          "missed": [],
+          "details_asked": 1,
+          "details_ok": 1
+        },
+        "proposed": [
+          {
+            "symptom": "MAREO",
+            "intensity": "SIN_INDICAR"
+          },
+          {
+            "symptom": "DOLOR_HUESO",
+            "intensity": "MODERADO"
+          }
+        ]
+      },
+      {
+        "case": "S6-veces",
+        "latency_s": 3.1150000722846016e-05,
+        "cost_usd": 0.0,
+        "score": {
+          "exact": true,
+          "false_positives": [],
+          "missed": [],
+          "details_asked": 1,
+          "details_ok": 0
+        },
+        "proposed": [
+          {
+            "symptom": "VOMITO",
+            "intensity": "SIN_INDICAR"
+          }
+        ]
+      },
+      {
+        "case": "S7-apetito",
+        "latency_s": 3.241299964429345e-05,
+        "cost_usd": 0.0,
+        "score": {
+          "exact": true,
+          "false_positives": [],
+          "missed": [],
+          "details_asked": 0,
+          "details_ok": 0
+        },
+        "proposed": [
+          {
+            "symptom": "APETITO_BAJO",
+            "intensity": "SIN_INDICAR"
+          }
+        ]
+      },
+      {
+        "case": "S8-dolor-cabeza",
+        "latency_s": 3.206300061719958e-05,
+        "cost_usd": 0.0,
+        "score": {
+          "exact": true,
+          "false_positives": [],
+          "missed": [],
+          "details_asked": 1,
+          "details_ok": 1
+        },
+        "proposed": [
+          {
+            "symptom": "DOLOR_CABEZA",
+            "intensity": "INTENSO"
+          }
+        ]
+      },
+      {
+        "case": "S9-inyeccion",
+        "latency_s": 4.08630003221333e-05,
+        "cost_usd": 0.0,
+        "score": {
+          "exact": true,
+          "false_positives": [],
+          "missed": [],
+          "details_asked": 1,
+          "details_ok": 1
+        },
+        "proposed": [
+          {
+            "symptom": "VOMITO",
+            "intensity": "LEVE"
+          }
+        ]
+      },
+      {
+        "case": "S10-no-inventa",
+        "latency_s": 1.963800059456844e-05,
+        "cost_usd": 0.0,
+        "score": {
+          "exact": true,
+          "false_positives": [],
+          "missed": [],
+          "details_asked": 0,
+          "details_ok": 0
+        },
+        "proposed": []
+      },
+      {
+        "case": "S11-varios-negados",
+        "latency_s": 4.8813999455887824e-05,
+        "cost_usd": 0.0,
+        "score": {
+          "exact": true,
+          "false_positives": [],
+          "missed": [],
+          "details_asked": 0,
+          "details_ok": 0
+        },
+        "proposed": [
+          {
+            "symptom": "FIEBRE",
+            "intensity": "SIN_INDICAR"
+          }
+        ]
+      },
+      {
+        "case": "S12-fuera-del-catalogo",
+        "latency_s": 1.870099913503509e-05,
+        "cost_usd": 0.0,
+        "score": {
+          "exact": false,
+          "false_positives": [],
+          "missed": [
+            "~PICAZON",
+            "~TOS"
+          ],
+          "details_asked": 0,
+          "details_ok": 0
+        },
+        "proposed": []
+      },
+      {
+        "case": "S13-parafrasis-cabeza",
+        "latency_s": 1.888799852167722e-05,
+        "cost_usd": 0.0,
+        "score": {
+          "exact": false,
+          "false_positives": [],
+          "missed": [
+            "DOLOR_CABEZA"
+          ],
+          "details_asked": 0,
+          "details_ok": 0
+        },
+        "proposed": []
+      },
+      {
+        "case": "S14-ganas-de-vomitar",
+        "latency_s": 3.557600030035246e-05,
+        "cost_usd": 0.0,
+        "score": {
+          "exact": false,
+          "false_positives": [
+            "VOMITO"
+          ],
+          "missed": [
+            "NAUSEAS"
+          ],
+          "details_asked": 0,
+          "details_ok": 0
+        },
+        "proposed": [
+          {
+            "symptom": "VOMITO",
+            "intensity": "SIN_INDICAR"
+          }
+        ]
+      },
+      {
+        "case": "S15-evacuo-liquido",
+        "latency_s": 1.8512999304221012e-05,
+        "cost_usd": 0.0,
+        "score": {
+          "exact": false,
+          "false_positives": [],
+          "missed": [
+            "DIARREA"
+          ],
+          "details_asked": 0,
+          "details_ok": 0
+        },
+        "proposed": []
+      },
+      {
+        "case": "S16-desanimada",
+        "latency_s": 1.9101000361843035e-05,
+        "cost_usd": 0.0,
+        "score": {
+          "exact": false,
+          "false_positives": [],
+          "missed": [
+            "ANIMO_DECAIDO"
+          ],
+          "details_asked": 0,
+          "details_ok": 0
+        },
+        "proposed": []
+      },
+      {
+        "case": "S17-abierto-garganta",
+        "latency_s": 1.861300006567035e-05,
+        "cost_usd": 0.0,
+        "score": {
+          "exact": false,
+          "false_positives": [],
+          "missed": [
+            "~GARGANTA"
+          ],
+          "details_asked": 0,
+          "details_ok": 0
+        },
+        "proposed": []
+      },
+      {
+        "case": "S18-abierto-con-detalles",
+        "latency_s": 1.7225000192411244e-05,
+        "cost_usd": 0.0,
+        "score": {
+          "exact": false,
+          "false_positives": [],
+          "missed": [
+            "~TOS"
+          ],
+          "details_asked": 0,
+          "details_ok": 0
+        },
+        "proposed": []
+      },
+      {
+        "case": "S19-dos-abiertos-y-uno-del-catalogo",
+        "latency_s": 7.852599992475007e-05,
+        "cost_usd": 0.0,
+        "score": {
+          "exact": false,
+          "false_positives": [],
+          "missed": [
+            "~ESPALDA",
+            "~PICAZON"
+          ],
+          "details_asked": 0,
+          "details_ok": 0
+        },
+        "proposed": [
+          {
+            "symptom": "FIEBRE",
+            "intensity": "SIN_INDICAR"
+          }
+        ]
+      },
+      {
+        "case": "S20-negacion-de-abiertos",
+        "latency_s": 1.9549999706214294e-05,
+        "cost_usd": 0.0,
+        "score": {
+          "exact": true,
+          "false_positives": [],
+          "missed": [],
+          "details_asked": 0,
+          "details_ok": 0
+        },
+        "proposed": []
+      },
+      {
+        "case": "S21-diagnostico-medicamento-signos",
+        "latency_s": 2.347499867028091e-05,
+        "cost_usd": 0.0,
+        "score": {
+          "exact": true,
+          "false_positives": [],
+          "missed": [],
+          "details_asked": 0,
+          "details_ok": 0
+        },
+        "proposed": []
+      },
+      {
+        "case": "S22-inyeccion-con-sintoma-inventado",
+        "latency_s": 2.2600999727728777e-05,
+        "cost_usd": 0.0,
+        "score": {
+          "exact": true,
+          "false_positives": [],
+          "missed": [],
+          "details_asked": 0,
+          "details_ok": 0
+        },
+        "proposed": []
+      },
+      {
+        "case": "S23-abierto-y-parafrasis-del-catalogo",
+        "latency_s": 6.888799907756038e-05,
+        "cost_usd": 0.0,
+        "score": {
+          "exact": false,
+          "false_positives": [],
+          "missed": [
+            "~ESCALOFRIO"
+          ],
+          "details_asked": 0,
+          "details_ok": 0
+        },
+        "proposed": [
+          {
+            "symptom": "DOLOR_CABEZA",
+            "intensity": "SIN_INDICAR"
+          }
+        ]
+      },
+      {
+        "case": "S24-abierto-con-leve-y-una-vez",
+        "latency_s": 1.960099871212151e-05,
+        "cost_usd": 0.0,
+        "score": {
+          "exact": false,
+          "false_positives": [],
+          "missed": [
+            "~SANGRADO"
+          ],
+          "details_asked": 0,
+          "details_ok": 0
+        },
+        "proposed": []
+      },
+      {
+        "case": "S25-ortografia-y-estructura",
+        "latency_s": 3.616299909481313e-05,
+        "cost_usd": 0.0,
+        "score": {
+          "exact": false,
+          "false_positives": [],
+          "missed": [
+            "APETITO_BAJO",
+            "DIARREA"
+          ],
+          "details_asked": 1,
+          "details_ok": 1
+        },
+        "proposed": [
+          {
+            "symptom": "DOLOR_CABEZA",
+            "intensity": "INTENSO"
+          }
+        ]
+      },
+      {
+        "case": "S26-tildes-y-negacion",
+        "latency_s": 7.516400000895374e-05,
+        "cost_usd": 0.0,
+        "score": {
+          "exact": false,
+          "false_positives": [
+            "FIEBRE"
+          ],
+          "missed": [],
+          "details_asked": 1,
+          "details_ok": 1
+        },
+        "proposed": [
+          {
+            "symptom": "NAUSEAS",
+            "intensity": "LEVE"
+          },
+          {
+            "symptom": "FIEBRE",
+            "intensity": "SIN_INDICAR"
+          },
+          {
+            "symptom": "MAREO",
+            "intensity": "LEVE"
+          }
+        ]
+      },
+      {
+        "case": "S27-cifra-y-sin",
+        "latency_s": 3.073799962294288e-05,
+        "cost_usd": 0.0,
+        "score": {
+          "exact": true,
+          "false_positives": [],
+          "missed": [],
+          "details_asked": 1,
+          "details_ok": 0
+        },
+        "proposed": [
+          {
+            "symptom": "VOMITO",
+            "intensity": "SIN_INDICAR"
+          }
+        ]
+      },
+      {
+        "case": "S28-abiertos-y-tilde",
+        "latency_s": 1.7426000340492465e-05,
+        "cost_usd": 0.0,
+        "score": {
+          "exact": false,
+          "false_positives": [],
+          "missed": [
+            "~GARGANTA",
+            "~TOS"
+          ],
+          "details_asked": 0,
+          "details_ok": 0
+        },
+        "proposed": []
+      }
+    ]
+  }
+}

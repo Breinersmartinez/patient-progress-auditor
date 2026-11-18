@@ -15,6 +15,10 @@ export interface Entry {
   structuringStatus: 'ESTRUCTURADA' | 'SIN_ESTRUCTURAR';
   createdAt: string;
   symptoms: EntrySymptom[];
+  // El texto corregido que se confirmó al guardar (RF-42), o ausente. Nunca reemplaza a `body`: ese es el original.
+  correctedBody?: string | null;
+  // TEXTO si se escribió, VOZ si vino de un dictado (RF-38).
+  source?: 'TEXTO' | 'VOZ';
 }
 
 // Lo que propone el modelo. Todavía no es un evento: lo es cuando la persona lo confirma (RN-11).
@@ -28,6 +32,8 @@ export interface ProposedEvent {
 
 export interface Proposal {
   events: ProposedEvent[];
+  // La nota con buena ortografía (RF-42). Ausente si la IA no la dio o cambiaba el contenido: entonces no hay campo.
+  correctedText?: string;
   // Si la IA falló: el motivo, en lenguaje claro. Entonces `events` va vacío.
   failure?: string;
   provider?: string;
@@ -46,11 +52,29 @@ export interface ConfirmedEvent {
   origin: 'IA' | 'EDITADO' | 'MANUAL';
 }
 
+// El texto corregido que la persona dejó en la vista previa: IA_ACEPTADA si no lo tocó, IA_EDITADA si lo cambió.
+export interface Correction {
+  body: string;
+  origin: 'IA_ACEPTADA' | 'IA_EDITADA';
+}
+
 export interface NewEntry {
   entryDate: string;
   body: string;
+  correction?: Correction;
   // Ausente: «guardar solo el texto» (la entrada queda sin estructurar).
   events?: ConfirmedEvent[];
+  // 'VOZ' si el texto vino de un dictado (RF-38); ausente, escrito a mano.
+  source?: 'VOZ';
+}
+
+// Lo que devuelve un dictado: el texto para revisarlo en la caja, o el motivo si no se pudo. No guarda nada.
+export interface Dictation {
+  text?: string;
+  seconds?: number;
+  failure?: string;
+  model?: string;
+  runId?: string;
 }
 
 export interface EntryQuery {
@@ -82,6 +106,12 @@ export class EntriesService {
   // Guarda la entrada con el texto tal como se escribió y, si vienen, los síntomas que la persona confirmó.
   create(patientId: string, entry: NewEntry): Promise<Entry> {
     return firstValueFrom(this.http.post<Entry>(`/api/patients/${encodeURIComponent(patientId)}/entries`, entry));
+  }
+
+  // Transcribe un dictado (RF-38). El audio va como cuerpo crudo con su formato; el servidor no lo guarda.
+  transcribe(patientId: string, audio: Blob, mimeType: string): Promise<Dictation> {
+    return firstValueFrom(this.http.post<Dictation>(`/api/patients/${encodeURIComponent(patientId)}/entries/transcribe`, audio,
+      { headers: { 'Content-Type': mimeType } }));
   }
 
   // Historial de todos los pacientes, del mas reciente al mas antiguo.

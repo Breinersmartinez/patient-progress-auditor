@@ -105,6 +105,28 @@
 - **48 de 48 no es una tasa del 100 %:** dice que en estas pruebas no falló. Los dos fallos de la primera pasada eran reales y salieron de los mismos casos.
 - **El riesgo de fondo sigue abierto:** dos nombres para lo mismo («lumbalgia» y «dolor de espalda») cuentan como síntomas distintos; los casos miden que se propone un síntoma con su palabra, no que el mismo síntoma tenga siempre el mismo nombre.
 
+## Texto corregido en el registro (E19)
+
+> Medido el **2026-10-30** con el jar de la rama contra una base desechable y las llaves de Groq y Gemini. Resultados: `eval/results/2026-10-30-texto-corregido.json` (final) y `eval/results/2026-10-30-texto-corregido-pasada1.json` (primera pasada, conservada). Casos en `eval/cases/structuring.json`: S25 a S28 son nuevos (notas mal escritas); el texto se juzga con `corrected_contains` y `corrected_forbidden` y, en todos los casos, que llegue, empiece con mayúscula, termine en punto y conserve números y negaciones (reglas de `eval/checks.py`, escritas aparte de las del servidor). Método: 28 casos × 2 repeticiones = 56 ejecuciones.
+
+| Cifra (versión final) | Sistema (IA) | Convencional |
+|---|---|---|
+| **Síntomas exactos** | **56 de 56** (0 falsos positivos, 0 omitidos, intensidad y veces 32 de 32) | 14 de 24 (E18; no se repitió con los 4 casos nuevos) |
+| **Texto corregido que llegó** (pasó la validación del servidor) | **56 de 56** | no medido: la biblioteca estándar no trae corrector ortográfico |
+| **Texto corregido correcto** (fragmentos esperados, falta original corregida, números y negaciones intactos) | **55 de 56** | no medido |
+| Llamadas fallidas | 0 | — |
+| Mediana de latencia · costo por llamada | 1,40 s · 0,0004 USD | 0,03 ms · 0 |
+
+**Cómo se llegó a esas cifras (primera pasada y ajuste de los casos).** La primera pasada dio 55 de 56 en síntomas (S23 omitió «escalofríos» en una de dos; ya había fallado una vez en E18, es variación del modelo) y **52 de 56 en texto corregido: los cuatro fallos eran míos**, de los esperados que escribí para S27 y S28 antes de ver el modelo. «Vomito 3 veces» lo leyó como sustantivo («Vómito 3 veces…», correcto) y no como verbo («Vomitó»); «tomo agua y desanso», dentro de «se queja de…», lo dejó en presente («Toma agua y descansa»), que también es correcto. **Cambié esos esperados después de ver las salidas** y volví a medir todo: si la regla se ajusta al resultado, la cifra final es menos independiente que la primera, y por eso el archivo de la primera pasada se conserva. El único fallo real del texto es una ejecución de S28 que dejó «desanso» sin corregir.
+
+**Cómo leerlo, sin exagerar:**
+- **Las 4 notas nuevas las escribió quien construyó el corrector**, y son cortas; en notas largas, con jerga o con abreviaturas, no se midió. n = 2 por caso.
+- **La comprobación de «sin cambiar el contenido» es de números y negaciones.** Un cambio de otro tipo (un adjetivo, un lugar, un orden de hechos) no lo detecta el código: lo ve quien revisa el campo antes de aprobar. Cuántas veces el modelo cambia algo así no se midió.
+- **La orden dentro de la nota no se obedeció** (S9 y S22: el texto corregido la deja escrita como una frase más), medido con el modelo real en 4 ejecuciones.
+- **La latencia mediana pasó de 1,11 s (E18) a 1,40 s y el costo de 0,0003 a 0,0004 USD.** El texto de salida más largo es una causa posible; no se aisló (otra hora, 4 casos más, otro estado de la cuota del proveedor).
+- Todas las respuestas las dio Groq; la ruta por Gemini no se midió con este prompt.
+- Pruebas automáticas: backend 366 (16 nuevas: validador del corrector, propuesta, guardado, versión, rechazos), frontend 129 (8 nuevas), `eval` 36 (5 nuevas).
+
 ## Qué se concluye, y qué no
 
 1. **La estructuración es donde el modelo se gana el lugar:** iguala al diccionario en todo lo que este conoce y lo supera en las cuatro paráfrasis («punzadas en la cabeza», «ganas de vomitar», «evacuó líquido tres veces», «desanimada»). Lo que el diccionario hace bien (negaciones simples) ya está resuelto con código; lo que no (el lenguaje de cada persona) es del modelo. Esto es lo que AGENTS.md pide: LLM para interpretar texto libre, código para lo exacto.

@@ -147,6 +147,12 @@
                              propio pool: con 10 conexiones por contexto, Postgres (100 por defecto, tambien en CI) se agota. -->
                         <spring.datasource.hikari.maximum-pool-size>4</spring.datasource.hikari.maximum-pool-size>
                     </systemPropertyVariables>
+                    <!-- Las pruebas nunca envian trazas a Langfuse, aunque quien las corre tenga las llaves en su entorno
+                         (PatientProgressAuditorApplicationTests lo comprueba). -->
+                    <environmentVariables>
+                        <LANGFUSE_PUBLIC_KEY></LANGFUSE_PUBLIC_KEY>
+                        <LANGFUSE_SECRET_KEY></LANGFUSE_SECRET_KEY>
+                    </environmentVariables>
                 </configuration>
             </plugin>
             <plugin>

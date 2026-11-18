@@ -2,7 +2,7 @@ import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http'
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
-export type ReportStatus = 'PENDIENTE_REVISION' | 'APROBADO' | 'INCOMPLETO' | 'RECHAZADO';
+export type ReportStatus = 'PENDIENTE_REVISION' | 'APROBADO' | 'ENVIADO' | 'INCOMPLETO' | 'RECHAZADO';
 
 // Los campos nulos no viajan en el JSON del API: todo lo opcional llega ausente (nunca null).
 export interface ReportSummary {
@@ -17,6 +17,9 @@ export interface ReportSummary {
   generatedAt: string;
   reviewedBy?: string;
   reviewedAt?: string;
+  // Quién y cuándo lo envió al médico (D29); solo existen en un informe ENVIADO.
+  sentBy?: string;
+  sentAt?: string;
   provider?: string;
   model?: string;
 }
@@ -87,12 +90,14 @@ export interface MonthOption {
   reason?: string;
 }
 
-// De cual informe semanal aprobado sale cada semana del mensual.
+// De cual informe semanal aprobado sale cada semana del mensual. `sent` se consulta en vivo (no viene del contenido
+// congelado): si es `false`, esa semana quedó aprobada sin enviar y el médico no puede abrirla (D29, 2026-11-07).
 export interface WeeklySource {
   week_no: number;
   week_start: string;
   report_id: string;
   summary: string;
+  sent?: boolean;
 }
 
 // En el mensual `metrics` no es una semana sino las cuatro, cada una con la forma de ReportMetrics.
@@ -213,6 +218,11 @@ export class ReportsService {
 
   approve(id: string): Promise<ReportDetail> {
     return firstValueFrom(this.http.post<ReportDetail>(`/api/reports/${encodeURIComponent(id)}/approve`, {}));
+  }
+
+  // Enviar al médico un informe aprobado (RF-44): lo hace llegar al médico; el servidor lo permite solo a enfermería.
+  send(id: string): Promise<ReportDetail> {
+    return firstValueFrom(this.http.post<ReportDetail>(`/api/reports/${encodeURIComponent(id)}/send`, {}));
   }
 
   reject(id: string, reason: string): Promise<ReportDetail> {

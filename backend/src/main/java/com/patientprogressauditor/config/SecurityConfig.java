@@ -34,8 +34,10 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http, AppUserRepository users, ObjectMapper mapper) throws Exception {
         // Momento 2 (D23, D26): sin token ni sesion; el rol sale del usuario de demostracion elegido.
+        // CSRF sigue activo y solo se exime /api/**: ahi no hay cookie ni sesion que otro sitio pueda reutilizar, porque el
+        // usuario viaja en la cabecera X-Demo-User (ver docs/decisiones.md).
         http
-                .csrf(csrf -> csrf.disable())
+                .csrf(csrf -> csrf.ignoringRequestMatchers("/api/**"))
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth

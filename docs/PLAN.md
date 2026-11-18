@@ -736,7 +736,7 @@ Si W-1 no tiene ninguna entrada, no se puede decir que un síntoma «dejó de es
 - ¿Cada propuesta deja su traza `ESTRUCTURACION` (proveedor, modelo, tokens, costo, intentos) y nada del paciente salvo el texto sale al proveedor?
 - F8: ¿la pantalla, con la vista previa y con el fallo, a 1280×800 y a 390×844, no difiere del mockup salvo contenido y tabla 3.3?
 
-**Queda fuera.** El «texto corregido» (RF-42) y su campo, mostrar la traza en una pantalla (la API de ejecuciones llega en E11), el dictado por voz, editar una entrada ya guardada (RF-03) y la auditoría (RF-35).
+**Queda fuera.** El «texto corregido» (RF-42) y su campo (entró después, en E19), mostrar la traza en una pantalla (la API de ejecuciones llega en E11), el dictado por voz, editar una entrada ya guardada (RF-03) y la auditoría (RF-35).
 
 ## Plan
 
@@ -1393,3 +1393,58 @@ D18 y D27 dicen «catálogo cerrado de nueve» y la base lo protege con un `CHEC
       Produce: SPEC D18/D27, REQUISITOS, `DICCIONARIO_DATOS_M2`, `decisiones.md`, README, AGENTS, este plan
       Se comprueba: `mvn -B verify`, `ng test`, enlaces y variables
   > SPEC D18/D27, REQUISITOS RF-06, `DICCIONARIO_DATOS_M2` (§3.3, `entry_events`, restricciones, migración `V8`, punto 5), `DICCIONARIO_DATOS` (punto 5), `decisiones.md` (E18 y la fila de E9), `semana10.md`, README (paso 1 del recorrido y conteos), `AGENTS.md`, `eval/README.md`. `mvn -B verify`: 350 pruebas, 0 fallos, 14 omitidas; `ng test`: 121 de 121; `unittest` de eval: 31; `check-env-example`: 28 variables.
+
+---
+
+# E19 — Texto corregido en el registro diario (RF-42)
+
+> **Estado:** cerrada con lo no medido declarado (30-oct, pedido de quien registra: «en el nuevo registro diario también aparezca el texto bien estructurado, con buena ortografía, como está en los mockups») · **Depende de:** E9, E18 · **Cambia:** D27 en su parte «el texto corregido queda fuera» (decisión del 28-oct, tomada por falta de tiempo).
+
+## Contradicción que se declara antes de ejecutar
+
+D27, E9 y el recorte de E5 dejaron el «texto corregido» **fuera** del Momento 2, y el microcopy de la pantalla se cambió para no prometerlo. El mockup (`vistaPrevia`: campo «Texto corregido» editable, antes de los síntomas), la SPEC §4 y RF-42 (M2-S) sí lo traen. No hay choque de fondo: RF-42 era «si hay tiempo» y el equipo lo pide ahora. Se ejecuta; D27 se reescribe (no se borra) y el hito de RF-42 se queda en M2-S (no se renumera ni cambian los conteos). Lo que **no** cambia: el original se guarda tal como se escribió y es el que citan los informes (RN-05, RN-07).
+
+## Encargo
+
+**En una frase.** Que la vista previa «Así quedaría el registro» muestre, junto a los síntomas, el texto de la nota reescrito con buena ortografía, puntuación y oraciones claras, editable por la persona, y que al aprobar se guarde como **versión** de la entrada sin tocar el original.
+
+**Criterio de aceptación.**
+- ¿La vista previa muestra «Texto corregido» (con tildes, mayúsculas, puntuación y una idea por oración) y la persona lo puede editar antes de aprobar?
+- ¿Tras «Aprobar y guardar» existen el texto original tal como se escribió y la versión corregida con su autor (`IA_ACEPTADA` si no lo cambió, `IA_EDITADA` si lo cambió), y el informe sigue citando el original?
+- ¿El corrector no cambia el contenido? El servidor rechaza (y lo anota en la traza) una propuesta que cambia un número, cambia las negaciones o es mucho más larga o corta que la nota; en ese caso la vista previa sigue sin campo de texto y los síntomas se proponen igual.
+- ¿Si la IA falla, o el texto ya estaba bien, no se guarda ninguna versión y todo lo demás funciona como antes?
+- ¿El historial y la ficha muestran el texto corregido, con el original a un clic?
+- ¿Los 24 casos de estructuración de `eval/` siguen exactos con el prompt nuevo, y hay casos del corrector con su cifra?
+
+**Queda fuera.** Editar una entrada ya guardada (RF-03); dictado por voz; que el agente de informes lea la versión corregida (cita siempre el original, RN-05); corregir con un modelo distinto.
+
+## Decisiones que tomo (para que el equipo las revise)
+
+1. **Una sola llamada**: el texto corregido sale en la misma respuesta JSON que los síntomas (campo `correctedText`), no en una segunda llamada. Cuesta unos 100 a 200 tokens de salida más y ninguna latencia de ida y vuelta extra.
+2. **El corrector no puede tumbar los síntomas**: su validación es aparte (`StructuringPrompt.acceptCorrection`) y, si falla, se descarta solo el texto corregido. Un texto corregido malo no debe impedir registrar.
+3. **Qué se comprueba por código** (no por ruego al modelo): mismos números (cifras y dígitos), mismo número de negaciones (sin, no, nunca, ni, nada, ningún) y longitud entre el 60 % y el 160 % de la nota. Lo que la persona edite después no se restringe (es suya).
+4. **Se guarda solo si difiere** del original; el `origin` lo informa la pantalla (como el de los eventos, D26: no es un control de seguridad).
+5. **El original manda**: `entries.body` no cambia; las citas, el agente y el PDF siguen usando el original.
+
+## Plan
+
+- [x] 1. Backend: modelo y guardado de la versión
+      Produce: entidad `EntryVersion` (tabla `entry_versions` de `V3`, sin migración), `EntryService.create` con `correctedText`, `EntryView.correctedBody`
+      Se comprueba: pruebas de API (guarda original + versión; sin versión si es igual o no viene; origen inválido y texto vacío o con NUL se rechazan; el listado trae el texto corregido)
+  > `EntryVersion` (inmutable) y su repositorio sobre la tabla de `V3` (sin migración), `EntryService.create` con `Correction`, `EntryView.correctedBody` (la versión de mayor número). 5 pruebas de API nuevas en `EntryConfirmApiTest`.
+- [x] 2. Backend: el modelo propone el texto corregido
+      Produce: prompt (regla 7), esquema (`correctedText`), `acceptCorrection`, `Proposal.correctedText`, paso de traza si se descarta
+      Se comprueba: pruebas del prompt y del servicio (acepta lo bueno; rechaza número cambiado, negación quitada, longitud; no tumba los síntomas)
+  > Regla 7 del prompt, `correctedText` en el esquema (no obligatorio para el validador de forma), `StructuringPrompt.acceptCorrection` (números en cifra o palabra, negaciones, largo), `Proposal.correctedText` y un paso de traza si se descarta. 8 pruebas del prompt nuevas y 2 de API de la propuesta. Un hallazgo mío en la primera prueba: la comprobación miraba solo cifras y dejaba pasar «dos» → «tres»; se amplió a números en palabra.
+- [x] 3. Pantalla: campo «Texto corregido» en la vista previa, envío al aprobar, historial y ficha
+      Produce: `entry-new`, `entries.service`, `entry-card`, `entry-history`
+      Se comprueba: `ng test`; Chrome con una nota real
+  > Campo «Texto corregido» editable antes de los síntomas, como el mockup; al aprobar envía `correction` (`IA_ACEPTADA` o `IA_EDITADA`; nada si queda vacío o igual al original); la ayuda recupera la frase del mockup; ficha («Ver el texto original») e historial (el original en el título de la celda). `ng test`: 129 de 129 (8 nuevas). **En Chrome real con Groq:** «dolor de cabeza intenso desde la mañana tuvo diarea dos veces comio poko» mostró «Dolor de cabeza intenso desde la mañana. Tuvo diarrea dos veces. Comió poco.» y tres síntomas; se le agregó «Sin fiebre.», se aprobó y quedó el original en `body`, la versión `IA_EDITADA` y el historial con el texto corregido.
+- [x] 4. Evaluación: corrector en `eval/`
+      Produce: comprobaciones de invariantes y de contenido (`corrected_contains`) en los casos de estructuración, resultados fechados
+      Se comprueba: `python3 -m unittest discover -s eval`; corrida con el proveedor real (los 24 casos × 2 siguen exactos)
+  > `checks.score_correction`, 4 casos nuevos (S25 a S28), `run_eval.py` registra y cuenta el texto corregido. **Medido (56 ejecuciones):** síntomas 56 de 56 exactos; texto corregido llegó 56 de 56 y correcto 55 de 56; mediana 1,40 s (1,11 s en E18). La primera pasada dio 52 de 56 en texto y los 4 fallos eran esperados míos mal puestos (S27, S28); se corrigieron después de ver las salidas y se declara en `semana10.md`, con el archivo de la primera pasada conservado. 36 pruebas de `eval`.
+- [x] 5. Documentos y cierre
+      Produce: SPEC §4 y D27, REQUISITOS RF-42, `decisiones.md`, `semana10.md`, DICCIONARIO_DATOS_M2, README, AGENTS, este plan
+      Se comprueba: `mvn -B verify`, `ng test`, variables y enlaces
+  > SPEC (alcance y D27), `decisiones.md` (E19 y la fila de E9), `semana10.md`, `DICCIONARIO_DATOS_M2`, README (paso 1 del recorrido y conteos), `AGENTS.md`, `eval/README.md`. `mvn -B verify`: 366 pruebas, 0 fallos, 14 omitidas; `ng test`: 129 de 129; `unittest` de eval: 36.

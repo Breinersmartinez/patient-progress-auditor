@@ -24,6 +24,9 @@ export const ICONOS: Record<string, string> = {
   trazas: '<path d="M3 12h4l2.5-6 4 12 2.5-6H21"/>',
   campana: '<path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 21h4"/>',
   buscar: '<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/>',
+  // Dictado por voz (RF-38): nuevos, con el mismo trazo.
+  microfono: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0"/><path d="M12 17.5V21"/><path d="M8.5 21h7"/>',
+  detener: '<rect class="i-latido" x="6.5" y="6.5" width="11" height="11" rx="2"/>',
 };
 
 // Los que se animan cuando el boton esta ocupado (btnProceso del mockup).

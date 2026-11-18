@@ -8,13 +8,15 @@ export type RunStatus = 'EN_COLA' | 'EN_CURSO' | 'COMPLETADA' | 'INCOMPLETA' | '
 
 export interface Run {
   id: string;
-  runType: 'INFORME' | 'MENSUAL' | 'ESTRUCTURACION';
+  runType: 'INFORME' | 'MENSUAL' | 'ESTRUCTURACION' | 'CONSULTA';
   patientId: string;
   periodStart?: string;
   status: RunStatus;
   stopReason?: string;
   // El informe que dejo la ejecucion (un borrador o uno INCOMPLETO); ausente si fallo antes de escribir.
   reportId?: string;
+  // Lo mismo que reportId, pero de una consulta del medico (D31, RF-46): nunca los dos a la vez.
+  consultationId?: string;
   // El motivo si no termino bien, en lenguaje claro.
   message?: string;
   provider?: string;
