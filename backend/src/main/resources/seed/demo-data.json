@@ -27,6 +27,13 @@
    "displayName": "Dr. Julián Ortiz",
    "email": "julian.ortiz@example.test",
    "role": "MEDICO"
+  },
+  {
+   "id": "20000000-0000-0000-0000-000000000005",
+   "key": "admin",
+   "displayName": "Administrador Auditor",
+   "email": "admin@example.test",
+   "role": "ADMIN"
   }
  ],
  "patients": [

@@ -10,7 +10,7 @@ export interface MenuModule {
   sub?: MenuLink[];
 }
 
-// ROLES.enf del mockup. El menu del administrador no se construye en esta entrega.
+// ROLES.enf del mockup.
 export const NURSING_MENU: MenuModule[] = [
   { text: 'Pacientes', icon: 'pacientes', path: '/enf/pacientes' },
   {
@@ -44,3 +44,7 @@ export const DOCTOR_MENU: MenuModule[] = [
     ],
   },
 ];
+
+// ROLES.adm del mockup, solo con «Usuarios» (RF-33): «Permisos por rol» y «Trazas del agente» quedaron fuera
+// (docs/admin-usuarios, Fuera de alcance).
+export const ADMIN_MENU: MenuModule[] = [{ text: 'Usuarios', icon: 'usuarios', path: '/adm/usuarios' }];

@@ -603,3 +603,22 @@ Spec, plan y reporte en `docs/login-keycloak/`. No renumera D23 ni D26: las reem
 | `webOrigins: ["*"]` en el client público `auditor-web` | `run.sh` cambia el puerto del frontend si está ocupado y `+` no resuelve el comodín de puerto; el client es PKCE sin secreto | Un origen fijo (se rompe con otro puerto) |
 | El reenvío del código de recuperación se bloquea 2 min aunque el código se haya anulado (opción A, por defecto del plan) | Evita usar el reenvío para probar correos | Permitir reenviar al anular |
 | Médico y administrador entran y ven «Su rol aún no tiene pantallas» con «Cerrar sesión» | Solo enfermería está lista | Rechazarlos en el login |
+
+## Administración de usuarios (2026-11-16)
+
+Spec, plan y reporte en `docs/admin-usuarios/`. Es D32 de `docs/SPEC.md` §7 (RF-33). Corrige dos puntos de la propuesta de Keycloak: ahora el administrador **sí** tiene fila en `app_users` y entra a su propia pantalla (ya no ve «Su rol aún no tiene pantallas»).
+
+| Decisión | Por qué | Alternativa descartada |
+|---|---|---|
+| Keycloak es la única fuente de credenciales y rol; el backend lo gestiona con la API Admin y un cliente de servicio `auditor-admin` | Una sola identidad; el rol viaja en el token | Roles solo en la base |
+| Se conserva `app_users` como autor de cada acción (D12), también para el admin | Sin ella se pierde el autor de las acciones y de los avisos | Eliminar la tabla (el dueño lo planteó; se mantuvo tras explicar el costo) |
+| Base primero sin confirmar, Keycloak después, confirmar solo si Keycloak responde; si el `commit` falla se borra al usuario de Keycloak | Evita usuarios huérfanos sin transacción compartida. **La compensación no tiene prueba automática** | Escribir en Keycloak primero |
+| Corte inmediato: `JwtPrincipalConverter` exige un `AppUser` activo para todos los roles y desactivar cierra las sesiones de Keycloak | Un usuario desactivado no debe seguir con un token vigente | Esperar a que venza el token |
+| Sin borrado; el correo no se edita; nadie se desactiva ni cambia su rol y queda siempre un admin activo | Conserva el autor de las acciones y evita dejar el sistema sin administración | Borrado duro |
+| Secreto del cliente de servicio: `AUDITOR_ADMIN_CLIENT_SECRET` | Keycloak trata las variables `KC_*` como configuración propia | `KC_ADMIN_CLIENT_SECRET` (nombre del plan) |
+| El token del cliente de servicio lleva los scopes `kc-admin-api` y `roles` y 4 roles de `realm-management` | Sin ellos Keycloak 26.8 responde 401/403 | Roles solos |
+| Lectura a Keycloak con tope de 10 s | Si Keycloak se cuelga la pantalla no queda en «Creando» sin fin | Sin tope |
+| Invitación por correo con la acción `UPDATE_PASSWORD` (12 h); reenvío con `POST /api/admin/users/{id}/invitation` | El admin nunca ve la contraseña | Que el admin fije una contraseña |
+| Permisos por usuario (RF-34): descartado por ahora | Los roles ya traen lo que pueden hacer | Tablero de permisos |
+
+Pendiente: la comparación visual con el mockup; probar que la invitación anterior deja de servir al reenviar; una prueba del `commit` fallido. El enlace de invitación falla con 500 si se abre en un navegador que tiene otra sesión de Keycloak abierta.

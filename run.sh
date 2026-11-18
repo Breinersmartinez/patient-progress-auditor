@@ -67,6 +67,13 @@ if [ -z "$(get_var KC_BOOTSTRAP_ADMIN_PASSWORD)" ]; then
   echo "Se genero KC_BOOTSTRAP_ADMIN_PASSWORD en .env (administrador de la consola de Keycloak)."
 fi
 
+# Secreto del cliente de servicio con el que el backend gestiona usuarios en Keycloak (docs/admin-usuarios). El realm lo toma
+# al importarse: con un volumen de Keycloak anterior hay que repetir 'docker compose down -v'.
+if [ -z "$(get_var AUDITOR_ADMIN_CLIENT_SECRET)" ]; then
+  set_var AUDITOR_ADMIN_CLIENT_SECRET "$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')"
+  echo "Se genero AUDITOR_ADMIN_CLIENT_SECRET en .env (cliente de servicio de la gestion de usuarios)."
+fi
+
 # Si el proyecto aun no corre y el puerto esta ocupado, se usa el siguiente libre.
 if [ -z "$(docker compose ps -q 2> /dev/null)" ]; then
   for var in BACKEND_PORT FRONTEND_PORT KC_PORT MAILPIT_PORT; do

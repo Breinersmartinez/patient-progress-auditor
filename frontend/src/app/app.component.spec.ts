@@ -109,7 +109,7 @@ describe('AppComponent (armazón del mockup)', () => {
   });
 
   it('un rol sin pantallas ve el aviso, sin menú, y puede cerrar sesión', async () => {
-    fakeSession.session.set({ id: null as unknown as string, displayName: 'Admin Auditor', role: 'ADMIN', permissions: [] });
+    fakeSession.session.set({ id: null as unknown as string, displayName: 'Cuenta Nueva', role: 'AUDITOR', permissions: [] });
     fakeSession.hasScreens.set(false);
     const root: HTMLElement = (await open('/enf/pacientes')).nativeElement;
 

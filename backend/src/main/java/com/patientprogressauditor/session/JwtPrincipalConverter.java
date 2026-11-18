@@ -44,7 +44,7 @@ public class JwtPrincipalConverter implements Converter<Jwt, AbstractAuthenticat
             return UsernamePasswordAuthenticationToken.authenticated(
                     new AppPrincipal(null, nameOf(jwt, null), "", Set.of()), jwt, List.of());
         }
-        AppUser user = AppRole.ADMIN.equals(role) ? null : users.findByEmailIgnoreCaseAndActiveTrue(jwt.getClaimAsString("email")).orElse(null);
+        AppUser user = users.findByEmailIgnoreCaseAndActiveTrue(jwt.getClaimAsString("email")).orElse(null);
         Set<String> permissions = roles.findByCode(role)
                 .map(r -> r.getPermissions().stream().map(AppPermission::getCode).collect(Collectors.toSet()))
                 .orElse(Set.of());

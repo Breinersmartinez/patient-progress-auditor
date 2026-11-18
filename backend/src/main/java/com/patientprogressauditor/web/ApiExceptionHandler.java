@@ -15,6 +15,8 @@ import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import com.patientprogressauditor.keycloak.KeycloakUnavailableException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import com.patientprogressauditor.session.ApiError;
@@ -41,6 +43,13 @@ public class ApiExceptionHandler {
     @ExceptionHandler(BusyException.class)
     ResponseEntity<ApiError> busy(BusyException e) {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).header("Retry-After", "30").contentType(MediaType.APPLICATION_JSON).body(new ApiError(e.getMessage()));
+    }
+
+    // Keycloak no respondio al gestionar usuarios: nada queda a medias y el mensaje no cuenta el detalle (queda en el log).
+    @ExceptionHandler(KeycloakUnavailableException.class)
+    ResponseEntity<ApiError> keycloakUnavailable(KeycloakUnavailableException e) {
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).contentType(MediaType.APPLICATION_JSON)
+                .body(new ApiError("No se pudo contactar el servicio de inicio de sesión. Intente de nuevo."));
     }
 
     @ExceptionHandler(NotFoundException.class)

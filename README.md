@@ -123,7 +123,7 @@ Si después de `down -v` se borra también `.env` (o se clona de nuevo) pero que
 |---|---|---|
 | `marcela.rojas@example.test`, `camilo.torres@example.test` | Enfermería | Todas las pantallas |
 | `andres.salazar@example.test`, `julian.ortiz@example.test` | Médico | Aviso «Su rol aún no tiene pantallas» y «Cerrar sesión» |
-| `admin@example.test` | Administración | El mismo aviso |
+| `admin@example.test` | Administración | «Usuarios»: crea, edita, desactiva y ve usuarios (sin datos clínicos). Si crea uno, el correo de invitación llega a Mailpit (<http://localhost:8026>); ábralo con la sesión de Keycloak cerrada |
 
 Cada pieza, en corto: el **realm** es el espacio de usuarios y reglas (`keycloak/realm/auditor-realm.json`); el **client** `auditor-web` es la app Angular (público, sin secreto, con PKCE); los **roles** del realm viajan en el token y el backend los valida; el **flujo** `ppa reset credentials` recupera la contraseña con un código de 6 dígitos que llega al correo de prueba (Mailpit, <http://localhost:8025>); la invitación de alta es un enlace de 12 horas; el **tema** `auditor` (`keycloak/themes/auditor/`) dibuja el login, las pantallas de estado y los correos; la **extensión** Java (`keycloak/extensiones/codigo-recuperacion/`) genera y valida el código. El JSON del realm salió de configurarlo en una consola real y exportarlo; para volver a importarlo borre los datos con `docker compose down -v`.
 

@@ -544,6 +544,17 @@
           "view-groups"
         ]
       }
+    ],
+    "realm-management": [
+      {
+        "client": "auditor-admin",
+        "roles": [
+          "manage-users",
+          "view-users",
+          "query-users",
+          "view-realm"
+        ]
+      }
     ]
   },
   "clients": [
@@ -899,6 +910,32 @@
         "organization",
         "microprofile-jwt"
       ]
+    },
+    {
+      "clientId": "auditor-admin",
+      "name": "Patient Progress Auditor (backend, gestion de usuarios)",
+      "description": "Cliente de servicio del backend: crea, edita y desactiva usuarios. Solo gestiona usuarios.",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "${AUDITOR_ADMIN_CLIENT_SECRET}",
+      "bearerOnly": false,
+      "consentRequired": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "attributes": {
+        "client.secret.creation.time": "0"
+      },
+      "fullScopeAllowed": false,
+      "defaultClientScopes": [
+        "basic",
+        "roles",
+        "kc-admin-api"
+      ],
+      "optionalClientScopes": []
     }
   ],
   "clientScopes": [
@@ -2831,6 +2868,20 @@
       "realmRoles": [
         "ADMIN"
       ]
+    },
+    {
+      "username": "service-account-auditor-admin",
+      "enabled": true,
+      "emailVerified": false,
+      "serviceAccountClientId": "auditor-admin",
+      "clientRoles": {
+        "realm-management": [
+          "manage-users",
+          "view-users",
+          "query-users",
+          "view-realm"
+        ]
+      }
     }
   ]
 }

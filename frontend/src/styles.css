@@ -431,6 +431,9 @@ body { font-size: 16px; }
 
 .inp { min-height: 48px; padding: 0 14px; border: 1.5px solid var(--field); border-radius: var(--r-md); background: #fff; }
 textarea.inp { padding: 12px 14px; min-height: 120px; line-height: 24px; }
+select.inp { appearance: none; -webkit-appearance: none; padding-right: 40px; cursor: pointer;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23697386' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 14px center; }
+select.inp:disabled { background-color: var(--surface-sunken); cursor: not-allowed; }
 .inp:focus { outline: 3px solid var(--pri-200); outline-offset: 0; border-color: var(--color-primary); box-shadow: none; }
 .campo { gap: 6px; align-content: start; } /* sin esto, junto a un campo con mensaje de error la fila se estira y el selector baja 3px */
 .campo label { font-size: 15px; line-height: 20px; font-weight: 600; color: var(--text-primary); }

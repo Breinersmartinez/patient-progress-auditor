@@ -44,6 +44,8 @@ class DemoDataSeederTest {
                 + " JOIN app_roles r ON r.id = ur.role_id WHERE u.is_demo AND r.code = 'ENFERMERIA'")).isEqualTo(2);
         assertThat(count("SELECT count(*) FROM app_users u JOIN app_user_roles ur ON ur.user_id = u.id"
                 + " JOIN app_roles r ON r.id = ur.role_id WHERE u.is_demo AND r.code = 'MEDICO'")).isEqualTo(2);
+        assertThat(count("SELECT count(*) FROM app_users u JOIN app_user_roles ur ON ur.user_id = u.id"
+                + " JOIN app_roles r ON r.id = ur.role_id WHERE u.is_demo AND r.code = 'ADMIN'")).isEqualTo(1);
         assertThat(count("SELECT count(*) FROM app_users WHERE is_demo AND password_hash IS NOT NULL")).isZero();
         assertThat(count("SELECT count(*) FROM patients WHERE alias IN " + SEED_ALIASES)).isEqualTo(5);
         assertThat(count("SELECT count(*) FROM (SELECT DISTINCT p.id, date_trunc('week', e.entry_date)"

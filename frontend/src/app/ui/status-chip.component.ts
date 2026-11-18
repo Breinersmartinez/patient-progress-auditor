@@ -5,6 +5,8 @@ const COLOR_ESTADO: Record<string, string> = {
   'En revisión': '#7F77DD',
   Aprobado: '#1D9E75',
   Enviado: '#1D9E75',
+  Activo: '#1D9E75',
+  Inactivo: '#888780',
   Incompleto: '#E24B4A',
   Rechazado: '#E24B4A',
 };
