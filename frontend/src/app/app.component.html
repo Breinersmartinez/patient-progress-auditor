@@ -17,7 +17,7 @@
       @if (session.session() && !session.hasScreens()) {
         <div class="vacio" id="sin-pantallas">
           <h3>Su rol aún no tiene pantallas</h3>
-          <p>Su cuenta es de {{ sidebarUser().role.toLowerCase() }}. Por ahora solo los roles de enfermería y médico pueden usar la aplicación.</p>
+          <p>Su cuenta es de {{ sidebarUser().role.toLowerCase() }}. Por ahora solo los roles de enfermería, médico y administración pueden usar la aplicación.</p>
         </div>
       } @else {
         <router-outlet />

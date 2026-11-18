@@ -388,6 +388,8 @@ Una fila por cosa que pasó: cada llamada al modelo, cada herramienta, cada vali
 
 ### 4.13 `audit_logs` — Auditoría (M2-S)
 
+> **Desde el Momento 3** (D33, `V13`): la tabla está en uso, es de solo agregar y admite también `ENVIAR_INFORME`, `CREAR_USUARIO`, `ACTUALIZAR_USUARIO` y el tipo `USER`. Lo vigente está en `docs/DICCIONARIO_DATOS.md` §4.13; esta sección queda como el recorte del Momento 2.
+
 Una fila por acción sensible. Solo se agregan filas; nunca se actualizan ni se borran.
 
 | Columna | Etiqueta | Tipo | Nulo | Clave | Descripción y reglas | Origen |

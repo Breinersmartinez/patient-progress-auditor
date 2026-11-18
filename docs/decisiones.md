@@ -622,3 +622,20 @@ Spec, plan y reporte en `docs/admin-usuarios/`. Es D32 de `docs/SPEC.md` §7 (RF
 | Permisos por usuario (RF-34): descartado por ahora | Los roles ya traen lo que pueden hacer | Tablero de permisos |
 
 Pendiente: la comparación visual con el mockup; probar que la invitación anterior deja de servir al reenviar; una prueba del `commit` fallido. El enlace de invitación falla con 500 si se abre en un navegador que tiene otra sesión de Keycloak abierta.
+
+## Auditoría de acciones (2026-11-18)
+
+Encargo, plan y reporte en `docs/auditoria/`. Es D33 de `docs/SPEC.md` §7 (RF-35, que pasa de M2-S a M3). Responde «¿quién aprobó esto?» sin que el administrador vea datos clínicos.
+
+| Decisión | Por qué | Alternativa descartada |
+|---|---|---|
+| Se usa la tabla `audit_logs` de `V3`, que existía sin uso; `V13` amplía sus valores (8 acciones, tipo `USER`) | Ya estaba diseñada en el diccionario (§4.13); `V3` no se edita porque ya corrió en todas las bases | Una tabla nueva; editar `V3` |
+| Acciones: aprobar, rechazar, editar y enviar un informe; registrar una entrada **el médico**; crear y actualizar un usuario | Son las que cambian algo y RF-35 las pide; enviar es la regla humana de D29; el cambio de rol de un usuario cumple el «cambiar permisos» (RF-34 se descartó) | Anotar también lecturas y accesos denegados (no cambian nada y multiplican el volumen); anotar la entrada de enfermería (es su flujo normal, D12) |
+| La anotación va en la **misma transacción** que la acción (`Propagation.MANDATORY`); en usuarios, antes de llamar a Keycloak | Si una falla, fallan las dos: no queda acción sin anotar ni anotación sin acción. Antes de Keycloak, porque Keycloak no es transaccional | Una transacción aparte o un evento asíncrono |
+| Solo metadatos: estados, números de versión, longitud del motivo del rechazo, fecha y origen de la entrada, nombre, rol y estado de un usuario | El administrador no debe ver datos clínicos (RF-33): guardar el contenido haría de la bitácora un segundo almacén clínico | Guardar el informe o el motivo del rechazo |
+| Solo agregar con triggers en la base (`UPDATE`, `DELETE` y `TRUNCATE` rechazados) | Una consola o un error de código no la puede alterar. **Límite declarado:** el dueño de la tabla puede desactivar los triggers; no es una prueba forense | Impedirlo solo desde la aplicación |
+| Lectura `GET /api/admin/audit`, solo `ADMIN`, filtros por persona y por acción, páginas de 50, orden por fecha e id | El id desempata acciones del mismo instante: las páginas no repiten ni omiten filas. Con 10 000 anotaciones, mediana de 397 ms por página (límite del encargo: 1 s) | Traer todo y filtrar en el navegador (`app-listing`) |
+| Pantalla `#/adm/auditoria` con el aspecto de «Usuarios» | No hay mockup de esta pantalla; el equipo pidió seguir los estilos actuales | Dibujar un mockup antes |
+| La bitácora empieza vacía; se muestra el nombre **actual** de quien actuó | Lo sembrado no lo hizo una persona; el identificador basta para el «quién» | Anotaciones retroactivas; copiar el nombre en cada fila |
+
+Pendiente: anotar `EDITAR_ENTRADA` cuando exista RF-03. Una edición guardada sin cambios también se anota («Sin cambios»): la persona pulsó guardar; si el equipo prefiere no anotarla, es un cambio de una línea en `UserAdminService`.

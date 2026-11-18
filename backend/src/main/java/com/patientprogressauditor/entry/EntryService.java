@@ -19,11 +19,15 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.patientprogressauditor.audit.AuditAction;
+import com.patientprogressauditor.audit.AuditEntity;
+import com.patientprogressauditor.audit.AuditService;
 import com.patientprogressauditor.notification.NotificationService;
 import com.patientprogressauditor.patient.Patient;
 import com.patientprogressauditor.patient.PatientRepository;
 import com.patientprogressauditor.session.AppPrincipal;
 import com.patientprogressauditor.structuring.StructuringPrompt;
+import com.patientprogressauditor.user.AppRole;
 import com.patientprogressauditor.user.AppUser;
 import com.patientprogressauditor.user.AppUserRepository;
 import com.patientprogressauditor.web.FieldException;
@@ -64,10 +68,13 @@ public class EntryService {
     private final PatientRepository patients;
     private final AppUserRepository users;
     private final NotificationService notificationService;
+    private final AuditService audit;
     private final Clock clock;
 
     public EntryService(EntryRepository entries, EntryEventRepository events, EntryVersionRepository versions,
-            PatientRepository patients, AppUserRepository users, NotificationService notificationService, Clock clock) {
+            PatientRepository patients, AppUserRepository users, NotificationService notificationService, Clock clock,
+            AuditService audit) {
+        this.audit = audit;
         this.entries = entries;
         this.events = events;
         this.versions = versions;
@@ -113,6 +120,12 @@ public class EntryService {
         }
         // Avisa a los demas medicos activos (RF-45, D30): misma transaccion, si falla, falla el guardado entero.
         notificationService.notifyEntryCreated(patientId, entry.getId(), principal.id());
+        // RF-35 y D12: solo el registro del medico se anota; el de enfermeria es su flujo normal. Sin el texto.
+        if (AppRole.DOCTOR.equals(principal.role())) {
+            audit.record(principal, AuditAction.REGISTRAR_ENTRADA_MEDICO, AuditEntity.ENTRY, entry.getId(), null,
+                    Map.of("entryDate", entryDate.toString(), "source", origin.name(),
+                            "structuringStatus", entry.getStructuringStatus().name(), "events", confirmed.size()));
+        }
         return new EntryView(entry.getId(), patientId, patient.getAlias(), entryDate, body, principal.displayName(),
                 entry.getStructuringStatus().name(), entry.getCreatedAt(),
                 confirmed.stream().sorted(Comparator.comparing(EntryService::byCode)).map(EntryService::view).toList(),

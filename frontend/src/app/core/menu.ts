@@ -45,6 +45,9 @@ export const DOCTOR_MENU: MenuModule[] = [
   },
 ];
 
-// ROLES.adm del mockup, solo con «Usuarios» (RF-33): «Permisos por rol» y «Trazas del agente» quedaron fuera
-// (docs/admin-usuarios, Fuera de alcance).
-export const ADMIN_MENU: MenuModule[] = [{ text: 'Usuarios', icon: 'usuarios', path: '/adm/usuarios' }];
+// ROLES.adm del mockup con «Usuarios» (RF-33) y «Auditoría» (RF-35, docs/auditoria/): «Permisos por rol» y «Trazas del
+// agente» quedaron fuera (docs/admin-usuarios, Fuera de alcance). «Auditoría» usa el icono de trazas del mockup.
+export const ADMIN_MENU: MenuModule[] = [
+  { text: 'Usuarios', icon: 'usuarios', path: '/adm/usuarios' },
+  { text: 'Auditoría', icon: 'trazas', path: '/adm/auditoria' },
+];
