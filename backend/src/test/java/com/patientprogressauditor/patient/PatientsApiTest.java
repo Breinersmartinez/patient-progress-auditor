@@ -4,6 +4,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import com.patientprogressauditor.support.TestAuth;
 
 import java.time.LocalDate;
 import java.util.UUID;
@@ -30,7 +31,7 @@ class PatientsApiTest {
     @Autowired private JdbcTemplate jdbc;
 
     private static MockHttpServletRequestBuilder asNurse(MockHttpServletRequestBuilder request) {
-        return request.header("X-Demo-User", NURSE);
+        return request.with(TestAuth.as(NURSE));
     }
 
     private static MockHttpServletRequestBuilder json(MockHttpServletRequestBuilder request, String body) {
@@ -126,8 +127,8 @@ class PatientsApiTest {
     @Test
     void permissionsAreEnforcedByTheServer() throws Exception {
         mockMvc.perform(get("/api/patients")).andExpect(status().isUnauthorized());
-        mockMvc.perform(get("/api/patients").header("X-Demo-User", DOCTOR)).andExpect(status().isOk());
-        mockMvc.perform(json(post("/api/patients").header("X-Demo-User", DOCTOR), "{\"alias\":\"P-047\"}"))
+        mockMvc.perform(get("/api/patients").with(TestAuth.as(DOCTOR))).andExpect(status().isOk());
+        mockMvc.perform(json(post("/api/patients").with(TestAuth.as(DOCTOR)), "{\"alias\":\"P-047\"}"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value("Su rol no tiene permiso para esta accion."));
     }
@@ -159,7 +160,7 @@ class PatientsApiTest {
                 .andExpect(jsonPath("$.lastReport.status").value("PENDIENTE_REVISION"))
                 .andExpect(jsonPath("$.lastReport.periodStart").value("2026-10-19"))
                 .andExpect(jsonPath("$.lastReport.periodEnd").value("2026-10-25"));
-        mockMvc.perform(get("/api/patients/" + patientId("P-014")).header("X-Demo-User", DOCTOR))
+        mockMvc.perform(get("/api/patients/" + patientId("P-014")).with(TestAuth.as(DOCTOR)))
                 .andExpect(jsonPath("$.lastReport.status").value("ENVIADO"))
                 .andExpect(jsonPath("$.lastReport.periodStart").value("2026-10-05"));
     }
@@ -168,7 +169,7 @@ class PatientsApiTest {
     void theDoctorSeesNoReportWhenTheOnlyOneIsPending() throws Exception {
         insertReport("P-021", "2026-10-19", "PENDIENTE_REVISION");
 
-        mockMvc.perform(get("/api/patients").header("X-Demo-User", DOCTOR))
+        mockMvc.perform(get("/api/patients").with(TestAuth.as(DOCTOR)))
                 .andExpect(jsonPath("$[?(@.alias == 'P-021')].lastReport").isEmpty());
         mockMvc.perform(asNurse(get("/api/patients")))
                 .andExpect(jsonPath("$[?(@.alias == 'P-021')].lastReport.status").value("PENDIENTE_REVISION"));

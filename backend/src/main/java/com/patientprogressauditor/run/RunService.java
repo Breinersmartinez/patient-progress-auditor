@@ -26,7 +26,7 @@ import com.patientprogressauditor.consultation.DoctorConsultationRepository;
 import com.patientprogressauditor.patient.PatientRepository;
 import com.patientprogressauditor.report.Report;
 import com.patientprogressauditor.report.ReportRepository;
-import com.patientprogressauditor.session.DemoPrincipal;
+import com.patientprogressauditor.session.AppPrincipal;
 import com.patientprogressauditor.web.BusyException;
 import com.patientprogressauditor.web.FieldException;
 import com.patientprogressauditor.web.NotFoundException;
@@ -80,12 +80,12 @@ public class RunService {
         this.clock = clock;
     }
 
-    public Requested request(UUID patientId, LocalDate weekStart, String note, DemoPrincipal principal) {
+    public Requested request(UUID patientId, LocalDate weekStart, String note, AppPrincipal principal) {
         return request(patientId, weekStart, Report.Type.SEMANAL, note, principal);
     }
 
     // `weekStart` es el lunes de la semana o, en el mensual, de la primera de las cuatro. Cada tipo tiene su regla.
-    public Requested request(UUID patientId, LocalDate weekStart, Report.Type type, String note, DemoPrincipal principal) {
+    public Requested request(UUID patientId, LocalDate weekStart, Report.Type type, String note, AppPrincipal principal) {
         if (type == Report.Type.MENSUAL) {
             return requestMonthly(patientId, weekStart, note, principal);
         }
@@ -127,7 +127,7 @@ public class RunService {
 
     // El informe mensual (RF-36, RN-10): cuatro semanas completas, cada una con su informe semanal aprobado. Si falta alguna no se
     // crea la ejecucion y el 409 dice cual (y en que estado esta).
-    private Requested requestMonthly(UUID patientId, LocalDate firstWeek, String note, DemoPrincipal principal) {
+    private Requested requestMonthly(UUID patientId, LocalDate firstWeek, String note, AppPrincipal principal) {
         if (firstWeek.getDayOfWeek() != DayOfWeek.MONDAY) {
             throw new FieldException(HttpStatus.BAD_REQUEST, "weekStart", "El mes debe empezar un lunes.");
         }
@@ -195,16 +195,16 @@ public class RunService {
     // ve unicamente las consultas que el mismo pidio. Una CONSULTA es siempre privada de quien la pidio (D31: "solo la
     // ve quien la pidio"), incluida enfermeria: su permiso amplio es sobre informes, nunca sobre la traza de una consulta.
     // Lo que no puede ver, 404, igual que un informe (RN-01).
-    public RunView get(UUID runId, DemoPrincipal principal) {
+    public RunView get(UUID runId, AppPrincipal principal) {
         return view(visible(runId, principal));
     }
 
-    public List<StepView> steps(UUID runId, long afterId, DemoPrincipal principal) {
+    public List<StepView> steps(UUID runId, long afterId, AppPrincipal principal) {
         visible(runId, principal);
         return stepsAfter(runId, afterId);
     }
 
-    private AgentRun visible(UUID runId, DemoPrincipal principal) {
+    private AgentRun visible(UUID runId, AppPrincipal principal) {
         AgentRun run = find(runId);
         boolean ownRun = run.getRequestedBy().equals(principal.id());
         boolean nurse = run.getRunType() != AgentRun.Type.CONSULTA && principal.permissions().contains("REPORTS_REQUEST");

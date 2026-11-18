@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import com.patientprogressauditor.support.TestAuth;
 
 import java.io.IOException;
 import java.time.LocalDate;
@@ -58,7 +59,7 @@ class ReportPdfApiTest {
     }
 
     private byte[] pdf(String user, UUID report) throws Exception {
-        return mockMvc.perform(get("/api/reports/" + report + "/pdf").header("X-Demo-User", user)).andExpect(status().isOk())
+        return mockMvc.perform(get("/api/reports/" + report + "/pdf").with(TestAuth.as(user))).andExpect(status().isOk())
                 .andExpect(header().string("Content-Type", "application/pdf")).andReturn().getResponse().getContentAsByteArray();
     }
 
@@ -96,7 +97,7 @@ class ReportPdfApiTest {
         UUID report = fx.report(p033, W, "APROBADO");
         List<Entry> week = fx.weekEntries(p033, W);
 
-        var response = mockMvc.perform(get("/api/reports/" + report + "/pdf").header("X-Demo-User", NURSE)).andExpect(status().isOk())
+        var response = mockMvc.perform(get("/api/reports/" + report + "/pdf").with(TestAuth.as(NURSE))).andExpect(status().isOk())
                 .andExpect(header().string("Content-Disposition", org.hamcrest.Matchers.containsString("informe-semanal-P-033-2026-10-19.pdf")))
                 .andReturn().getResponse();
         byte[] bytes = response.getContentAsByteArray();
@@ -124,7 +125,7 @@ class ReportPdfApiTest {
         UUID p014 = fx.patient("P-014");
         UUID report = jdbc.queryForObject("SELECT id FROM reports WHERE patient_id = ? AND period_start = '2026-10-12' AND status = 'APROBADO'", UUID.class, p014);
         // Aprobado y sin enviar: enfermeria lo imprime; el medico no sabe que existe (D29).
-        mockMvc.perform(get("/api/reports/" + report + "/pdf").header("X-Demo-User", DOCTOR)).andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/reports/" + report + "/pdf").with(TestAuth.as(DOCTOR))).andExpect(status().isNotFound());
 
         String text = text(pdf(NURSE, report));
 
@@ -149,27 +150,27 @@ class ReportPdfApiTest {
     void onlyAnApprovedReportIsPrintedAndWhatTheRoleCannotSeeDoesNotExist() throws Exception {
         for (String state : List.of("PENDIENTE_REVISION", "INCOMPLETO", "RECHAZADO")) {
             UUID report = fx.report(p033, state.equals("INCOMPLETO") ? W.minusWeeks(1) : state.equals("RECHAZADO") ? W.minusWeeks(2) : W, state);
-            mockMvc.perform(get("/api/reports/" + report + "/pdf").header("X-Demo-User", NURSE)).andExpect(status().isConflict())
+            mockMvc.perform(get("/api/reports/" + report + "/pdf").with(TestAuth.as(NURSE))).andExpect(status().isConflict())
                     .andExpect(jsonPath("$.message").value("Solo se puede imprimir un informe aprobado. Este está "
                             + (state.equals("PENDIENTE_REVISION") ? "pendiente de revisión" : state.toLowerCase()) + "."));
             // El medico no sabe que existe
-            mockMvc.perform(get("/api/reports/" + report + "/pdf").header("X-Demo-User", DOCTOR)).andExpect(status().isNotFound());
+            mockMvc.perform(get("/api/reports/" + report + "/pdf").with(TestAuth.as(DOCTOR))).andExpect(status().isNotFound());
         }
-        mockMvc.perform(get("/api/reports/" + UUID.randomUUID() + "/pdf").header("X-Demo-User", NURSE)).andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/reports/" + UUID.randomUUID() + "/pdf").with(TestAuth.as(NURSE))).andExpect(status().isNotFound());
         mockMvc.perform(get("/api/reports/" + UUID.randomUUID() + "/pdf")).andExpect(status().isUnauthorized());
     }
 
     @Test
     void theDoctorGetsTheSamePdfOnlyOnceNursingSendsIt() throws Exception {
         UUID report = fx.report(p033, W, "PENDIENTE_REVISION");
-        mockMvc.perform(get("/api/reports/" + report + "/pdf").header("X-Demo-User", DOCTOR)).andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/reports/" + report + "/pdf").with(TestAuth.as(DOCTOR))).andExpect(status().isNotFound());
 
-        mockMvc.perform(post("/api/reports/" + report + "/approve").header("X-Demo-User", NURSE).contentType(MediaType.APPLICATION_JSON).content("{}"))
+        mockMvc.perform(post("/api/reports/" + report + "/approve").with(TestAuth.as(NURSE)).contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isOk());
         // Aprobado no es enviado: el medico todavia no lo ve ni lo imprime (D29).
-        mockMvc.perform(get("/api/reports/" + report + "/pdf").header("X-Demo-User", DOCTOR)).andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/reports/" + report + "/pdf").with(TestAuth.as(DOCTOR))).andExpect(status().isNotFound());
 
-        mockMvc.perform(post("/api/reports/" + report + "/send").header("X-Demo-User", NURSE)).andExpect(status().isOk());
+        mockMvc.perform(post("/api/reports/" + report + "/send").with(TestAuth.as(NURSE))).andExpect(status().isOk());
 
         assertThat(text(pdf(DOCTOR, report))).contains("Aprobado por: Camilo Torres").contains(report.toString());
         assertThat(text(pdf(NURSE, report))).contains("Aprobado por: Camilo Torres");
@@ -184,9 +185,9 @@ class ReportPdfApiTest {
         claim.putArray("entryIds").add(week.get(0).getId().toString());
         String edit = mapper.createObjectNode().put("summary", "Resumen corregido por enfermería.")
                 .<ObjectNode>set("claims", mapper.createArrayNode().add(claim)).toString();
-        mockMvc.perform(put("/api/reports/" + report + "/content").header("X-Demo-User", NURSE).contentType(MediaType.APPLICATION_JSON).content(edit))
+        mockMvc.perform(put("/api/reports/" + report + "/content").with(TestAuth.as(NURSE)).contentType(MediaType.APPLICATION_JSON).content(edit))
                 .andExpect(status().isOk());
-        mockMvc.perform(post("/api/reports/" + report + "/approve").header("X-Demo-User", NURSE).contentType(MediaType.APPLICATION_JSON).content("{}"))
+        mockMvc.perform(post("/api/reports/" + report + "/approve").with(TestAuth.as(NURSE)).contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isOk());
 
         String text = text(pdf(NURSE, report));

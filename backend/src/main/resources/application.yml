@@ -27,6 +27,10 @@ app:
     demo: ${APP_SEED_DEMO:false}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:4200}
+  # Keycloak (docs/login-keycloak): el emisor es la URL publica del realm y las claves se piden por la red del backend.
+  oidc:
+    issuer: ${OIDC_ISSUER:http://localhost:7070/realms/auditor}
+    jwks-uri: ${OIDC_JWKS_URI:http://localhost:7070/realms/auditor/protocol/openid-connect/certs}
 
 # Capa de proveedor del LLM (docs/decisiones.md, E8). Las llaves vienen del entorno y nunca llevan valor por defecto.
 llm:

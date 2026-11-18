@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import com.patientprogressauditor.support.TestAuth;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -85,7 +86,7 @@ class RunsApiTest {
     }
 
     private MvcResultHolder request(String user, UUID patientId, String week) throws Exception {
-        MvcResult result = mockMvc.perform(post("/api/runs").header("X-Demo-User", user).contentType(MediaType.APPLICATION_JSON)
+        MvcResult result = mockMvc.perform(post("/api/runs").with(TestAuth.as(user)).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"patientId\":\"" + patientId + "\",\"weekStart\":\"" + week + "\"}")).andReturn();
         return new MvcResultHolder(result.getResponse().getStatus(), result.getResponse().getContentAsString());
     }
@@ -142,7 +143,7 @@ class RunsApiTest {
     void theOptionalRequestTextReachesTheAgentTaskAndALongOneIsRefused() throws Exception {
         agentWaitsForTheTest();
         String ask = "¿Qué enfermedad tiene el paciente?";
-        MvcResult created = mockMvc.perform(post("/api/runs").header("X-Demo-User", NURSE).contentType(MediaType.APPLICATION_JSON)
+        MvcResult created = mockMvc.perform(post("/api/runs").with(TestAuth.as(NURSE)).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"patientId\":\"" + patient + "\",\"weekStart\":\"" + WEEK + "\",\"request\":\"" + ask + "\"}")).andReturn();
         assertThat(created.getResponse().getStatus()).isEqualTo(202);
         assertThat(started.await(5, TimeUnit.SECONDS)).isTrue();
@@ -150,7 +151,7 @@ class RunsApiTest {
         verify(runner).run(any(), task.capture());
         assertThat(task.getValue().request()).isEqualTo(ask);
 
-        mockMvc.perform(post("/api/runs").header("X-Demo-User", NURSE).contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(post("/api/runs").with(TestAuth.as(NURSE)).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"patientId\":\"" + patient + "\",\"weekStart\":\"" + WEEK + "\",\"request\":\"" + "x".repeat(301) + "\"}"))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields.request").exists());
     }
@@ -234,11 +235,11 @@ class RunsApiTest {
         String id = request(NURSE, patient, WEEK.toString()).json(mapper).path("id").asText();
         awaitStatus(id, AgentRun.Status.FALLIDA);
 
-        mockMvc.perform(get("/api/runs/" + id).header("X-Demo-User", NURSE))
+        mockMvc.perform(get("/api/runs/" + id).with(TestAuth.as(NURSE)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("FALLIDA"))
                 .andExpect(jsonPath("$.message").value("El agente falló de forma inesperada. Intente de nuevo en unos minutos."));
-        mockMvc.perform(get("/api/runs/" + id + "/steps").header("X-Demo-User", NURSE))
+        mockMvc.perform(get("/api/runs/" + id + "/steps").with(TestAuth.as(NURSE)))
                 .andExpect(jsonPath("$[0].type").value("ERROR"))
                 .andExpect(jsonPath("$[0].error").value(true));
     }
@@ -251,19 +252,19 @@ class RunsApiTest {
         RunTestSupport.step(steps, run, 1, "Estructurando el registro");
         RunTestSupport.step(steps, run, 2, "Propuesta validada");
 
-        mockMvc.perform(get("/api/runs/" + run + "/steps").header("X-Demo-User", NURSE))
+        mockMvc.perform(get("/api/runs/" + run + "/steps").with(TestAuth.as(NURSE)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2))
                 .andExpect(jsonPath("$[1].message").value("Propuesta validada"));
         long firstId = jdbc.queryForObject("SELECT min(id) FROM agent_steps WHERE run_id = ?", Long.class, run);
-        mockMvc.perform(get("/api/runs/" + run + "/steps?after=" + firstId).header("X-Demo-User", NURSE))
+        mockMvc.perform(get("/api/runs/" + run + "/steps?after=" + firstId).with(TestAuth.as(NURSE)))
                 .andExpect(jsonPath("$.length()").value(1));
-        mockMvc.perform(get("/api/runs/" + run).header("X-Demo-User", NURSE))
+        mockMvc.perform(get("/api/runs/" + run).with(TestAuth.as(NURSE)))
                 .andExpect(jsonPath("$.runType").value("ESTRUCTURACION"));
         // El medico ve la ruta (CONSULTATIONS_REQUEST, D31) pero esta ejecucion no es suya: 404, no 403 (RN-01).
-        mockMvc.perform(get("/api/runs/" + run + "/steps").header("X-Demo-User", DOCTOR)).andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/runs/" + run + "/steps").with(TestAuth.as(DOCTOR))).andExpect(status().isNotFound());
         mockMvc.perform(get("/api/runs/" + run)).andExpect(status().isUnauthorized());
-        mockMvc.perform(get("/api/runs/" + UUID.randomUUID()).header("X-Demo-User", NURSE))
+        mockMvc.perform(get("/api/runs/" + UUID.randomUUID()).with(TestAuth.as(NURSE)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("No encontramos esa ejecución."));
     }

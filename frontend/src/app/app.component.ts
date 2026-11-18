@@ -8,13 +8,13 @@ import { DOCTOR_MENU, NURSING_MENU } from './core/menu';
 import { MenuMarkService } from './core/menu-mark.service';
 import { NotificationsService } from './core/notifications.service';
 import { PageTitleService } from './core/page-title.service';
-import { roleHome, roleLabel } from './core/roles';
+import { roleLabel } from './core/roles';
 import { SessionService } from './core/session.service';
 import { ToastService } from './core/toast.service';
 import { BellComponent } from './ui/bell.component';
 import { SidebarComponent, SidebarUser } from './ui/sidebar.component';
 
-// El armazon del mockup: menu lateral, encabezado con "Ver como" y la zona de la vista.
+// El armazon del mockup: menu lateral, encabezado con "Cerrar sesion" y la zona de la vista.
 @Component({
   selector: 'app-root',
   standalone: true,
@@ -62,11 +62,6 @@ export class AppComponent {
       // La campana se actualiza al navegar, como el mockup (D30): sin sondeo ni SSE.
       void this.notifications.refresh();
     });
-  }
-
-  protected async choose(event: Event): Promise<void> {
-    await this.session.select((event.target as HTMLSelectElement).value);
-    await this.router.navigateByUrl(roleHome(this.session.session()?.role)); // como el mockup, vuelve al inicio del rol
   }
 
   private deepestData(): Record<string, unknown> {

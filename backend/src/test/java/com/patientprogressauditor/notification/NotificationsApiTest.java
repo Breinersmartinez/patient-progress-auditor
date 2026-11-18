@@ -1,5 +1,6 @@
 package com.patientprogressauditor.notification;
 
+import com.patientprogressauditor.support.TestAuth;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -59,12 +60,12 @@ class NotificationsApiTest {
 
     private ResultActions createEntry(String user) throws Exception {
         String json = mapper.writeValueAsString(Map.of("entryDate", "2026-10-20", "body", "Tranquilo, sin novedades."));
-        return mockMvc.perform(post("/api/patients/" + newPatient + "/entries").header("X-Demo-User", user)
+        return mockMvc.perform(post("/api/patients/" + newPatient + "/entries").with(TestAuth.as(user))
                 .contentType(MediaType.APPLICATION_JSON).content(json));
     }
 
     private ResultActions listAs(String user) throws Exception {
-        return mockMvc.perform(get("/api/notifications").header("X-Demo-User", user));
+        return mockMvc.perform(get("/api/notifications").with(TestAuth.as(user)));
     }
 
     private List<Map<String, Object>> rowsFor(String recipient) {
@@ -95,9 +96,9 @@ class NotificationsApiTest {
     @Test
     void nursingCannotListOrMarkNotificationsForbidden() throws Exception {
         listAs(NURSE).andExpect(status().isForbidden());
-        mockMvc.perform(post("/api/notifications/" + UUID.randomUUID() + "/read").header("X-Demo-User", NURSE))
+        mockMvc.perform(post("/api/notifications/" + UUID.randomUUID() + "/read").with(TestAuth.as(NURSE)))
                 .andExpect(status().isForbidden());
-        mockMvc.perform(post("/api/patients/" + newPatient + "/notifications/read").header("X-Demo-User", NURSE))
+        mockMvc.perform(post("/api/patients/" + newPatient + "/notifications/read").with(TestAuth.as(NURSE)))
                 .andExpect(status().isForbidden());
     }
 
@@ -107,7 +108,7 @@ class NotificationsApiTest {
         int beforeSend = rowsFor(DOCTOR).stream().filter(r -> report.equals(r.get("report_id"))).toList().size();
         assertThat(beforeSend).isZero();
 
-        mockMvc.perform(post("/api/reports/" + report + "/send").header("X-Demo-User", NURSE)).andExpect(status().isOk());
+        mockMvc.perform(post("/api/reports/" + report + "/send").with(TestAuth.as(NURSE))).andExpect(status().isOk());
 
         assertThat(rowsFor(DOCTOR)).anySatisfy(r -> assertThat(r).containsEntry("notification_type", "REPORT")
                 .containsEntry("report_id", report));
@@ -121,7 +122,7 @@ class NotificationsApiTest {
     void sendingAMonthlyReportNotifiesWithReportTypeMensual() throws Exception {
         UUID report = fx.monthlyReport(p033, LocalDate.of(2026, 10, 19), "APROBADO");
 
-        mockMvc.perform(post("/api/reports/" + report + "/send").header("X-Demo-User", NURSE)).andExpect(status().isOk());
+        mockMvc.perform(post("/api/reports/" + report + "/send").with(TestAuth.as(NURSE))).andExpect(status().isOk());
 
         assertThat(rowsFor(DOCTOR)).anySatisfy(r -> assertThat(r).containsEntry("notification_type", "REPORT")
                 .containsEntry("report_id", report));
@@ -135,7 +136,7 @@ class NotificationsApiTest {
     void structuringAProposalDoesNotNotifyAnyone() throws Exception {
         int before = rowsFor(DOCTOR).size() + rowsFor(OTHER_DOCTOR).size();
         String json = mapper.writeValueAsString(Map.of("body", "Náuseas leves."));
-        mockMvc.perform(post("/api/patients/" + newPatient + "/entries/propose").header("X-Demo-User", NURSE)
+        mockMvc.perform(post("/api/patients/" + newPatient + "/entries/propose").with(TestAuth.as(NURSE))
                 .contentType(MediaType.APPLICATION_JSON).content(json)).andExpect(status().isOk());
 
         assertThat(rowsFor(DOCTOR).size() + rowsFor(OTHER_DOCTOR).size()).isEqualTo(before);
@@ -147,7 +148,7 @@ class NotificationsApiTest {
         UUID theirs = jdbc.queryForObject("SELECT id FROM notifications WHERE recipient_id = ? AND patient_id = ?",
                 UUID.class, UUID.fromString(OTHER_DOCTOR), newPatient);
 
-        mockMvc.perform(post("/api/notifications/" + theirs + "/read").header("X-Demo-User", DOCTOR))
+        mockMvc.perform(post("/api/notifications/" + theirs + "/read").with(TestAuth.as(DOCTOR)))
                 .andExpect(status().isNotFound());
 
         Boolean stillUnread = jdbc.queryForObject("SELECT read_at IS NULL FROM notifications WHERE id = ?", Boolean.class, theirs);
@@ -158,7 +159,7 @@ class NotificationsApiTest {
     void openingAPatientsFileMarksOnlyTheirUnreadEntryNotificationsRead() throws Exception {
         createEntry(NURSE).andExpect(status().isCreated());
 
-        mockMvc.perform(post("/api/patients/" + newPatient + "/notifications/read").header("X-Demo-User", DOCTOR))
+        mockMvc.perform(post("/api/patients/" + newPatient + "/notifications/read").with(TestAuth.as(DOCTOR)))
                 .andExpect(status().isNoContent());
 
         List<Map<String, Object>> mine = jdbc.queryForList(
@@ -173,12 +174,12 @@ class NotificationsApiTest {
     @Test
     void openingAPatientsFileDoesNotMarkTheirReportNotificationsRead() throws Exception {
         String json = mapper.writeValueAsString(Map.of("entryDate", "2026-10-26", "body", "Tranquilo, sin novedades."));
-        mockMvc.perform(post("/api/patients/" + p033 + "/entries").header("X-Demo-User", NURSE)
+        mockMvc.perform(post("/api/patients/" + p033 + "/entries").with(TestAuth.as(NURSE))
                 .contentType(MediaType.APPLICATION_JSON).content(json)).andExpect(status().isCreated());
         UUID report = fx.report(p033, LocalDate.of(2026, 10, 19), "APROBADO");
-        mockMvc.perform(post("/api/reports/" + report + "/send").header("X-Demo-User", NURSE)).andExpect(status().isOk());
+        mockMvc.perform(post("/api/reports/" + report + "/send").with(TestAuth.as(NURSE))).andExpect(status().isOk());
 
-        mockMvc.perform(post("/api/patients/" + p033 + "/notifications/read").header("X-Demo-User", DOCTOR))
+        mockMvc.perform(post("/api/patients/" + p033 + "/notifications/read").with(TestAuth.as(DOCTOR)))
                 .andExpect(status().isNoContent());
 
         List<Map<String, Object>> mine = rowsFor(DOCTOR).stream().filter(r -> p033.equals(r.get("patient_id"))).toList();

@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import com.patientprogressauditor.support.TestAuth;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -62,12 +63,12 @@ class EntryConfirmApiTest {
     }
 
     private ResultActions propose(String user, String body) throws Exception {
-        return mockMvc.perform(post("/api/patients/" + patient + "/entries/propose").header("X-Demo-User", user)
+        return mockMvc.perform(post("/api/patients/" + patient + "/entries/propose").with(TestAuth.as(user))
                 .contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(java.util.Map.of("body", body))));
     }
 
     private ResultActions confirm(String user, String json) throws Exception {
-        return mockMvc.perform(post("/api/patients/" + patient + "/entries").header("X-Demo-User", user)
+        return mockMvc.perform(post("/api/patients/" + patient + "/entries").with(TestAuth.as(user))
                 .contentType(MediaType.APPLICATION_JSON).content(json));
     }
 
@@ -126,7 +127,7 @@ class EntryConfirmApiTest {
         mockMvc.perform(post("/api/patients/" + patient + "/entries/propose").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"body\":\"hola\"}")).andExpect(status().isUnauthorized());
         propose(DOCTOR, "Sin novedades.").andExpect(status().isOk());
-        mockMvc.perform(post("/api/patients/" + UUID.randomUUID() + "/entries/propose").header("X-Demo-User", NURSE)
+        mockMvc.perform(post("/api/patients/" + UUID.randomUUID() + "/entries/propose").with(TestAuth.as(NURSE))
                 .contentType(MediaType.APPLICATION_JSON).content("{\"body\":\"hola\"}")).andExpect(status().isNotFound());
         // Solo la propuesta valida del medico llego al modelo: ni el texto en blanco ni el paciente inexistente.
         org.mockito.Mockito.verify(gateway, org.mockito.Mockito.times(1)).structured(any(), any());
@@ -160,7 +161,7 @@ class EntryConfirmApiTest {
             assertThat(r.get("confirmed_by").toString()).isEqualTo(NURSE);
             assertThat(r.get("confirmed_at")).isNotNull();
         });
-        mockMvc.perform(get("/api/patients/" + patient + "/entries").header("X-Demo-User", NURSE))
+        mockMvc.perform(get("/api/patients/" + patient + "/entries").with(TestAuth.as(NURSE)))
                 .andExpect(jsonPath("$[0].symptoms.length()").value(3));
     }
 
@@ -205,7 +206,7 @@ class EntryConfirmApiTest {
         assertThat(rows).extracting(r -> r.get("symptom")).containsExactly("DOLOR_DE_GARGANTA", "FIEBRE", "PICAZON_EN_LOS_BRAZOS");
         assertThat(rows).extracting(r -> r.get("symptom_label")).containsExactly("Dolor de garganta", null, "Picazón en los brazos");
         assertThat(rows).allSatisfy(r -> assertThat(r.get("confirmed_by").toString()).isEqualTo(NURSE));
-        mockMvc.perform(get("/api/patients/" + patient + "/entries").header("X-Demo-User", NURSE))
+        mockMvc.perform(get("/api/patients/" + patient + "/entries").with(TestAuth.as(NURSE)))
                 .andExpect(jsonPath("$[0].symptoms[0].label").value("Dolor de garganta"));
     }
 
@@ -331,10 +332,10 @@ class EntryConfirmApiTest {
         assertThat(version.get("origin")).isEqualTo("IA_ACEPTADA");
         assertThat(((Number) version.get("version_no")).intValue()).isEqualTo(1);
         assertThat(version.get("who")).isEqualTo(NURSE);
-        mockMvc.perform(get("/api/patients/" + patient + "/entries").header("X-Demo-User", NURSE))
+        mockMvc.perform(get("/api/patients/" + patient + "/entries").with(TestAuth.as(NURSE)))
                 .andExpect(jsonPath("$[0].body").value(NOTE))
                 .andExpect(jsonPath("$[0].correctedBody").value(FIXED));
-        mockMvc.perform(get("/api/entries").header("X-Demo-User", DOCTOR))
+        mockMvc.perform(get("/api/entries").with(TestAuth.as(DOCTOR)))
                 .andExpect(jsonPath("$[?(@.patientAlias=='P-902')].correctedBody").value(FIXED));
     }
 

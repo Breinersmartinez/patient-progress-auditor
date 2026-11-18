@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.patientprogressauditor.dictation.DictationService;
 import com.patientprogressauditor.entry.EntryService.EntryView;
-import com.patientprogressauditor.session.DemoPrincipal;
+import com.patientprogressauditor.session.AppPrincipal;
 import com.patientprogressauditor.structuring.Proposal;
 import com.patientprogressauditor.structuring.StructuringService;
 import com.patientprogressauditor.web.FieldException;
@@ -77,7 +77,7 @@ public class EntryController {
     @PreAuthorize("hasAuthority('ENTRIES_CREATE')")
     public DictationService.Dictation transcribe(@PathVariable UUID patientId,
             @RequestHeader(value = HttpHeaders.CONTENT_TYPE, required = false) String contentType, HttpServletRequest request,
-            @AuthenticationPrincipal DemoPrincipal principal) throws IOException {
+            @AuthenticationPrincipal AppPrincipal principal) throws IOException {
         byte[] audio = DictationService.readAudio(request.getInputStream(), request.getContentLengthLong());
         return dictation.transcribe(patientId, audio, contentType, principal);
     }
@@ -87,7 +87,7 @@ public class EntryController {
     @PostMapping("/patients/{patientId}/entries/propose")
     @PreAuthorize("hasAuthority('ENTRIES_CREATE')")
     public Proposal propose(@PathVariable UUID patientId, @Valid @RequestBody ProposeRequest request,
-            @AuthenticationPrincipal DemoPrincipal principal) {
+            @AuthenticationPrincipal AppPrincipal principal) {
         return structuring.propose(patientId, request.body(), principal);
     }
 
@@ -95,7 +95,7 @@ public class EntryController {
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAuthority('ENTRIES_CREATE')")
     public EntryView create(@PathVariable UUID patientId, @Valid @RequestBody CreateEntryRequest request,
-            @AuthenticationPrincipal DemoPrincipal principal) {
+            @AuthenticationPrincipal AppPrincipal principal) {
         EntryService.Correction correction = request.correction() == null ? null
                 : new EntryService.Correction(request.correction().body(), request.correction().origin());
         return service.create(patientId, request.entryDate(), request.body(), request.events(), correction, request.source(), principal);

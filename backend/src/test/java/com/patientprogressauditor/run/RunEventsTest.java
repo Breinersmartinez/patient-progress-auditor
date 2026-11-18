@@ -6,6 +6,7 @@ import static com.patientprogressauditor.run.RunTestSupport.WEEK;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
+import com.patientprogressauditor.support.TestAuth;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -17,6 +18,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
@@ -147,7 +149,7 @@ class RunEventsTest {
 
     private String requestRun() throws Exception {
         HttpResponse<String> response = client.send(HttpRequest.newBuilder(URI.create(url("/api/runs")))
-                .header("X-Demo-User", NURSE).header("Content-Type", "application/json")
+                .header("Authorization", bearer(NURSE)).header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString("{\"patientId\":\"" + patient + "\",\"weekStart\":\"" + WEEK + "\"}")).build(),
                 HttpResponse.BodyHandlers.ofString());
         assertThat(response.statusCode()).isEqualTo(202);
@@ -155,7 +157,16 @@ class RunEventsTest {
     }
 
     private HttpRequest.Builder events(String runId, String user) {
-        return HttpRequest.newBuilder(URI.create(url("/api/runs/" + runId + "/events?demoUser=" + user))).header("Accept", "text/event-stream");
+        return HttpRequest.newBuilder(URI.create(url("/api/runs/" + runId + "/events"))).header("Authorization", bearer(user))
+                .header("Accept", "text/event-stream");
+    }
+
+    // El mismo token de prueba que el navegador mandaria con el usuario sembrado (correo y rol salen de la base).
+    private String bearer(String userId) {
+        Map<String, Object> row = jdbc.queryForMap("SELECT u.email AS email, MIN(r.code) AS role FROM app_users u "
+                + "JOIN app_user_roles ur ON ur.user_id = u.id JOIN app_roles r ON r.id = ur.role_id "
+                + "WHERE u.id = ?::uuid GROUP BY u.email", userId);
+        return TestAuth.bearer((String) row.get("email"), (String) row.get("role"));
     }
 
     private String status(String runId) {
@@ -256,7 +267,9 @@ class RunEventsTest {
         HttpRequest anonymous = HttpRequest.newBuilder(URI.create(url("/api/runs/" + run + "/events"))).build();
         assertThat(client.send(anonymous, HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(401);
         assertThat(client.send(events(UUID.randomUUID().toString(), NURSE).build(), HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(404);
-        // El parametro demoUser solo vale en la ruta del flujo, no en las demas.
+        // El usuario ya no se acepta por la URL (ni en el flujo ni en las demas rutas): sin Authorization es 401 (K6, K8).
+        HttpRequest viaUrl = HttpRequest.newBuilder(URI.create(url("/api/runs/" + run + "/events?demoUser=" + NURSE))).build();
+        assertThat(client.send(viaUrl, HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(401);
         HttpRequest other = HttpRequest.newBuilder(URI.create(url("/api/runs/" + run + "?demoUser=" + NURSE))).build();
         assertThat(client.send(other, HttpResponse.BodyHandlers.ofString()).statusCode()).isEqualTo(401);
     }

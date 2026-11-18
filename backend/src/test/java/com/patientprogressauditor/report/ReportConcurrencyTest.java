@@ -3,6 +3,7 @@ package com.patientprogressauditor.report;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import com.patientprogressauditor.support.TestAuth;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -71,12 +72,12 @@ class ReportConcurrencyTest {
                 CountDownLatch go = new CountDownLatch(1);
                 Future<Integer> edited = pool.submit(() -> {
                     go.await();
-                    return mockMvc.perform(put("/api/reports/" + report + "/content").header("X-Demo-User", ReportFixtures.NURSE)
+                    return mockMvc.perform(put("/api/reports/" + report + "/content").with(TestAuth.as(ReportFixtures.NURSE))
                             .contentType(MediaType.APPLICATION_JSON).content(edit)).andReturn().getResponse().getStatus();
                 });
                 Future<Integer> approved = pool.submit(() -> {
                     go.await();
-                    return mockMvc.perform(post("/api/reports/" + report + "/approve").header("X-Demo-User", ReportFixtures.NURSE))
+                    return mockMvc.perform(post("/api/reports/" + report + "/approve").with(TestAuth.as(ReportFixtures.NURSE)))
                             .andReturn().getResponse().getStatus();
                 });
                 go.countDown();

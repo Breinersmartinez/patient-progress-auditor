@@ -23,7 +23,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import com.patientprogressauditor.report.Report;
 import com.patientprogressauditor.run.RunService.RunView;
 import com.patientprogressauditor.run.RunService.StepView;
-import com.patientprogressauditor.session.DemoPrincipal;
+import com.patientprogressauditor.session.AppPrincipal;
 
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -58,7 +58,7 @@ public class RunController {
     // Responde 202 al instante con el id; 200 si ya habia una ejecucion viva de ese paciente y semana (la misma, sin lanzar otra).
     @PostMapping
     @PreAuthorize("hasAuthority('REPORTS_REQUEST')")
-    public ResponseEntity<RunView> request(@Valid @RequestBody RequestRun request, @AuthenticationPrincipal DemoPrincipal principal) {
+    public ResponseEntity<RunView> request(@Valid @RequestBody RequestRun request, @AuthenticationPrincipal AppPrincipal principal) {
         RunService.Requested requested = service.request(request.patientId(), request.weekStart(),
                 request.type() == null ? Report.Type.SEMANAL : request.type(), request.request(), principal);
         return ResponseEntity.status(requested.created() ? HttpStatus.ACCEPTED : HttpStatus.OK).body(requested.run());
@@ -66,14 +66,14 @@ public class RunController {
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('REPORTS_REQUEST') or hasAuthority('CONSULTATIONS_REQUEST')")
-    public RunView get(@PathVariable UUID id, @AuthenticationPrincipal DemoPrincipal principal) {
+    public RunView get(@PathVariable UUID id, @AuthenticationPrincipal AppPrincipal principal) {
         return service.get(id, principal);
     }
 
     // La traza completa (cualquier tipo de ejecucion), con parametros y resultado de cada paso. `after`: solo los de id mayor.
     @GetMapping("/{id}/steps")
     @PreAuthorize("hasAuthority('REPORTS_REQUEST') or hasAuthority('CONSULTATIONS_REQUEST')")
-    public List<StepView> steps(@PathVariable UUID id, @RequestParam(defaultValue = "0") long after, @AuthenticationPrincipal DemoPrincipal principal) {
+    public List<StepView> steps(@PathVariable UUID id, @RequestParam(defaultValue = "0") long after, @AuthenticationPrincipal AppPrincipal principal) {
         return service.steps(id, after, principal);
     }
 
@@ -82,7 +82,7 @@ public class RunController {
     @PreAuthorize("hasAuthority('REPORTS_REQUEST') or hasAuthority('CONSULTATIONS_REQUEST')")
     public SseEmitter events(@PathVariable UUID id,
             @RequestHeader(value = "Last-Event-ID", required = false) String lastEventId,
-            @RequestParam(required = false) Long after, HttpServletResponse response, @AuthenticationPrincipal DemoPrincipal principal) {
+            @RequestParam(required = false) Long after, HttpServletResponse response, @AuthenticationPrincipal AppPrincipal principal) {
         service.get(id, principal);
         long from = after != null ? after : parse(lastEventId);
         // nginx acumula la respuesta salvo que se le diga que no (D24); no-transform evita que otro intermediario la reescriba.

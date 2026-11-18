@@ -588,3 +588,18 @@ Después de corregir: backend **477 pruebas, 0 fallos, 0 errores, 14 omitidas** 
 | Groq es el proveedor principal del LLM y Gemini (Google AI Studio) el de respaldo (D15) | Decisión del equipo el 2026-10-28, que invierte la propuesta inicial. La razón de fondo se escribe en E8 con latencia, costo, herramientas y ventana de contexto medidos. **Riesgo declarado:** los límites gratuitos de Groq por minuto son más estrechos que los de Gemini; el bucle del agente es lo que más tokens gasta, así que se mide en E8 y se ajustan las salidas de las herramientas | Gemini principal y Groq respaldo (propuesta original) |
 
 **Pendiente:** nada por redactar de las decisiones que el profesor suele preguntar (proveedor, RAG, síncrono o asíncrono, stack, Java, librerías). Lo que queda abierto está marcado «pendiente de confirmar» en su fila (`jjwt` sin uso hasta el Momento 3, `angular-cli-ghpages`, los límites gratuitos de Gemini).
+
+
+## Inicio de sesión con Keycloak (propuesta del 2026-11-10, pendiente de aprobación del equipo)
+
+Spec, plan y reporte en `docs/login-keycloak/`. No renumera D23 ni D26: las reemplaza en el código si el equipo aprueba.
+
+| Decisión | Por qué | Alternativa descartada |
+|---|---|---|
+| Keycloak 26.8.2 con tema propio `auditor` y el realm importado al arrancar (`--import-realm`) | `./run.sh` deja el login listo sin pasos a mano; mismo enfoque que la otra app del autor | Configurar el realm a mano |
+| Roles `ADMIN`, `ENFERMERIA`, `MEDICO` en el realm; el backend los lee del JWT y toma los permisos de la base por código de rol | Una sola fuente de identidad; los permisos siguen siendo los de la matriz de la SPEC §4 | Roles solo en la base |
+| El backend enlaza token y `AppUser` por correo (autor, D12); el administrador no necesita `AppUser`; un rol clínico sin `AppUser` recibe 403 | Cada acción conserva autor | Crear el usuario al vuelo |
+| El token viaja en `Authorization: Bearer`; el SSE pasa de `EventSource` a `fetch` con la cabecera | Se elimina `X-Demo-User` y `?demoUser=` | Token en la URL |
+| `webOrigins: ["*"]` en el client público `auditor-web` | `run.sh` cambia el puerto del frontend si está ocupado y `+` no resuelve el comodín de puerto; el client es PKCE sin secreto | Un origen fijo (se rompe con otro puerto) |
+| El reenvío del código de recuperación se bloquea 2 min aunque el código se haya anulado (opción A, por defecto del plan) | Evita usar el reenvío para probar correos | Permitir reenviar al anular |
+| Médico y administrador entran y ven «Su rol aún no tiene pantallas» con «Cerrar sesión» | Solo enfermería está lista | Rechazarlos en el login |

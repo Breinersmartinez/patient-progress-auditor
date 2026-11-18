@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
 
 import com.patientprogressauditor.consultation.ConsultationService;
 import com.patientprogressauditor.consultation.ConsultationService.ConsultationDetail;
-import com.patientprogressauditor.session.DemoPrincipal;
+import com.patientprogressauditor.session.AppPrincipal;
 import com.patientprogressauditor.user.AppUserRepository;
 import com.patientprogressauditor.web.FieldException;
 
@@ -47,7 +47,7 @@ public class ConsultationPdfService {
         this.users = users;
     }
 
-    public Pdf render(UUID id, DemoPrincipal principal) {
+    public Pdf render(UUID id, AppPrincipal principal) {
         ConsultationDetail detail = consultations.detail(id, principal);
         if (detail.content() == null) {
             throw new FieldException(HttpStatus.CONFLICT, "status", "Esta consulta no tiene un contenido estructurado que se pueda imprimir.");

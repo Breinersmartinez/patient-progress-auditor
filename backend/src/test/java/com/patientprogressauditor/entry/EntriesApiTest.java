@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import com.patientprogressauditor.support.TestAuth;
 
 import java.time.LocalDate;
 import java.util.UUID;
@@ -44,12 +45,12 @@ class EntriesApiTest {
 
     private ResultActions create(String user, UUID patient, String date, String body) throws Exception {
         String json = mapper.writeValueAsString(java.util.Map.of("entryDate", date, "body", body));
-        return mockMvc.perform(post("/api/patients/" + patient + "/entries").header("X-Demo-User", user)
+        return mockMvc.perform(post("/api/patients/" + patient + "/entries").with(TestAuth.as(user))
                 .contentType(MediaType.APPLICATION_JSON).content(json));
     }
 
     private ResultActions list(UUID patient, String query) throws Exception {
-        return mockMvc.perform(get("/api/patients/" + patient + "/entries" + query).header("X-Demo-User", NURSE));
+        return mockMvc.perform(get("/api/patients/" + patient + "/entries" + query).with(TestAuth.as(NURSE)));
     }
 
     private UUID seeded(String alias) {
@@ -61,7 +62,7 @@ class EntriesApiTest {
     private ResultActions createWithSource(String source) throws Exception {
         java.util.Map<String, Object> body = new java.util.HashMap<>(java.util.Map.of("entryDate", "2026-10-20", "body", "Comió poco."));
         body.put("source", source);
-        return mockMvc.perform(post("/api/patients/" + newPatient + "/entries").header("X-Demo-User", NURSE)
+        return mockMvc.perform(post("/api/patients/" + newPatient + "/entries").with(TestAuth.as(NURSE))
                 .contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(body)));
     }
 
@@ -124,7 +125,7 @@ class EntriesApiTest {
         create(NURSE, newPatient, "2026-10-20", "x".repeat(4001))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.fields.body").value("El registro no puede pasar de 4000 caracteres."));
-        mockMvc.perform(post("/api/patients/" + newPatient + "/entries").header("X-Demo-User", NURSE)
+        mockMvc.perform(post("/api/patients/" + newPatient + "/entries").with(TestAuth.as(NURSE))
                         .contentType(MediaType.APPLICATION_JSON).content("{\"body\":\"hola\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.fields.entryDate").value("Elija la fecha del registro."));
@@ -208,13 +209,13 @@ class EntriesApiTest {
         create(NURSE, newPatient, "2026-10-26", "Del lunes siguiente").andExpect(status().isCreated());
         int total = jdbc.queryForObject("SELECT count(*) FROM entries", Integer.class);
 
-        mockMvc.perform(get("/api/entries").header("X-Demo-User", NURSE))
+        mockMvc.perform(get("/api/entries").with(TestAuth.as(NURSE)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(total))
                 .andExpect(jsonPath("$[0].patientAlias").value("P-900"))
                 .andExpect(jsonPath("$[0].entryDate").value("2026-10-26"));
         // El 25 de octubre hay entradas de varios pacientes: salen por codigo.
-        mockMvc.perform(get("/api/entries?limit=4").header("X-Demo-User", NURSE))
+        mockMvc.perform(get("/api/entries?limit=4").with(TestAuth.as(NURSE)))
                 .andExpect(jsonPath("$.length()").value(4))
                 .andExpect(jsonPath("$[1].entryDate").value("2026-10-25"))
                 .andExpect(jsonPath("$[1].patientAlias").value("P-007"));
@@ -223,7 +224,7 @@ class EntriesApiTest {
     @Test
     void permissionsAreEnforcedByTheServer() throws Exception {
         mockMvc.perform(get("/api/entries")).andExpect(status().isUnauthorized());
-        mockMvc.perform(get("/api/entries").header("X-Demo-User", DOCTOR)).andExpect(status().isOk());
+        mockMvc.perform(get("/api/entries").with(TestAuth.as(DOCTOR))).andExpect(status().isOk());
         mockMvc.perform(post("/api/patients/" + newPatient + "/entries")
                         .contentType(MediaType.APPLICATION_JSON).content("{\"entryDate\":\"2026-10-20\",\"body\":\"hola\"}"))
                 .andExpect(status().isUnauthorized());

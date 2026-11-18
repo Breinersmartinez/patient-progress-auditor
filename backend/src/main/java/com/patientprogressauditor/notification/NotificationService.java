@@ -17,7 +17,7 @@ import com.patientprogressauditor.patient.Patient;
 import com.patientprogressauditor.patient.PatientRepository;
 import com.patientprogressauditor.report.Report;
 import com.patientprogressauditor.report.ReportRepository;
-import com.patientprogressauditor.session.DemoPrincipal;
+import com.patientprogressauditor.session.AppPrincipal;
 import com.patientprogressauditor.user.AppUser;
 import com.patientprogressauditor.user.AppUserRepository;
 import com.patientprogressauditor.web.NotFoundException;
@@ -79,7 +79,7 @@ public class NotificationService {
     }
 
     @Transactional(readOnly = true)
-    public List<NotificationView> list(DemoPrincipal principal) {
+    public List<NotificationView> list(AppPrincipal principal) {
         List<Notification> all = notifications.findByRecipientIdOrderByCreatedAtDesc(principal.id());
         Lookups lookups = lookups(all);
         return all.stream().map(n -> view(n, lookups)).toList();
@@ -87,12 +87,12 @@ public class NotificationService {
 
     // Los pacientes con alguna sin leer de este medico: el punto de "Mis pacientes".
     @Transactional(readOnly = true)
-    public List<UUID> patientsWithUnread(DemoPrincipal principal) {
+    public List<UUID> patientsWithUnread(AppPrincipal principal) {
         return notifications.findPatientIdsWithUnread(principal.id());
     }
 
     @Transactional
-    public void markRead(UUID id, DemoPrincipal principal) {
+    public void markRead(UUID id, AppPrincipal principal) {
         Notification n = notifications.findByIdAndRecipientId(id, principal.id())
                 .orElseThrow(() -> new NotFoundException("No encontramos esa notificación."));
         if (n.getReadAt() == null) {
@@ -105,7 +105,7 @@ public class NotificationService {
     // el mockup, auditor.fuente.html:421, n.tipo === 'registro'). Las de informe se marcan al abrir el informe o la
     // notificacion misma (markReportRead/markRead), no por abrir la ficha.
     @Transactional
-    public void markPatientRead(UUID patientId, DemoPrincipal principal) {
+    public void markPatientRead(UUID patientId, AppPrincipal principal) {
         List<Notification> unread = notifications.findByRecipientIdAndPatientIdAndNotificationTypeAndReadAtIsNull(
                 principal.id(), patientId, Notification.Type.ENTRY);
         unread.forEach(n -> n.setReadAt(clock.instant()));

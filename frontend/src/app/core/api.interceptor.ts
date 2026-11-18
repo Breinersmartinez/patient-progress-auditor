@@ -1,13 +1,15 @@
 import { HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
+import { from, switchMap } from 'rxjs';
 
-import { SessionService } from './session.service';
+import { AuthService } from './auth.service';
 
-// Manda el usuario elegido en cada peticion al API. No es autenticacion (D26): el servidor toma de el su rol.
-export const demoUserInterceptor: HttpInterceptorFn = (request, next) => {
-  const id = inject(SessionService).currentId();
-  if (id && request.url.startsWith('/api/')) {
-    return next(request.clone({ setHeaders: { 'X-Demo-User': id } }));
+// Pone el token de Keycloak (Authorization: Bearer) en cada peticion al API. El servidor saca de el el usuario y su rol.
+export const bearerInterceptor: HttpInterceptorFn = (request, next) => {
+  if (!request.url.startsWith('/api/')) {
+    return next(request);
   }
-  return next(request);
+  return from(inject(AuthService).token()).pipe(
+    switchMap((token) => next(token ? request.clone({ setHeaders: { Authorization: `Bearer ${token}` } }) : request)),
+  );
 };

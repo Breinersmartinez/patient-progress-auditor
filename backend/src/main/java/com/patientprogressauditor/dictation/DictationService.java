@@ -26,7 +26,7 @@ import com.patientprogressauditor.llm.LangfuseExporter;
 import com.patientprogressauditor.llm.LlmUnavailableException;
 import com.patientprogressauditor.llm.TranscriptionGateway;
 import com.patientprogressauditor.patient.PatientRepository;
-import com.patientprogressauditor.session.DemoPrincipal;
+import com.patientprogressauditor.session.AppPrincipal;
 import com.patientprogressauditor.web.FieldException;
 import com.patientprogressauditor.web.NotFoundException;
 
@@ -84,7 +84,7 @@ public class DictationService {
                 "El audio es demasiado grande para transcribirlo. Dicte una nota más corta o escríbala.");
     }
 
-    public Dictation transcribe(UUID patientId, byte[] audio, String contentType, DemoPrincipal principal) {
+    public Dictation transcribe(UUID patientId, byte[] audio, String contentType, AppPrincipal principal) {
         try {
             if (!patients.existsById(patientId)) {
                 throw new NotFoundException("No encontramos ese paciente.");

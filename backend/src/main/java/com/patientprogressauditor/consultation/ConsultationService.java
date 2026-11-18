@@ -35,7 +35,7 @@ import com.patientprogressauditor.patient.PatientRepository;
 import com.patientprogressauditor.run.RunExecutor;
 import com.patientprogressauditor.run.RunService;
 import com.patientprogressauditor.run.RunTrace;
-import com.patientprogressauditor.session.DemoPrincipal;
+import com.patientprogressauditor.session.AppPrincipal;
 import com.patientprogressauditor.web.BusyException;
 import com.patientprogressauditor.web.FieldException;
 import com.patientprogressauditor.web.NotFoundException;
@@ -95,7 +95,7 @@ public class ConsultationService {
 
     // Valida en el servidor (criterio 4 de la Pieza 6: nada de esto crea una ejecucion si falla) y lanza en segundo plano.
     public RunService.RunView request(UUID patientId, LocalDate periodStart, LocalDate periodEnd, LocalDate comparisonStart,
-            LocalDate comparisonEnd, DemoPrincipal principal) {
+            LocalDate comparisonEnd, AppPrincipal principal) {
         validateRange(periodStart, periodEnd, "period");
         if (periodEnd.isAfter(LocalDate.now(clock))) {
             throw new FieldException(HttpStatus.BAD_REQUEST, "periodEnd", "El período no puede llegar más allá de hoy.");
@@ -184,11 +184,11 @@ public class ConsultationService {
     }
 
     // Solo el autor la ve (criterio 3 de la Pieza 6): a cualquier otro, 404, como un informe que el rol no puede ver (RN-01).
-    public ConsultationDetail detail(UUID id, DemoPrincipal principal) {
+    public ConsultationDetail detail(UUID id, AppPrincipal principal) {
         return view(findVisible(id, principal));
     }
 
-    DoctorConsultation findVisible(UUID id, DemoPrincipal principal) {
+    DoctorConsultation findVisible(UUID id, AppPrincipal principal) {
         return consultations.findByIdAndDoctorId(id, principal.id())
                 .orElseThrow(() -> new NotFoundException("No encontramos esa consulta."));
     }

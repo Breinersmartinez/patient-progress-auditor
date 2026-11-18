@@ -22,7 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.patientprogressauditor.notification.NotificationService;
 import com.patientprogressauditor.patient.Patient;
 import com.patientprogressauditor.patient.PatientRepository;
-import com.patientprogressauditor.session.DemoPrincipal;
+import com.patientprogressauditor.session.AppPrincipal;
 import com.patientprogressauditor.structuring.StructuringPrompt;
 import com.patientprogressauditor.user.AppUser;
 import com.patientprogressauditor.user.AppUserRepository;
@@ -82,7 +82,7 @@ public class EntryService {
     // queda ESTRUCTURADA. La entrada y sus eventos se guardan en una sola transaccion: todo o nada (RN-11, D27).
     @Transactional
     public EntryView create(UUID patientId, LocalDate entryDate, String body, List<ConfirmedEvent> requestedEvents,
-            Correction correction, String source, DemoPrincipal principal) {
+            Correction correction, String source, AppPrincipal principal) {
         Patient patient = patients.findById(patientId).orElseThrow(() -> new NotFoundException("No encontramos ese paciente."));
         if (entryDate.isAfter(LocalDate.now(clock))) {
             throw new FieldException(HttpStatus.BAD_REQUEST, "entryDate", "La fecha del registro no puede ser futura.");
@@ -121,7 +121,7 @@ public class EntryService {
 
     // La version corregida (RF-42), o null si no hay nada que guardar: sin texto, o igual al original. No se recorta ni se
     // reescribe: es lo que la persona dejo en la vista previa. El original no se toca (RN-07).
-    private EntryVersion toVersion(Correction correction, String body, DemoPrincipal principal) {
+    private EntryVersion toVersion(Correction correction, String body, AppPrincipal principal) {
         if (correction == null || correction.body() == null || correction.body().isBlank() || correction.body().equals(body)) {
             return null;
         }
@@ -168,7 +168,7 @@ public class EntryService {
 
     // Valida lo que la persona confirma y deja quien lo confirmo y cuando. Un sintoma puede ser cualquiera con forma de sintoma (E18).
     
-    private List<EntryEvent> toEvents(List<ConfirmedEvent> requested, DemoPrincipal principal) {
+    private List<EntryEvent> toEvents(List<ConfirmedEvent> requested, AppPrincipal principal) {
         List<EntryEvent> out = new ArrayList<>();
         Set<Symptom> seen = new java.util.HashSet<>();
         Instant now = clock.instant();

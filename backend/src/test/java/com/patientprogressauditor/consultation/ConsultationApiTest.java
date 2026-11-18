@@ -1,5 +1,6 @@
 package com.patientprogressauditor.consultation;
 
+import com.patientprogressauditor.support.TestAuth;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
@@ -93,7 +94,7 @@ class ConsultationApiTest {
     }
 
     private MvcResult request(String user, String body) throws Exception {
-        return mockMvc.perform(post("/api/consultations").header("X-Demo-User", user).contentType(MediaType.APPLICATION_JSON).content(body)).andReturn();
+        return mockMvc.perform(post("/api/consultations").with(TestAuth.as(user)).contentType(MediaType.APPLICATION_JSON).content(body)).andReturn();
     }
 
     // El ejecutor corre en otro hilo (D24): se espera a que termine antes de leer lo que escribio.
@@ -131,18 +132,18 @@ class ConsultationApiTest {
         // Se sigue por /api/runs/{id}, abierto al medico para su propia consulta (D31). consultationId es como
         // reportId pero de doctor_consultations: asi la pantalla sabe a donde navegar al terminar.
         UUID consultationId = jdbc.queryForObject("SELECT id FROM doctor_consultations WHERE run_id = ?::uuid", UUID.class, runId);
-        mockMvc.perform(get("/api/runs/" + runId).header("X-Demo-User", DOCTOR))
+        mockMvc.perform(get("/api/runs/" + runId).with(TestAuth.as(DOCTOR)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("COMPLETADA"))
                 .andExpect(jsonPath("$.consultationId").value(consultationId.toString()))
                 .andExpect(jsonPath("$.reportId").doesNotExist());
 
-        mockMvc.perform(get("/api/consultations/" + consultationId).header("X-Demo-User", DOCTOR))
+        mockMvc.perform(get("/api/consultations/" + consultationId).with(TestAuth.as(DOCTOR)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.patientAlias").value("P-014"))
                 .andExpect(jsonPath("$.periodStart").value(START.toString()))
                 .andExpect(jsonPath("$.content.summary").value("Las náuseas aparecieron en el período."));
 
-        byte[] pdf = mockMvc.perform(get("/api/consultations/" + consultationId + "/pdf").header("X-Demo-User", DOCTOR))
+        byte[] pdf = mockMvc.perform(get("/api/consultations/" + consultationId + "/pdf").with(TestAuth.as(DOCTOR)))
                 .andExpect(status().isOk()).andExpect(header().string("Content-Type", "application/pdf"))
                 .andReturn().getResponse().getContentAsByteArray();
         String text = text(pdf);
@@ -174,7 +175,7 @@ class ConsultationApiTest {
         jdbc.update("INSERT INTO entries (id, patient_id, entry_date, body, author_id, source, structuring_status) VALUES (?, ?, ?, 'Hoy sin novedad.', ?, 'TEXTO', 'SIN_ESTRUCTURAR')",
                 UUID.randomUUID(), patient, today, UUID.fromString(DOCTOR));
 
-        JsonNode weeks = mapper.readTree(mockMvc.perform(get("/api/consultations/weeks/" + patient).header("X-Demo-User", DOCTOR))
+        JsonNode weeks = mapper.readTree(mockMvc.perform(get("/api/consultations/weeks/" + patient).with(TestAuth.as(DOCTOR)))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
         java.util.List<String> starts = weeks.findValuesAsText("weekStart");
         assertThat(starts).isSortedAccordingTo(java.util.Comparator.reverseOrder());
@@ -186,8 +187,8 @@ class ConsultationApiTest {
         assertThat(first.path("entries").asInt()).isEqualTo(7);
 
         // No es del medico pedir informes de enfermeria, ni al reves: enfermeria no arma esta pantalla.
-        mockMvc.perform(get("/api/consultations/weeks/" + patient).header("X-Demo-User", NURSE)).andExpect(status().isForbidden());
-        mockMvc.perform(get("/api/consultations/weeks/" + UUID.randomUUID()).header("X-Demo-User", DOCTOR)).andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/consultations/weeks/" + patient).with(TestAuth.as(NURSE))).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/consultations/weeks/" + UUID.randomUUID()).with(TestAuth.as(DOCTOR))).andExpect(status().isNotFound());
 
         jdbc.update("DELETE FROM entries WHERE patient_id = ? AND entry_date = ?", patient, today);
     }
@@ -202,10 +203,10 @@ class ConsultationApiTest {
         // A cualquier otro, 404 en las cinco rutas (D31: «solo la ve quien la pidió»): ni otro médico ni enfermería,
         // aunque enfermería sí tenga REPORTS_REQUEST y vea cualquier ejecución de informe (RunService.visible).
         for (String other : new String[] {OTHER_DOCTOR, NURSE}) {
-            mockMvc.perform(get("/api/consultations/" + consultationId).header("X-Demo-User", other)).andExpect(status().isNotFound());
-            mockMvc.perform(get("/api/consultations/" + consultationId + "/pdf").header("X-Demo-User", other)).andExpect(status().isNotFound());
-            mockMvc.perform(get("/api/runs/" + runId).header("X-Demo-User", other)).andExpect(status().isNotFound());
-            mockMvc.perform(get("/api/runs/" + runId + "/steps").header("X-Demo-User", other)).andExpect(status().isNotFound());
+            mockMvc.perform(get("/api/consultations/" + consultationId).with(TestAuth.as(other))).andExpect(status().isNotFound());
+            mockMvc.perform(get("/api/consultations/" + consultationId + "/pdf").with(TestAuth.as(other))).andExpect(status().isNotFound());
+            mockMvc.perform(get("/api/runs/" + runId).with(TestAuth.as(other))).andExpect(status().isNotFound());
+            mockMvc.perform(get("/api/runs/" + runId + "/steps").with(TestAuth.as(other))).andExpect(status().isNotFound());
         }
     }
 

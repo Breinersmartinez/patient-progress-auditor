@@ -2,6 +2,7 @@ package com.patientprogressauditor.session;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import com.patientprogressauditor.support.TestAuth;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -44,7 +45,7 @@ class PermissionMatrixTest {
     private Map<String, Boolean> allowedFor(String userId) throws Exception {
         Map<String, Boolean> result = new LinkedHashMap<>();
         for (String permission : ALL_PERMISSIONS) {
-            int status = mockMvc.perform(get("/api/test-probe/" + permission).header("X-Demo-User", userId))
+            int status = mockMvc.perform(get("/api/test-probe/" + permission).with(TestAuth.as(userId)))
                     .andReturn().getResponse().getStatus();
             assertThat(status).as("%s con %s", permission, userId).isIn(200, 403);
             result.put(permission, status == 200);

@@ -96,8 +96,7 @@ Con los puertos por defecto (cámbielos si `run.sh` avisó otros):
 
 ```bash
 curl -s http://localhost:8080/api/system/status    # {"status":"UP","database":"UP","today":"AAAA-MM-DD"}
-curl -s http://localhost:8080/api/demo-users       # los 4 usuarios de demostración
-curl -s -H 'X-Demo-User: 20000000-0000-0000-0000-000000000001' http://localhost:8080/api/llm/status   # proveedor principal y si tiene llave (nunca la muestra)
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:8080/api/session   # 401: el API exige el token de Keycloak
 curl -s -o /dev/null -w '%{http_code}\n' http://localhost:4200/   # 200
 docker compose ps                                   # db, backend y frontend en "healthy"
 ```
@@ -118,7 +117,15 @@ Si después de `down -v` se borra también `.env` (o se clona de nuevo) pero que
 
 ## 2. Usuarios de demostración y qué probar
 
-**No hay inicio de sesión en esta entrega** (D23, decidido por el equipo: la autenticación y las credenciales llegan en el Momento 3). La aplicación abre con usuarios sembrados y se elige con cuál trabajar en el selector «Ver como» de la barra superior. No es un control de seguridad: sirve para que cada acción tenga un autor y para que las reglas de rol se cumplan en el servidor.
+**Inicio de sesión (propuesta del 2026-11-10, pendiente de aprobación del equipo).** Al abrir <http://localhost:4200> el navegador va al login de Keycloak (tema `auditor`, en el puerto `KC_PORT`, 7070 por defecto). Los usuarios ya vienen cargados en el realm `auditor`, que `./run.sh` importa solo. Contraseña de demostración de todos: `Auditor2026!` (sintética, solo para desarrollo).
+
+| Correo | Rol | Qué ve |
+|---|---|---|
+| `marcela.rojas@example.test`, `camilo.torres@example.test` | Enfermería | Todas las pantallas |
+| `andres.salazar@example.test`, `julian.ortiz@example.test` | Médico | Aviso «Su rol aún no tiene pantallas» y «Cerrar sesión» |
+| `admin@example.test` | Administración | El mismo aviso |
+
+Cada pieza, en corto: el **realm** es el espacio de usuarios y reglas (`keycloak/realm/auditor-realm.json`); el **client** `auditor-web` es la app Angular (público, sin secreto, con PKCE); los **roles** del realm viajan en el token y el backend los valida; el **flujo** `ppa reset credentials` recupera la contraseña con un código de 6 dígitos que llega al correo de prueba (Mailpit, <http://localhost:8025>); la invitación de alta es un enlace de 12 horas; el **tema** `auditor` (`keycloak/themes/auditor/`) dibuja el login, las pantallas de estado y los correos; la **extensión** Java (`keycloak/extensiones/codigo-recuperacion/`) genera y valida el código. El JSON del realm salió de configurarlo en una consola real y exportarlo; para volver a importarlo borre los datos con `docker compose down -v`.
 
 | Usuario | Rol | Identificador (para la API) |
 |---|---|---|
@@ -127,12 +134,14 @@ Si después de `down -v` se borra también `.env` (o se clona de nuevo) pero que
 | Dr. Andrés Salazar | Médico | `20000000-0000-0000-0000-000000000003` |
 | Dr. Julián Ortiz | Médico | `20000000-0000-0000-0000-000000000004` |
 
-**«Ver como»** ofrece los cuatro: las dos enfermeras y los dos médicos. Al elegir un médico la interfaz cambia a sus propias pantallas («Mis pacientes», «Informes → Recibidos»), reutilizando las de enfermería con lo que su rol puede hacer (D12, D26). La regla de qué ve el médico la decide el servidor, y se comprueba igual por la API, enviando su identificador en la cabecera `X-Demo-User`:
+Para los `curl` de este README: inicie sesión en la app con el usuario que corresponda, abra las herramientas del navegador (pestaña Red), copie el valor de la cabecera `Authorization: Bearer …` de cualquier petición a `/api/` y expórtelo como `TOKEN_DE_ENFERMERIA` o `TOKEN_DEL_MEDICO`. El token dura unos minutos.
+
+La interfaz ofrece las pantallas de **enfermería** y las del **médico** («Mis pacientes», «Informes → Recibidos»), que reutilizan las de enfermería con lo que su rol puede hacer (D12). Para verlas, inicie sesión con un médico sembrado (`andres.salazar@example.test`). La regla de qué ve el médico la decide el servidor, y se comprueba igual por la API con el token del médico:
 
 ```bash
 # El médico solo recibe informes ENVIADOS (3 de los 4 sembrados; el cuarto queda aprobado, para enviarlo en vivo);
 # un informe pendiente, incompleto, rechazado o aprobado sin enviar le responde 404, como si no existiera.
-curl -s -H 'X-Demo-User: 20000000-0000-0000-0000-000000000003' http://localhost:8080/api/reports
+curl -s -H "Authorization: Bearer $TOKEN_DEL_MEDICO" http://localhost:8080/api/reports
 ```
 
 ### Los cinco pacientes (sintéticos)
@@ -155,16 +164,16 @@ Fechas fijas: los registros terminan el domingo 25-oct-2026 y el reloj de la apl
 4. **Editar** (crea la versión 2; la versión 1 de la IA no se toca), **Rechazar** (con motivo) o **Aprobar informe**. Aprobar guarda el informe, pero todavía no lo hace llegar al médico.
 5. En **Informes aprobados** están los 4 sembrados de P-014 (3 «Enviado», 1 «Aprobado») y el que acaba de aprobar. Ábralo y pulse **Enviar al médico**: pasa a «Enviado», con la nota «Enviado al médico el …», y solo entonces lo recibe el médico (RF-44, D29).
 6. **Informe mensual.** En **Generar informe**, elija **P-014**, el período **Un mes (cuatro semanas)** y la ventana **del 21 de septiembre al 18 de octubre** (sus cuatro semanas ya tienen informe semanal aprobado). El agente lee los cuatro informes y las cifras de cada semana y redacta la evolución; la hoja muestra la tabla **Evolución semana a semana**, enlaza los cuatro informes de origen y pasa por la misma revisión (editar, rechazar, aprobar). Con **P-021** la ventana no se puede generar: la pantalla dice qué semanas faltan y en qué estado está su informe (regla RN-10, decidida por el código y no por el modelo).
-7. **Imprimir.** En cualquier informe **aprobado** (semanal o mensual) pulse **Descargar PDF**: el servidor lo arma con JasperReports y trae el aprobador, la fecha de aprobación, el id del informe, el resumen con sus `[n]`, las cifras, las fuentes con el texto original y la nota de asistencia de IA. Se imprime lo aprobado o lo enviado: un informe pendiente responde 409. Lo que el rol no puede ver «no existe» (404): el médico solo descarga un informe ya enviado. Por API: `curl -s -H 'X-Demo-User: 20000000-0000-0000-0000-000000000003' -o informe.pdf http://localhost:8080/api/reports/<id>/pdf` (el `<id>` sale de `GET /api/reports?status=ENVIADO`, con el mismo `X-Demo-User` del médico).
+7. **Imprimir.** En cualquier informe **aprobado** (semanal o mensual) pulse **Descargar PDF**: el servidor lo arma con JasperReports y trae el aprobador, la fecha de aprobación, el id del informe, el resumen con sus `[n]`, las cifras, las fuentes con el texto original y la nota de asistencia de IA. Se imprime lo aprobado o lo enviado: un informe pendiente responde 409. Lo que el rol no puede ver «no existe» (404): el médico solo descarga un informe ya enviado. Por API: `curl -s -H "Authorization: Bearer $TOKEN_DEL_MEDICO" -o informe.pdf http://localhost:8080/api/reports/<id>/pdf` (el `<id>` sale de `GET /api/reports?status=ENVIADO`, con el token del médico).
 
 Sin llave (ver §3) los pasos 1, 2 y 6 muestran un aviso claro; todo lo demás (pacientes, historial, informes sembrados, revisión, aprobación, rechazo) funciona.
 
 ### Recorrido del médico (1 minuto)
 
-1. En **«Ver como»** elija **Dr. Andrés Salazar**. La interfaz cambia a sus pantallas: **Mis pacientes** y **Informes → Recibidos**; no hay «Nuevo paciente» ni «Generar informe» (no tiene esos permisos).
+1. Inicie sesión como **Dr. Andrés Salazar** (`andres.salazar@example.test`). La interfaz abre sus pantallas: **Mis pacientes** y **Informes → Recibidos**; no hay «Nuevo paciente» ni «Generar informe» (no tiene esos permisos).
 2. Abra **P-014**: el último informe dice **«Último informe recibido»** y es el más reciente de los tres `ENVIADO` (la semana del 5 de octubre), nunca el `APROBADO` sin enviar del 12 de octubre, aunque sea más nuevo. Puede registrar con **Nuevo registro** (misma pantalla que enfermería, con estructuración, vista previa y texto corregido; necesita llave, ver §3); la entrada queda con su autoría.
 3. En **Informes → Recibidos** solo aparecen los informes `ENVIADO`, por período del más reciente al más antiguo, con la columna **Recibido** (la fecha de envío). Ábralo: tiene la misma hoja con sus citas, pero solo **Descargar PDF** (sin editar, aprobar, rechazar ni enviar). Los tres sembrados no traen **Ver cómo se generó** (los escribió una plantilla, sin pasar por el agente, D11); un informe que el médico vea y haya generado el agente sí lo trae, como para enfermería.
-4. El `APROBADO` sin enviar de P-014 (12-oct) y el `PENDIENTE_REVISION` de P-021 no aparecen en ninguna pantalla del médico ni por la API: `curl -s -H 'X-Demo-User: 20000000-0000-0000-0000-000000000003' http://localhost:8080/api/reports/<id-del-aprobado-sin-enviar>` responde 404, igual que si no existiera (D29).
+4. El `APROBADO` sin enviar de P-014 (12-oct) y el `PENDIENTE_REVISION` de P-021 no aparecen en ninguna pantalla del médico ni por la API: `curl -s -H "Authorization: Bearer $TOKEN_DEL_MEDICO" http://localhost:8080/api/reports/<id-del-aprobado-sin-enviar>` responde 404, igual que si no existiera (D29).
 
 Sin llave (ver §3), el paso 2 (registrar) muestra un aviso claro; los pasos 1, 3 y 4 funcionan igual.
 
@@ -192,7 +201,7 @@ Las variables exactas están en [.env.example](.env.example), sin valores reales
 Comprobar que la tomó (no imprime la llave; la API pide un usuario de demostración en la cabecera, aquí Marcela):
 
 ```bash
-curl -s -H 'X-Demo-User: 20000000-0000-0000-0000-000000000001' http://localhost:8080/api/llm/status
+curl -s -H "Authorization: Bearer $TOKEN_DE_ENFERMERIA" http://localhost:8080/api/llm/status
 # "available": true y "configured": true en el proveedor principal
 ```
 
@@ -217,7 +226,7 @@ Edite `.env` (o exporte las variables) y recree el backend; no hay que reconstru
 # ejemplo: Gemini como principal y Groq como respaldo
 sed -i 's/^LLM_PROVIDER=.*/LLM_PROVIDER=gemini/; s/^LLM_FALLBACK=.*/LLM_FALLBACK=groq/' .env
 docker compose up -d backend
-curl -s -H 'X-Demo-User: 20000000-0000-0000-0000-000000000001' http://localhost:8080/api/llm/status     # muestra el nuevo orden
+curl -s -H "Authorization: Bearer $TOKEN_DE_ENFERMERIA" http://localhost:8080/api/llm/status     # muestra el nuevo orden
 ```
 
 `LLM_FALLBACK=none` desactiva el respaldo. Esto necesita `GEMINI_API_KEY` en `.env`.

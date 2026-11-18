@@ -26,7 +26,7 @@ import com.patientprogressauditor.report.ReportService.Summary;
 import com.patientprogressauditor.report.ReportService.VersionView;
 import com.patientprogressauditor.report.ReportService.WeekOption;
 import com.patientprogressauditor.run.RunService.StepView;
-import com.patientprogressauditor.session.DemoPrincipal;
+import com.patientprogressauditor.session.AppPrincipal;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -56,13 +56,13 @@ public class ReportController {
     @GetMapping("/reports")
     @PreAuthorize("hasAuthority('REPORTS_READ')")
     public List<Summary> list(@RequestParam(required = false) Report.Status status, @RequestParam(required = false) UUID patientId,
-            @RequestParam(required = false) Report.Type type, @AuthenticationPrincipal DemoPrincipal principal) {
+            @RequestParam(required = false) Report.Type type, @AuthenticationPrincipal AppPrincipal principal) {
         return service.list(principal, status, patientId, type);
     }
 
     @GetMapping("/reports/{id}")
     @PreAuthorize("hasAuthority('REPORTS_READ')")
-    public Detail get(@PathVariable UUID id, @AuthenticationPrincipal DemoPrincipal principal) {
+    public Detail get(@PathVariable UUID id, @AuthenticationPrincipal AppPrincipal principal) {
         return service.detail(id, principal);
     }
 
@@ -74,14 +74,14 @@ public class ReportController {
 
     @GetMapping("/reports/{id}/trace")
     @PreAuthorize("hasAuthority('REPORTS_READ')")
-    public List<StepView> trace(@PathVariable UUID id, @AuthenticationPrincipal DemoPrincipal principal) {
+    public List<StepView> trace(@PathVariable UUID id, @AuthenticationPrincipal AppPrincipal principal) {
         return service.trace(id, principal);
     }
 
     // Crea una version nueva de enfermeria; la del modelo no se toca (RF-25).
     @PutMapping("/reports/{id}/content")
     @PreAuthorize("hasAuthority('REPORTS_UPDATE')")
-    public Detail edit(@PathVariable UUID id, @Valid @RequestBody EditRequest request, @AuthenticationPrincipal DemoPrincipal principal) {
+    public Detail edit(@PathVariable UUID id, @Valid @RequestBody EditRequest request, @AuthenticationPrincipal AppPrincipal principal) {
         return service.edit(id, new Edit(request.summary(), request.claims()), principal);
     }
 
@@ -90,20 +90,20 @@ public class ReportController {
 
     @PostMapping("/reports/{id}/approve")
     @PreAuthorize("hasAuthority('REPORTS_APPROVE')")
-    public Detail approve(@PathVariable UUID id, @AuthenticationPrincipal DemoPrincipal principal) {
+    public Detail approve(@PathVariable UUID id, @AuthenticationPrincipal AppPrincipal principal) {
         return service.approve(id, principal);
     }
 
     // Enviar al medico un informe aprobado (RF-44, D29): permiso propio, solo de enfermeria.
     @PostMapping("/reports/{id}/send")
     @PreAuthorize("hasAuthority('REPORTS_SEND')")
-    public Detail send(@PathVariable UUID id, @AuthenticationPrincipal DemoPrincipal principal) {
+    public Detail send(@PathVariable UUID id, @AuthenticationPrincipal AppPrincipal principal) {
         return service.send(id, principal);
     }
 
     @PostMapping("/reports/{id}/reject")
     @PreAuthorize("hasAuthority('REPORTS_APPROVE')")
-    public Detail reject(@PathVariable UUID id, @Valid @RequestBody RejectRequest request, @AuthenticationPrincipal DemoPrincipal principal) {
+    public Detail reject(@PathVariable UUID id, @Valid @RequestBody RejectRequest request, @AuthenticationPrincipal AppPrincipal principal) {
         return service.reject(id, request.reason(), principal);
     }
 
@@ -118,7 +118,7 @@ public class ReportController {
     // el rol no puede ver responde 404 y lo que no esta aprobado, 409.
     @GetMapping(value = "/reports/{id}/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
     @PreAuthorize("hasAuthority('REPORTS_READ')")
-    public ResponseEntity<byte[]> pdf(@PathVariable UUID id, @AuthenticationPrincipal DemoPrincipal principal) {
+    public ResponseEntity<byte[]> pdf(@PathVariable UUID id, @AuthenticationPrincipal AppPrincipal principal) {
         ReportPdfService.Pdf file = pdf.render(id, principal);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(file.fileName()).build().toString())

@@ -22,7 +22,7 @@ import com.patientprogressauditor.consultation.ConsultationService.ConsultationD
 import com.patientprogressauditor.consultation.ConsultationService.WeekOption;
 import com.patientprogressauditor.consultation.pdf.ConsultationPdfService;
 import com.patientprogressauditor.run.RunService.RunView;
-import com.patientprogressauditor.session.DemoPrincipal;
+import com.patientprogressauditor.session.AppPrincipal;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -56,7 +56,7 @@ public class ConsultationController {
     // 202 al instante con el id de la ejecucion (AgentRun.Type.CONSULTA); el contenido se lee despues con GET /{id}.
     @PostMapping
     @PreAuthorize("hasAuthority('CONSULTATIONS_REQUEST')")
-    public ResponseEntity<RunView> request(@Valid @RequestBody RequestConsultation request, @AuthenticationPrincipal DemoPrincipal principal) {
+    public ResponseEntity<RunView> request(@Valid @RequestBody RequestConsultation request, @AuthenticationPrincipal AppPrincipal principal) {
         RunView created = service.request(request.patientId(), request.periodStart(), request.periodEnd(),
                 request.comparisonStart(), request.comparisonEnd(), principal);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(created);
@@ -72,12 +72,12 @@ public class ConsultationController {
 
     // Solo quien la pidio (criterio 3 de la Pieza 6): a cualquier otro, 404 (ConsultationService.findVisible).
     @GetMapping("/{id}")
-    public ConsultationDetail get(@PathVariable UUID id, @AuthenticationPrincipal DemoPrincipal principal) {
+    public ConsultationDetail get(@PathVariable UUID id, @AuthenticationPrincipal AppPrincipal principal) {
         return service.detail(id, principal);
     }
 
     @GetMapping(value = "/{id}/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
-    public ResponseEntity<byte[]> pdf(@PathVariable UUID id, @AuthenticationPrincipal DemoPrincipal principal) {
+    public ResponseEntity<byte[]> pdf(@PathVariable UUID id, @AuthenticationPrincipal AppPrincipal principal) {
         ConsultationPdfService.Pdf file = pdf.render(id, principal);
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename(file.fileName()).build().toString())

@@ -1,5 +1,6 @@
 package com.patientprogressauditor.dictation;
 
+import com.patientprogressauditor.support.TestAuth;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -81,7 +82,7 @@ class DictationApiTest {
     private ResultActions dictate(String user, UUID patientId, String contentType, byte[] body) throws Exception {
         var request = post("/api/patients/" + patientId + "/entries/transcribe").contentType(contentType).content(body);
         if (user != null) {
-            request.header("X-Demo-User", user);
+            request.with(TestAuth.as(user));
         }
         return mockMvc.perform(request);
     }

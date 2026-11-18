@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.patientprogressauditor.patient.PatientService.NewPatient;
 import com.patientprogressauditor.patient.PatientService.PatientView;
-import com.patientprogressauditor.session.DemoPrincipal;
+import com.patientprogressauditor.session.AppPrincipal;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -45,13 +45,13 @@ public class PatientController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('PATIENTS_READ')")
-    public List<PatientView> list(@AuthenticationPrincipal DemoPrincipal principal) {
+    public List<PatientView> list(@AuthenticationPrincipal AppPrincipal principal) {
         return service.list(principal);
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('PATIENTS_READ')")
-    public PatientView get(@PathVariable UUID id, @AuthenticationPrincipal DemoPrincipal principal) {
+    public PatientView get(@PathVariable UUID id, @AuthenticationPrincipal AppPrincipal principal) {
         return service.get(id, principal);
     }
 
@@ -59,7 +59,7 @@ public class PatientController {
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAuthority('PATIENTS_CREATE')")
     public PatientView create(@Valid @RequestBody CreatePatientRequest request,
-            @AuthenticationPrincipal DemoPrincipal principal) {
+            @AuthenticationPrincipal AppPrincipal principal) {
         return service.create(new NewPatient(request.alias(), request.bed(), request.age(), request.admittedOn()), principal);
     }
 }

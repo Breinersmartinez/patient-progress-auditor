@@ -1,5 +1,6 @@
 package com.patientprogressauditor.dictation;
 
+import com.patientprogressauditor.support.TestAuth;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
@@ -67,7 +68,7 @@ class DictationNoDiskTest {
 
     private HttpResponse<String> post(byte[] body) throws Exception {
         HttpRequest request = HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/patients/" + patient + "/entries/transcribe"))
-                .header("X-Demo-User", NURSE).header("Content-Type", "audio/webm;codecs=opus")
+                .header("Authorization", TestAuth.bearer("camilo.torres@example.test", "ENFERMERIA")).header("Content-Type", "audio/webm;codecs=opus")
                 .POST(HttpRequest.BodyPublishers.ofByteArray(body)).build();
         return HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
     }

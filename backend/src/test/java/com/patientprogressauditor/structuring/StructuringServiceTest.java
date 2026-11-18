@@ -40,7 +40,7 @@ import com.patientprogressauditor.llm.LlmResponse;
 import com.patientprogressauditor.llm.LlmResult;
 import com.patientprogressauditor.llm.LlmUnavailableException;
 import com.patientprogressauditor.llm.StructuredResult;
-import com.patientprogressauditor.session.DemoPrincipal;
+import com.patientprogressauditor.session.AppPrincipal;
 import com.patientprogressauditor.web.NotFoundException;
 
 @SpringBootTest(properties = "app.seed.demo=true")
@@ -65,9 +65,9 @@ class StructuringServiceTest {
         return jdbc.queryForObject("SELECT id FROM patients WHERE alias = 'P-014'", UUID.class);
     }
 
-    private DemoPrincipal nurse() {
+    private AppPrincipal nurse() {
         UUID id = jdbc.queryForObject("SELECT id FROM app_users WHERE display_name = 'Camilo Torres'", UUID.class);
-        return new DemoPrincipal(id, "Camilo Torres", "ENFERMERIA", java.util.Set.of());
+        return new AppPrincipal(id, "Camilo Torres", "ENFERMERIA", java.util.Set.of());
     }
 
     private static StructuredResult result(String json, boolean corrected, boolean fallback, List<Attempt> attempts) throws Exception {

@@ -5,7 +5,6 @@ import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angul
 
 import { FakeEventSource } from '../core/runs.service.spec';
 import { EVENT_SOURCE_FACTORY } from '../core/runs.service';
-import { SessionService } from '../core/session.service';
 import { ReportGenerateComponent } from './report-generate.component';
 
 const PATIENTS = [{ id: 'p1', alias: 'P-014', bed: '204-A' }, { id: 'p2', alias: 'P-021' }];
@@ -37,7 +36,6 @@ describe('ReportGenerateComponent (vInfGenerar del mockup)', () => {
         { provide: EVENT_SOURCE_FACTORY, useValue: (url: string) => sources[sources.push(new FakeEventSource(url)) - 1] },
       ],
     });
-    TestBed.inject(SessionService).currentId.set('u1');
     navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
     http = TestBed.inject(HttpTestingController);
     const fixture = TestBed.createComponent(ReportGenerateComponent);
@@ -98,7 +96,7 @@ describe('ReportGenerateComponent (vInfGenerar del mockup)', () => {
     request.flush({ id: 'r1', status: 'EN_COLA' }, { status: 202, statusText: 'Accepted' });
     await settle();
 
-    expect(sources[0].url).toBe('/api/runs/r1/events?demoUser=u1');
+    expect(sources[0].url).toBe('/api/runs/r1/events');
     expect(button().getAttribute('aria-busy')).toBe('true');
     sources[0].emit('step', { id: 1, seq: 1, type: 'ESTADO', message: 'Consultando al modelo (llamada 1 de 5)…', error: false });
     await settle();

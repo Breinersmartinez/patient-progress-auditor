@@ -26,7 +26,7 @@ describe('ConsultationFormComponent («Armar informe» del mockup, D31, RF-46)',
         { provide: EVENT_SOURCE_FACTORY, useValue: (url: string) => sources[sources.push(new FakeEventSource(url)) - 1] },
       ],
     });
-    TestBed.inject(SessionService).currentId.set('m1');
+    TestBed.inject(SessionService).session.set({ id: 'm1', displayName: 'Dr. Andrés Salazar', role: 'MEDICO', permissions: [] });
     navigate = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
     http = TestBed.inject(HttpTestingController);
     const fixture = TestBed.createComponent(ConsultationFormComponent);
@@ -108,7 +108,7 @@ describe('ConsultationFormComponent («Armar informe» del mockup, D31, RF-46)',
     request.flush({ id: 'r1', runType: 'CONSULTA', status: 'EN_COLA' }, { status: 202, statusText: 'Accepted' });
     await settle();
 
-    expect(sources[0].url).toBe('/api/runs/r1/events?demoUser=m1');
+    expect(sources[0].url).toBe('/api/runs/r1/events');
     sources[0].emit('step', { id: 1, seq: 1, type: 'ESTADO', message: 'Consultando al modelo (llamada 1 de 5)…', error: false });
     await settle();
     expect(stepTexts()).toEqual(['Consultando al modelo (llamada 1 de 5)…']);

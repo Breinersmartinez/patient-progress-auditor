@@ -16,6 +16,67 @@ services:
       retries: 10
     restart: unless-stopped
 
+  # Base de datos propia de Keycloak (separada de la de la aplicacion). Sin "ports": solo la ve Keycloak.
+  keycloak-db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: ${KC_DB_NAME:-keycloak}
+      POSTGRES_USER: ${KC_DB_USERNAME:-keycloak}
+      POSTGRES_PASSWORD: "${KC_DB_PASSWORD:?KC_DB_PASSWORD no esta definido, ejecute ./run.sh}"
+    volumes:
+      - kcdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  # Inicio de sesion (docs/login-keycloak). El realm "auditor" se importa solo en el primer arranque.
+  keycloak:
+    build: ./keycloak
+    image: patient-progress-auditor/keycloak:26.8.2
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    command:
+      - start
+      - --optimized
+      - --import-realm
+      - --http-enabled=true
+      # Tema sin cache: los cambios en ./keycloak/themes se ven al recargar el navegador.
+      - --spi-theme--cache-themes=false
+      - --spi-theme--cache-templates=false
+      - --spi-theme--static-max-age=-1
+    environment:
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/${KC_DB_NAME:-keycloak}
+      KC_DB_USERNAME: ${KC_DB_USERNAME:-keycloak}
+      KC_DB_PASSWORD: "${KC_DB_PASSWORD:?KC_DB_PASSWORD no esta definido, ejecute ./run.sh}"
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_BOOTSTRAP_ADMIN_USERNAME:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: "${KC_BOOTSTRAP_ADMIN_PASSWORD:?KC_BOOTSTRAP_ADMIN_PASSWORD no esta definido, ejecute ./run.sh}"
+      # La URL publica fija el emisor de los tokens: el navegador y el backend deben verla igual.
+      KC_HOSTNAME: http://localhost:${KC_PORT:-7070}
+    ports:
+      - "${KC_PORT:-7070}:8080"
+    volumes:
+      - ./keycloak/themes:/opt/keycloak/themes:ro
+    healthcheck:
+      # La imagen no trae curl: con bash se pide el realm "auditor". Solo responde cuando el import termino (el puerto de
+      # gestion /health/ready ya dice UP antes de importarlo).
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080; echo -e 'GET /realms/auditor HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3; grep -q '\"realm\":\"auditor\"' <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 40s
+    restart: unless-stopped
+
+  # Buzon de correo de prueba: atrapa lo que manda Keycloak (codigo de recuperacion, invitaciones). Solo desarrollo.
+  mailpit:
+    image: axllent/mailpit:v1.28.0
+    ports:
+      - "${MAILPIT_PORT:-8025}:8025"
+    restart: unless-stopped
+
   backend:
     build: ./backend
     depends_on:
@@ -43,6 +104,9 @@ services:
       AGENT_MAX_TOKENS: ${AGENT_MAX_TOKENS:-30000}
       AGENT_TOOL_TIMEOUT_SECONDS: ${AGENT_TOOL_TIMEOUT_SECONDS:-5}
       AGENT_TOOL_DESCRIPTIONS: ${AGENT_TOOL_DESCRIPTIONS:-V2}
+      # El emisor es la URL publica de Keycloak; las claves se piden por la red de Compose.
+      OIDC_ISSUER: http://localhost:${KC_PORT:-7070}/realms/auditor
+      OIDC_JWKS_URI: http://keycloak:8080/realms/auditor/protocol/openid-connect/certs
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     healthcheck:
@@ -58,6 +122,11 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+    environment:
+      # nginx lo publica en /config.json para que la app sepa donde esta Keycloak sin recompilar.
+      KC_PUBLIC_URL: http://localhost:${KC_PORT:-7070}
+      KC_REALM: auditor
+      KC_CLIENT_ID: auditor-web
     ports:
       - "${FRONTEND_PORT:-4200}:80"
     healthcheck:
@@ -69,3 +138,4 @@ services:
 
 volumes:
   pgdata:
+  kcdata:

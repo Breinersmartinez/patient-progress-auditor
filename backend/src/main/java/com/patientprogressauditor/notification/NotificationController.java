@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.patientprogressauditor.notification.NotificationService.NotificationView;
-import com.patientprogressauditor.session.DemoPrincipal;
+import com.patientprogressauditor.session.AppPrincipal;
 
 // Notificaciones al medico (RF-45, D30): solo lee y marca las suyas; de otro medico, 404 (no 403, E12a). El permiso
 // NOTIFICATIONS_READ es la primera barrera y recipient_id = sesion la segunda, en el servicio.
@@ -30,14 +30,14 @@ public class NotificationController {
 
     @GetMapping("/notifications")
     @PreAuthorize("hasAuthority('NOTIFICATIONS_READ')")
-    public List<NotificationView> list(@AuthenticationPrincipal DemoPrincipal principal) {
+    public List<NotificationView> list(@AuthenticationPrincipal AppPrincipal principal) {
         return service.list(principal);
     }
 
     @PostMapping("/notifications/{id}/read")
     @PreAuthorize("hasAuthority('NOTIFICATIONS_READ')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void markRead(@PathVariable UUID id, @AuthenticationPrincipal DemoPrincipal principal) {
+    public void markRead(@PathVariable UUID id, @AuthenticationPrincipal AppPrincipal principal) {
         service.markRead(id, principal);
     }
 
@@ -45,7 +45,7 @@ public class NotificationController {
     @PostMapping("/patients/{patientId}/notifications/read")
     @PreAuthorize("hasAuthority('NOTIFICATIONS_READ')")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void markPatientRead(@PathVariable UUID patientId, @AuthenticationPrincipal DemoPrincipal principal) {
+    public void markPatientRead(@PathVariable UUID patientId, @AuthenticationPrincipal AppPrincipal principal) {
         service.markPatientRead(patientId, principal);
     }
 }

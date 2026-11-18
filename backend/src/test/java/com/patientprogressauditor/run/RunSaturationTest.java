@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import com.patientprogressauditor.support.TestAuth;
 
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -54,7 +55,7 @@ class RunSaturationTest {
     }
 
     private MvcResult request(UUID patient, String week) throws Exception {
-        return mockMvc.perform(post("/api/runs").header("X-Demo-User", NURSE).contentType(MediaType.APPLICATION_JSON)
+        return mockMvc.perform(post("/api/runs").with(TestAuth.as(NURSE)).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"patientId\":\"" + patient + "\",\"weekStart\":\"" + week + "\"}")).andReturn();
     }
 
