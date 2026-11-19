@@ -70,6 +70,12 @@ editando `V3`, porque ya corrió.
   actualizados.
 - **Límites razonables:** la lista responde en menos de 1 s con 10 000 anotaciones (los índices ya existen); una
   anotación pesa menos de 2 KB (solo metadatos); agregar la anotación no suma más de una escritura a la acción.
+  **Corrección del 2026-11-19, tras la validación (hallazgo 3):** el borrador no decía qué estadístico se exigía y la
+  regla se fijó **después** de medir, cuando una página llegó a 2371 ms con la máquina cargada. Queda así: menos de
+  1 s en la **mediana** de las 200 páginas filtradas, en la **última página** y en la **primera página sin filtros**
+  (la que el administrador abre primero), estas dos como el mejor de tres; el máximo se informa siempre. En la
+  validación, hecha con la máquina libre, hasta el máximo quedó en 216 ms, así que el criterio también se cumple
+  leído al pie de la letra.
 - **Como se sabrá que responde** (cada línea se responde con sí o no):
   1. ¿Aprobar, rechazar, enviar y editar un informe dejan **una** fila cada uno, con quién, rol y objeto correctos?
   2. ¿Una entrada registrada por el **médico** deja fila y una registrada por **enfermería** no?
@@ -101,8 +107,15 @@ editando `V3`, porque ya corrió.
 - **Fuga de datos clínicos por el «antes y después»**: guardar el contenido de un informe en la bitácora la volvería un
   segundo almacén de datos de pacientes que ve el administrador, que no debe verlos (RF-33). Por eso el criterio 8.
 - **Falsa sensación de inmutabilidad**: si solo se impide editar desde la aplicación, quien tenga acceso a la base de
-  datos puede alterarla. El criterio 6 exige que lo impida la propia base; aun así, el dueño de la base puede saltarse
-  la protección y esto **no** es una prueba forense. Hay que decirlo así en la entrega.
+  datos puede alterarla. El criterio 6 exige que lo impida la propia base; aun así, la protección se puede saltar y
+  esto **no** es una prueba forense. Hay que decirlo así en la entrega.
+  **Corrección del 2026-11-19, tras la validación (hallazgo 1):** el riesgo estaba subestimado. El usuario con que corre
+  la aplicación (`patient_auditor`) es **superusuario** de PostgreSQL, porque es el mismo que crea la base en el compose
+  y el que corre Flyway. Con una sola sentencia (`SET LOCAL session_replication_role = replica`) los triggers dejan de
+  actuar, sin `ALTER TABLE`. Quien obtenga esa conexión (por ejemplo, con una inyección SQL o leyendo el `.env`) puede
+  alterar la bitácora. La defensa es de hardening y va en `docs/seguridad.md`: un usuario dueño del esquema para
+  Flyway y otro para la aplicación, sin superusuario ni dueño de las tablas, con solo `INSERT` y `SELECT` sobre
+  `audit_logs`.
 - **Anotación sin acción o acción sin anotación** si se hacen en transacciones distintas: criterios 4 y 5.
 - **Lectura equivocada del administrador**: la bitácora dice qué hizo cada persona, no si estuvo bien. No debe leerse
   como evaluación del personal.

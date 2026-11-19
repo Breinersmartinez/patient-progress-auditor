@@ -132,7 +132,7 @@ Quedan tres días hasta la demo y dos de construcción: el jueves se congela la 
 | Viernes 30 | Ensayo de la demo y de las respuestas sobre decisiones; no se integra nada nuevo | Fallos forzados, trazas, `docs/decisiones.md` |
 | Sábado 31 | Demo de 6 min y 3 min de preguntas | — |
 
-Es una propuesta mía, no un acuerdo, y es muy ajustada. Agrupa lo que el análisis marca como núcleo (31 requisitos); si el tiempo no alcanza, se recortan primero los 6 requisitos M2-S (RF-03, RF-27, RF-29, RF-30, RF-35 y RF-42).
+Es una propuesta mía, no un acuerdo, y es muy ajustada. Agrupa lo que el análisis marca como núcleo (31 requisitos); si el tiempo no alcanza, se recortan primero los 6 requisitos M2-S (RF-03, RF-27, RF-29, RF-30, RF-35 —que pasó a M3 el 2026-11-18, D33— y RF-42).
 
 ## Anexo A. Nombre, repo y descripción
 

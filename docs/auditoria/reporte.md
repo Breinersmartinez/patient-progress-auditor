@@ -23,7 +23,7 @@ pruebas automáticas y no en vivo (ver la tabla).
 |---|---|---|
 | Pruebas del backend (`mvn -B verify`) | 538, 0 fallos, 15 omitidas | **559, 0 fallos, 15 omitidas** (+21) |
 | Pruebas del frontend (`ng test`) | 239 de 239 | **248 de 248** (+9) |
-| Lista con 10 000 anotaciones, 200 páginas de 50 | — | paso 4: mediana **397 ms**, máximo 436 ms, última página 379 ms; paso 7 (con la app en Docker y el recorrido en vivo corriendo a la vez): mediana **384 ms**, máximo **2371 ms**, última página 355 ms. Límite del encargo: 1 s, exigido sobre la mediana |
+| Lista con 10 000 anotaciones, 200 páginas de 50 | — | paso 4: mediana **397 ms**, máximo 436 ms, última página 379 ms; paso 7 (con la app en Docker y el recorrido en vivo corriendo a la vez): mediana **384 ms**, máximo **2371 ms**, última página 355 ms. tras la validación (máquina libre, 2026-11-19): mediana **114 ms**, máximo 246 ms, última página 160 ms, **primera página sin filtros 50 ms**. Límite del encargo: 1 s (qué se exige, en el encargo) |
 | Base real con `./run.sh` | `V12`, 119 entradas, 5 informes, `audit_logs` vacía | `V13` aplicada; 119 entradas y 5 informes intactos; tras el recorrido, 8 anotaciones reales |
 | Gitleaks sobre lo que se subiría (477 archivos, 17 nuevos) | — | **0 hallazgos** |
 
@@ -42,11 +42,25 @@ pruebas automáticas y no en vivo (ver la tabla).
 | 9 | Los filtros devuelven solo lo que corresponde y la paginación no repite ni omite filas | `AuditApiTest` (10 000 filas, empates de hora) | El filtro por Marcela deja sus 3 acciones; por acción, en el paso 5 |
 | 10 | Las dos suites pasan sin perder pruebas y el recorrido en pantalla coincide con lo descrito | 559 y 248, sin pérdidas; capturas del paso 5 | Backend 559 (0 fallos), frontend 248 de 248; el recorrido coincide con lo descrito (capturas) |
 
+## Validación (2026-11-19)
+
+Sesión nueva con `valida-resultado` sobre `b174788`: **sirve con reservas**. Las 10 condiciones se cumplen, la mayoría
+comprobadas en vivo por la validación (backend 559, frontend 248, 0 coincidencias de texto clínico en la base real,
+403 por la API a enfermería y médico). Cinco hallazgos; cuatro corregidos y uno por aprobar (ver «Correcciones tras la
+validación» en `plan.md`): la inmutabilidad se puede saltar porque el usuario de la aplicación es superusuario
+(documentado; la defensa va en el hardening), el estadístico del límite de 1 s se fijó después de medir (corregido en
+el encargo y medida también la vista sin filtros), la sección del recorrido describía una base ya recreada (fechada),
+un comentario fuera de lugar (movido) y **`roleGuard` deja pasar sin sesión** (arreglo propuesto, pendiente de aprobar).
+
 ## Límites que se declaran
 
-- **La inmutabilidad la da la base, no es forense.** Los triggers rechazan `UPDATE`, `DELETE` y `TRUNCATE`, pero el dueño
-  de la tabla (hoy el mismo usuario de la aplicación, que corre Flyway) puede desactivarlos con `ALTER TABLE`. Bajarlo a
-  un usuario sin esos privilegios es parte del hardening de `docs/seguridad.md`.
+- **La inmutabilidad la da la base, no es forense, y hoy es débil.** Los triggers rechazan `UPDATE`, `DELETE` y
+  `TRUNCATE`, pero el usuario de la aplicación (`patient_auditor`) es **superusuario** de PostgreSQL: el mismo que crea
+  la base en el compose y que corre Flyway. Con `SET LOCAL session_replication_role = replica` se saltan los triggers
+  en una sola sentencia, sin `ALTER TABLE` (lo encontró la validación del 2026-11-19 y se confirmó: `rolsuper = t`).
+  La defensa es separar usuarios: uno dueño del esquema para Flyway y otro para la aplicación, sin superusuario ni dueño
+  de las tablas, con solo `INSERT` y `SELECT` sobre `audit_logs`. Es parte del hardening de `docs/seguridad.md`, que aún
+  no existe; no se hizo aquí porque cambia el arranque (`docker-compose.yml`, `run.sh` y el README).
 - **Lo sembrado no tiene anotación.** La bitácora empieza vacía: los informes aprobados y enviados de la semilla no los
   hizo una persona.
 - **Se muestra el nombre actual de quien actuó**, no el que tenía en ese momento.
@@ -66,7 +80,11 @@ pruebas automáticas y no en vivo (ver la tabla).
 | En la SPEC, la fila D32 tenía 5 columnas en una tabla de 4; se pasó su quinta columna al final del «Detalle» como «Descartado:» | La D33 copiaba ese formato; la tabla quedó cuadrada sin perder texto |
 | Se corrigieron README, `AGENTS.md`, `CLAUDE.md` y el texto del aviso de roles sin pantallas | Decían que el médico o la administración no tenían pantallas, lo que ya no era cierto |
 
-## Lo que pasó en el recorrido en vivo
+## Lo que pasó en el recorrido en vivo (estado del 2026-11-18 a las 15:20)
+
+> Esta sección describe la base de demostración de ese momento. **La base se recreó después** (la validación encontró
+> `V12` y `V13` aplicadas a las 23:43 UTC del mismo día): las dos entradas de prueba y las 8 anotaciones de abajo ya no
+> están. Se deja como registro de lo que se comprobó, no del estado actual.
 
 - El informe pendiente de P-021 ya no estaba: alguien lo aprobó y envió desde el navegador a las 15:07, antes del
   recorrido. Quedó en la bitácora como debía. El recorrido envió entonces el de P-014 (semana del 12 de octubre).
