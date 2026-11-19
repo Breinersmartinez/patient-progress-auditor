@@ -19,10 +19,15 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.patientprogressauditor.audit.AuditAction;
+import com.patientprogressauditor.audit.AuditEntity;
+import com.patientprogressauditor.audit.AuditService;
+import com.patientprogressauditor.notification.NotificationService;
 import com.patientprogressauditor.patient.Patient;
 import com.patientprogressauditor.patient.PatientRepository;
-import com.patientprogressauditor.session.DemoPrincipal;
+import com.patientprogressauditor.session.AppPrincipal;
 import com.patientprogressauditor.structuring.StructuringPrompt;
+import com.patientprogressauditor.user.AppRole;
 import com.patientprogressauditor.user.AppUser;
 import com.patientprogressauditor.user.AppUserRepository;
 import com.patientprogressauditor.web.FieldException;
@@ -46,22 +51,36 @@ public class EntryService {
     public record ConfirmedEvent(String symptom, String intensity, Integer occurrences, String origin, String label) {
     }
 
+    // El texto corregido que la persona confirmo junto al original (RF-42). `origin`: IA_ACEPTADA, IA_EDITADA o MANUAL; lo informa
+    // la pantalla, como el de los eventos (D26). Un texto vacio, o igual al original, no genera version.
+    public record Correction(String body, String origin) {
+    }
+
+    // `correctedBody` es la version vigente del texto (null si no hay): la pantalla la muestra, pero `body` sigue siendo el original.
     public record EntryView(UUID id, UUID patientId, String patientAlias, LocalDate entryDate, String body,
-            String authorName, String structuringStatus, Instant createdAt, List<SymptomView> symptoms) {
+            String authorName, String structuringStatus, Instant createdAt, List<SymptomView> symptoms, String correctedBody,
+            String source) {
     }
 
     private final EntryRepository entries;
     private final EntryEventRepository events;
+    private final EntryVersionRepository versions;
     private final PatientRepository patients;
     private final AppUserRepository users;
+    private final NotificationService notificationService;
+    private final AuditService audit;
     private final Clock clock;
 
-    public EntryService(EntryRepository entries, EntryEventRepository events, PatientRepository patients,
-            AppUserRepository users, Clock clock) {
+    public EntryService(EntryRepository entries, EntryEventRepository events, EntryVersionRepository versions,
+            PatientRepository patients, AppUserRepository users, NotificationService notificationService, Clock clock,
+            AuditService audit) {
+        this.audit = audit;
         this.entries = entries;
         this.events = events;
+        this.versions = versions;
         this.patients = patients;
         this.users = users;
+        this.notificationService = notificationService;
         this.clock = clock;
     }
 
@@ -70,7 +89,7 @@ public class EntryService {
     // queda ESTRUCTURADA. La entrada y sus eventos se guardan en una sola transaccion: todo o nada (RN-11, D27).
     @Transactional
     public EntryView create(UUID patientId, LocalDate entryDate, String body, List<ConfirmedEvent> requestedEvents,
-            DemoPrincipal principal) {
+            Correction correction, String source, AppPrincipal principal) {
         Patient patient = patients.findById(patientId).orElseThrow(() -> new NotFoundException("No encontramos ese paciente."));
         if (entryDate.isAfter(LocalDate.now(clock))) {
             throw new FieldException(HttpStatus.BAD_REQUEST, "entryDate", "La fecha del registro no puede ser futura.");
@@ -78,19 +97,65 @@ public class EntryService {
         if (body.indexOf('\u0000') >= 0) {
             throw new FieldException(HttpStatus.BAD_REQUEST, "body", "El registro tiene un carácter que no se puede guardar.");
         }
+        // Origen del texto (RF-38): VOZ si vino de un dictado; sin valor, TEXTO. El audio nunca llega aqui.
+        Entry.Source origin = source == null || source.isBlank() ? Entry.Source.TEXTO : parse(Entry.Source.class, source);
+        if (origin == null) {
+            throw new FieldException(HttpStatus.BAD_REQUEST, "source", "El origen del registro no es válido.");
+        }
         List<EntryEvent> confirmed = requestedEvents == null ? List.of() : toEvents(requestedEvents, principal);
+        EntryVersion version = toVersion(correction, body, principal);
         Entry entry = new Entry();
         entry.setPatientId(patientId);
         entry.setEntryDate(entryDate);
         entry.setBody(body);
         entry.setAuthorId(principal.id());
         entry.setStructuringStatus(requestedEvents == null ? Entry.StructuringStatus.SIN_ESTRUCTURAR : Entry.StructuringStatus.ESTRUCTURADA);
+        entry.setSource(origin);
         entries.saveAndFlush(entry);
         confirmed.forEach(event -> event.setEntryId(entry.getId()));
         events.saveAllAndFlush(confirmed);
+        if (version != null) {
+            version.setEntryId(entry.getId());
+            versions.saveAndFlush(version);
+        }
+        // Avisa a los demas medicos activos (RF-45, D30): misma transaccion, si falla, falla el guardado entero.
+        notificationService.notifyEntryCreated(patientId, entry.getId(), principal.id());
+        // RF-35 y D12: solo el registro del medico se anota; el de enfermeria es su flujo normal. Sin el texto.
+        if (AppRole.DOCTOR.equals(principal.role())) {
+            audit.record(principal, AuditAction.REGISTRAR_ENTRADA_MEDICO, AuditEntity.ENTRY, entry.getId(), null,
+                    Map.of("entryDate", entryDate.toString(), "source", origin.name(),
+                            "structuringStatus", entry.getStructuringStatus().name(), "events", confirmed.size()));
+        }
         return new EntryView(entry.getId(), patientId, patient.getAlias(), entryDate, body, principal.displayName(),
                 entry.getStructuringStatus().name(), entry.getCreatedAt(),
-                confirmed.stream().sorted(Comparator.comparing(EntryService::byCode)).map(EntryService::view).toList());
+                confirmed.stream().sorted(Comparator.comparing(EntryService::byCode)).map(EntryService::view).toList(),
+                version == null ? null : version.getBody(), entry.getSource().name());
+    }
+
+    // La version corregida (RF-42), o null si no hay nada que guardar: sin texto, o igual al original. No se recorta ni se
+    // reescribe: es lo que la persona dejo en la vista previa. El original no se toca (RN-07).
+    private EntryVersion toVersion(Correction correction, String body, AppPrincipal principal) {
+        if (correction == null || correction.body() == null || correction.body().isBlank() || correction.body().equals(body)) {
+            return null;
+        }
+        if (correction.body().length() > MAX_BODY_LENGTH) {
+            throw new FieldException(HttpStatus.BAD_REQUEST, "correction", "El texto corregido no puede pasar de 4000 caracteres.");
+        }
+        if (correction.body().indexOf('\u0000') >= 0) {
+            throw new FieldException(HttpStatus.BAD_REQUEST, "correction", "El texto corregido tiene un carácter que no se puede guardar.");
+        }
+        EntryVersion.Origin origin = correction.origin() == null ? EntryVersion.Origin.MANUAL
+                : parse(EntryVersion.Origin.class, correction.origin());
+        if (origin == null) {
+            throw new FieldException(HttpStatus.BAD_REQUEST, "correction", "El origen del texto corregido no es válido.");
+        }
+        EntryVersion version = new EntryVersion();
+        version.setVersionNo(1);
+        version.setBody(correction.body());
+        version.setOrigin(origin);
+        version.setCreatedBy(principal.id());
+        version.setCreatedAt(clock.instant());
+        return version;
     }
 
     // El orden de siempre: alfabetico por codigo.
@@ -116,7 +181,7 @@ public class EntryService {
 
     // Valida lo que la persona confirma y deja quien lo confirmo y cuando. Un sintoma puede ser cualquiera con forma de sintoma (E18).
     
-    private List<EntryEvent> toEvents(List<ConfirmedEvent> requested, DemoPrincipal principal) {
+    private List<EntryEvent> toEvents(List<ConfirmedEvent> requested, AppPrincipal principal) {
         List<EntryEvent> out = new ArrayList<>();
         Set<Symptom> seen = new java.util.HashSet<>();
         Instant now = clock.instant();
@@ -189,10 +254,14 @@ public class EntryService {
         Map<UUID, List<SymptomView>> symptoms = ids.isEmpty() ? Map.of() : events.findByEntryIdIn(ids).stream()
                 .sorted(Comparator.comparing(EntryService::byCode))
                 .collect(Collectors.groupingBy(EntryEvent::getEntryId, Collectors.mapping(EntryService::view, Collectors.toList())));
+        // La version vigente es la de mayor numero: se ordena por numero y la ultima de cada entrada gana.
+        Map<UUID, String> corrected = ids.isEmpty() ? Map.of() : versions.findByEntryIdIn(ids).stream()
+                .sorted(Comparator.comparingInt(EntryVersion::getVersionNo))
+                .collect(Collectors.toMap(EntryVersion::getEntryId, EntryVersion::getBody, (older, newer) -> newer));
         Map<UUID, String> authors = users.findAllById(found.stream().map(Entry::getAuthorId).collect(Collectors.toSet()))
                 .stream().collect(Collectors.toMap(AppUser::getId, AppUser::getDisplayName));
         return found.stream().map(e -> new EntryView(e.getId(), e.getPatientId(), patientsById.get(e.getPatientId()).getAlias(),
                 e.getEntryDate(), e.getBody(), authors.getOrDefault(e.getAuthorId(), ""), e.getStructuringStatus().name(),
-                e.getCreatedAt(), symptoms.getOrDefault(e.getId(), List.of()))).toList();
+                e.getCreatedAt(), symptoms.getOrDefault(e.getId(), List.of()), corrected.get(e.getId()), e.getSource().name())).toList();
     }
 }

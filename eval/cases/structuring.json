@@ -1,5 +1,5 @@
 {
-  "_nota": "Casos de estructuracion de una entrada (D27, RN-11): la nota y los eventos que debe proponer, verificados a mano. `exact` = el conjunto de sintomas debe ser identico; `intensity` y `occurrences`, si se indican, deben coincidir. No se valida el texto del modelo: solo los eventos propuestos. Los casos S17 a S24 (E18) cubren sintomas FUERA del catalogo: `contains` es una palabra que debe estar en el codigo del sintoma propuesto (el modelo lo nombra con sus palabras), y debe ser un sintoma que no es del catalogo. S12 esperaba [] cuando el catalogo era cerrado (la picazon y la tos se ignoraban); desde E18 se esperan los dos como sintomas abiertos.",
+  "_nota": "Casos de estructuracion de una entrada (D27, RN-11): la nota y los eventos que debe proponer, verificados a mano. `exact` = el conjunto de sintomas debe ser identico; `intensity` y `occurrences`, si se indican, deben coincidir. Los eventos se validan contra `expect`. El texto corregido (RF-42, E19) se valida con `corrected_contains` (fragmentos que deben estar, sin importar mayusculas pero SI las tildes) y `corrected_forbidden` (la falta original, que ya no debe estar); en todos los casos, ademas, debe llegar, empezar con mayuscula, terminar en punto y conservar los numeros y las negaciones de la nota. Los casos S25 a S28 (E19) traen notas mal escritas para el texto corregido. Los casos S17 a S24 (E18) cubren sintomas FUERA del catalogo: `contains` es una palabra que debe estar en el codigo del sintoma propuesto (el modelo lo nombra con sus palabras), y debe ser un sintoma que no es del catalogo. S12 esperaba [] cuando el catalogo era cerrado (la picazon y la tos se ignoraban); desde E18 se esperan los dos como sintomas abiertos.",
   "cases": [
     {
       "id": "S1-ejemplo-del-prompt",
@@ -224,6 +224,94 @@
           "intensity": "LEVE",
           "occurrences": 1
         }
+      ]
+    },
+    {
+      "id": "S25-ortografia-y-estructura",
+      "note": "dolor de cabeza intenso desde la mañana tuvo diarea dos veces comio poko",
+      "expect": [
+        {
+          "symptom": "DOLOR_CABEZA",
+          "intensity": "INTENSO"
+        },
+        {
+          "symptom": "DIARREA",
+          "occurrences": 2
+        },
+        {
+          "symptom": "APETITO_BAJO"
+        }
+      ],
+      "corrected_contains": [
+        "dolor de cabeza intenso",
+        "diarrea",
+        "dos veces",
+        "comió poco"
+      ],
+      "corrected_forbidden": [
+        "diarea",
+        "poko",
+        "comio"
+      ]
+    },
+    {
+      "id": "S26-tildes-y-negacion",
+      "note": "paciente con nauseas y mareo leve, no tubo fiebre ayer en la noche",
+      "expect": [
+        {
+          "symptom": "NAUSEAS"
+        },
+        {
+          "symptom": "MAREO",
+          "intensity": "LEVE"
+        }
+      ],
+      "corrected_contains": [
+        "náuseas",
+        "tuvo fiebre"
+      ],
+      "corrected_forbidden": [
+        "nauseas",
+        "tubo"
+      ]
+    },
+    {
+      "id": "S27-cifra-y-sin",
+      "note": "vomito 3 veces despues del almuerzo sin diarea",
+      "expect": [
+        {
+          "symptom": "VOMITO",
+          "occurrences": 3
+        }
+      ],
+      "corrected_contains": [
+        "3 veces",
+        "después",
+        "sin diarrea"
+      ],
+      "corrected_forbidden": [
+        "despues",
+        "diarea"
+      ]
+    },
+    {
+      "id": "S28-abiertos-y-tilde",
+      "note": "se queja de dolor de garganta y tos, tomo agua y desanso",
+      "expect": [
+        {
+          "contains": "GARGANTA"
+        },
+        {
+          "contains": "TOS"
+        }
+      ],
+      "corrected_contains": [
+        "dolor de garganta",
+        "tos",
+        "agua"
+      ],
+      "corrected_forbidden": [
+        "desanso"
       ]
     }
   ]

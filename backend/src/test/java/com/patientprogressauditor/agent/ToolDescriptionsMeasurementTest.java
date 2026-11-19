@@ -22,6 +22,8 @@ import com.patientprogressauditor.agent.tools.AgentTool;
 import com.patientprogressauditor.entry.EntryRepository;
 import com.patientprogressauditor.llm.GeminiClient;
 import com.patientprogressauditor.llm.GroqClient;
+import com.patientprogressauditor.llm.LangfuseExporter;
+import com.patientprogressauditor.llm.LangfuseProperties;
 import com.patientprogressauditor.llm.LlmGateway;
 import com.patientprogressauditor.llm.LlmProperties;
 import com.patientprogressauditor.report.ReportDraftService;
@@ -45,6 +47,7 @@ class ToolDescriptionsMeasurementTest {
     @Autowired private AgentRunRepository runs;
     @Autowired private AgentStepRepository steps;
     @Autowired private ReportDraftService drafts;
+    @Autowired private com.patientprogressauditor.consultation.ConsultationDraftService consultations;
     @Autowired private ReportContentBuilder builder;
     @Autowired private ReportRepository reports;
     @Autowired private EntryRepository entries;
@@ -68,8 +71,8 @@ class ToolDescriptionsMeasurementTest {
         LlmGateway gateway = new LlmGateway(List.of(new GroqClient(llm, mapper), new GeminiClient(llm, mapper)), llm, d -> Thread.sleep(d.toMillis()), mapper);
         AgentProperties props = new AgentProperties();
         props.setToolDescriptions(version);
-        AgentRunner runner = new AgentRunner(gateway, tools, props, runs, steps, drafts, builder, reports, entries, eligibility, approvedWeekly,
-                Clock.systemDefaultZone(), mapper);
+        AgentRunner runner = new AgentRunner(gateway, tools, props, runs, steps, drafts, consultations, builder, reports, entries, eligibility,
+                approvedWeekly, Clock.systemDefaultZone(), mapper, new LangfuseExporter(new LangfuseProperties(), mapper));
 
         UUID patient = jdbc.queryForObject("SELECT id FROM patients WHERE alias = ?", UUID.class, c.alias());
         UUID nurse = jdbc.queryForObject("SELECT id FROM app_users WHERE display_name = 'Camilo Torres'", UUID.class);

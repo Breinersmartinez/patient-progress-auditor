@@ -54,3 +54,17 @@ export const periodoTxt = (desde: string, hasta: string): string => {
 export const bogotaDay = (instant: string): string =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Bogota', year: 'numeric', month: '2-digit', day: '2-digit' })
     .format(new Date(instant));
+
+// "25 de oct, 19:10": la hora de cada notificacion de la campana (D30), en la zona de la institucion.
+export const horaCorta = (instant: string): string =>
+  new Intl.DateTimeFormat('es-CO', { timeZone: 'America/Bogota', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false })
+    .format(new Date(instant));
+
+// "12 nov 2026, 09:15": cuándo ocurrió una acción de la bitácora (RF-35), con el año porque la bitácora no caduca,
+// en la zona de la institución (F7) como horaCorta.
+export const fechaHora = (instant: string): string => {
+  const parts = new Intl.DateTimeFormat('es-CO', { timeZone: 'America/Bogota', day: 'numeric', month: 'short',
+    year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date(instant));
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+  return `${get('day')} ${get('month').replace('.', '')} ${get('year')}, ${get('hour')}:${get('minute')}`;
+};

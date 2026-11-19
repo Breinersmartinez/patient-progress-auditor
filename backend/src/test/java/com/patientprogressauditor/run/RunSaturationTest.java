@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import com.patientprogressauditor.support.TestAuth;
 
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -54,7 +55,7 @@ class RunSaturationTest {
     }
 
     private MvcResult request(UUID patient, String week) throws Exception {
-        return mockMvc.perform(post("/api/runs").header("X-Demo-User", NURSE).contentType(MediaType.APPLICATION_JSON)
+        return mockMvc.perform(post("/api/runs").with(TestAuth.as(NURSE)).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"patientId\":\"" + patient + "\",\"weekStart\":\"" + week + "\"}")).andReturn();
     }
 
@@ -65,7 +66,7 @@ class RunSaturationTest {
         var row = jdbc.queryForMap("""
                 SELECT e.patient_id, date_trunc('week', e.entry_date)::date AS week FROM entries e
                 WHERE e.patient_id <> ? AND NOT EXISTS (SELECT 1 FROM reports r WHERE r.patient_id = e.patient_id
-                    AND r.period_start = date_trunc('week', e.entry_date)::date AND r.status IN ('PENDIENTE_REVISION', 'APROBADO'))
+                    AND r.period_start = date_trunc('week', e.entry_date)::date AND r.status IN ('PENDIENTE_REVISION', 'APROBADO', 'ENVIADO'))
                 LIMIT 1""", first);
         other = (UUID) row.get("patient_id");
         String otherWeek = row.get("week").toString();

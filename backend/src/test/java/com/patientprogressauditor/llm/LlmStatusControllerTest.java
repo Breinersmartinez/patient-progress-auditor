@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import com.patientprogressauditor.support.TestAuth;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,7 +31,7 @@ class LlmStatusControllerTest {
 
     @Test
     void listsPrimaryAndBackupAndNeverLeaksAKey() throws Exception {
-        mockMvc.perform(get("/api/llm/status").header("X-Demo-User", NURSE))
+        mockMvc.perform(get("/api/llm/status").with(TestAuth.as(NURSE)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.available").value(true))
                 .andExpect(jsonPath("$.warning").doesNotExist())
@@ -40,12 +41,15 @@ class LlmStatusControllerTest {
                 .andExpect(jsonPath("$.primary.structuringModel").value("openai/gpt-oss-120b"))
                 .andExpect(jsonPath("$.fallback.provider").value("gemini"))
                 .andExpect(jsonPath("$.fallback.agentModel").value("gemini-3.5-flash-lite"))
+                .andExpect(jsonPath("$.transcription.provider").value("groq"))
+                .andExpect(jsonPath("$.transcription.configured").value(true))
+                .andExpect(jsonPath("$.transcription.model").value("whisper-large-v3-turbo"))
                 .andExpect(content().string(not(containsString("secreta"))));
     }
 
     @Test
     void anyChosenUserCanSeeItAndNoUserIsRejected() throws Exception {
-        mockMvc.perform(get("/api/llm/status").header("X-Demo-User", DOCTOR)).andExpect(status().isOk());
+        mockMvc.perform(get("/api/llm/status").with(TestAuth.as(DOCTOR))).andExpect(status().isOk());
         mockMvc.perform(get("/api/llm/status")).andExpect(status().isUnauthorized());
     }
 
@@ -54,7 +58,14 @@ class LlmStatusControllerTest {
         properties.setPrimary(primary);
         properties.setFallback(fallback);
         List<LlmClient> clients = List.of(new GroqClient(properties, MAPPER), new GeminiClient(properties, MAPPER));
-        return new LlmStatusController(new LlmGateway(clients, properties, d -> { }, MAPPER)).status();
+        return new LlmStatusController(new LlmGateway(clients, properties, d -> { }, MAPPER),
+                new TranscriptionGateway(new GroqTranscriber(properties, MAPPER), properties, d -> { })).status();
+    }
+
+    @Test
+    void withoutTheGroqKeyDictationIsReportedAsUnavailable() {
+        assertThat(statusWith("", "AIza_x", "groq", "gemini").transcription().configured()).isFalse();
+        assertThat(statusWith("gsk_x", "", "groq", "gemini").transcription().configured()).isTrue();
     }
 
     @Test

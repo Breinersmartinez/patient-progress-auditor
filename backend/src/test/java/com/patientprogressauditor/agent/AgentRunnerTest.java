@@ -1,6 +1,8 @@
 package com.patientprogressauditor.agent;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -12,6 +14,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -22,6 +25,9 @@ import com.patientprogressauditor.agent.AgentProperties.DescriptionVersion;
 import com.patientprogressauditor.agent.tools.AgentTool;
 import com.patientprogressauditor.agent.tools.ToolException;
 import com.patientprogressauditor.entry.EntryRepository;
+import com.patientprogressauditor.llm.Attempt;
+import com.patientprogressauditor.llm.LangfuseExporter;
+import com.patientprogressauditor.llm.LangfuseRun;
 import com.patientprogressauditor.llm.LlmException;
 import com.patientprogressauditor.llm.LlmException.Kind;
 import com.patientprogressauditor.llm.LlmGateway;
@@ -49,6 +55,7 @@ class AgentRunnerTest {
     @Autowired private AgentRunRepository runs;
     @Autowired private AgentStepRepository steps;
     @Autowired private ReportDraftService drafts;
+    @Autowired private com.patientprogressauditor.consultation.ConsultationDraftService consultations;
     @Autowired private ReportContentBuilder builder;
     @Autowired private ReportRepository reports;
     @Autowired private EntryRepository entries;
@@ -59,6 +66,8 @@ class AgentRunnerTest {
     @Autowired private ObjectMapper mapper;
 
     private final AgentProperties properties = new AgentProperties();
+    // Un exportador de mentira que recuerda lo que se le entrega: las pruebas nunca hablan con Langfuse.
+    private final LangfuseExporter langfuse = mock(LangfuseExporter.class);
     private final List<UUID> runIds = new ArrayList<>();
     private UUID patient;
     private UUID nurse;
@@ -73,6 +82,7 @@ class AgentRunnerTest {
     @AfterEach
     void clean() {
         for (UUID run : runIds) {
+            jdbc.update("DELETE FROM doctor_consultations WHERE run_id = ?", run);
             jdbc.update("DELETE FROM monthly_report_weeks WHERE monthly_report_id IN (SELECT id FROM reports WHERE run_id = ?)", run);
             jdbc.update("DELETE FROM report_citations WHERE report_version_id IN (SELECT v.id FROM report_versions v JOIN reports r ON r.id = v.report_id WHERE r.run_id = ?)", run);
             jdbc.update("DELETE FROM report_versions WHERE report_id IN (SELECT id FROM reports WHERE run_id = ?)", run);
@@ -87,8 +97,15 @@ class AgentRunnerTest {
         LlmGateway gateway = new LlmGateway(List.of(groq, gemini), llm, d -> { }, mapper);
         List<AgentTool> all = new ArrayList<>(realTools);
         all.addAll(List.of(extra));
-        return new AgentRunner(gateway, all, properties, runs, steps, drafts, builder, reports, entries, eligibility,
-                approvedWeekly, Clock.systemDefaultZone(), mapper);
+        return new AgentRunner(gateway, all, properties, runs, steps, drafts, consultations, builder, reports, entries, eligibility,
+                approvedWeekly, Clock.systemDefaultZone(), mapper, langfuse);
+    }
+
+    // La traza que el agente entrego a Langfuse al cerrar: una sola por ejecucion.
+    private LangfuseRun sent() {
+        ArgumentCaptor<LangfuseRun> captor = ArgumentCaptor.forClass(LangfuseRun.class);
+        verify(langfuse).export(captor.capture());
+        return captor.getValue();
     }
 
     private AgentRun newRun() {
@@ -195,12 +212,22 @@ class AgentRunnerTest {
     void theInventoryHasNoOutputToTheOutsideNoApprovalAndOnlyOneWrite() {
         AgentRunner runner = runner(new ScriptedClient("groq", true), new ScriptedClient("gemini", true));
 
-        assertThat(runner.toolNames()).containsExactly("get_approved_weekly_reports", "get_symptom_history", "get_week_entries", "get_week_metrics", "list_patient_weeks", "save_draft");
+        assertThat(runner.toolNames()).containsExactly("get_approved_weekly_reports", "get_period_entries", "get_period_metrics",
+                "get_symptom_history", "get_week_entries", "get_week_metrics", "list_patient_weeks", "save_draft");
         // Ninguna herramienta ACTUA fuera de lo permitido: el verbo aprobar/enviar/borrar no esta en su nombre. «approved» en
         // get_approved_weekly_reports describe el dato que LEE (informes ya aprobados por una persona), no una accion.
         assertThat(runner.toolNames()).noneMatch(n -> n.matches(".*(^|_)(approve|reject|aprobar|send|mail|delete|update)(_|$).*|.*(http|web|fetch).*"));
         assertThat(realTools.stream().filter(AgentTool::writes)).hasSize(1);
-        assertThat(realTools.size()).isLessThanOrEqualTo(7);
+        // El tope de 7 es POR RUTA (AGENTS.md, Pieza 6 de docs/PLAN_M3.md: "cada ruta del agente ve solo las suyas,
+        // sin pasar de 7"), no en el total registrado: desde la Pieza 6 hay 8 herramientas reales, pero ninguna ruta
+        // ve mas de 6 (mensual: las 5 del semanal + get_approved_weekly_reports; consulta: get_period_entries,
+        // get_period_metrics, get_symptom_history (comparte las tres rutas) y save_draft).
+        long weekly = realTools.stream().filter(t -> !t.consultationOnly() && !t.monthlyOnly()).count();
+        long monthly = realTools.stream().filter(t -> !t.consultationOnly()).count();
+        long consultation = realTools.stream().filter(t -> t.consultationOnly() || t.writes() || t.sharedAcrossRoutes()).count();
+        assertThat(weekly).isLessThanOrEqualTo(7);
+        assertThat(monthly).isLessThanOrEqualTo(7);
+        assertThat(consultation).isLessThanOrEqualTo(7);
     }
 
     // --- informe mensual (E13) ---
@@ -275,7 +302,9 @@ class AgentRunnerTest {
                 (Object) linked.stream().map(UUID::toString).toArray(String[]::new));
         assertThat(linkedStarts).containsExactly("2026-09-21", "2026-09-28", "2026-10-05", "2026-10-12");
         assertThat(jdbc.queryForList("SELECT status FROM reports WHERE id = ANY(?::uuid[])", String.class,
-                (Object) linked.stream().map(UUID::toString).toArray(String[]::new))).containsOnly("APROBADO");
+                (Object) linked.stream().map(UUID::toString).toArray(String[]::new)))
+                .as("el mensual acepta los enviados como aprobados (D29): tres enviados y uno aprobado, como la semilla")
+                .containsExactlyInAnyOrder("ENVIADO", "ENVIADO", "ENVIADO", "APROBADO");
 
         JsonNode content = mapper.readTree(jdbc.queryForObject("SELECT content::text FROM report_versions WHERE report_id = ?", String.class, outcome.reportId()));
         assertThat(content.path("period").path("weeks")).hasSize(4);
@@ -292,6 +321,8 @@ class AgentRunnerTest {
         // Lo que el modelo lee no trae el alias, la cama ni el id del paciente
         String everything = groq.calls.stream().flatMap(r -> r.messages().stream()).map(LlmMessage::content).filter(c -> c != null).reduce("", String::concat);
         assertThat(everything).doesNotContain("P-014").doesNotContain("204-A").doesNotContain(patient.toString());
+        // Langfuse: el mensual es otro tipo de ejecucion, con su propio nombre de traza
+        assertThat(sent().type()).isEqualTo("MENSUAL");
     }
 
     @Test
@@ -300,6 +331,7 @@ class AgentRunnerTest {
                 .then(tools(10, 10, call("2", "save_draft", goodDraft())));
         execute(runner(groq, new ScriptedClient("gemini", true)), newRun());
 
+        // Ni las del mensual (get_approved_weekly_reports) ni las de la consulta (get_period_entries/metrics, D31).
         assertThat(groq.calls.get(0).tools()).extracting(t -> t.name())
                 .containsExactlyInAnyOrder("get_symptom_history", "get_week_entries", "get_week_metrics", "list_patient_weeks", "save_draft");
     }
@@ -352,6 +384,111 @@ class AgentRunnerTest {
         String observation = groq.calls.get(2).messages().stream().map(LlmMessage::content).filter(c -> c != null).reduce("", String::concat);
         assertThat(observation).contains("El informe mensual cubre desde la semana del 2026-09-21");
         assertThat(stepTypes(run)).contains(AgentStep.Type.VALIDACION);
+    }
+
+    // --- consulta del médico, «Armar informe» (D31, RF-46) ---
+
+    private AgentRun newConsultationRun(UUID forPatient, UUID doctor, AgentRunner.ConsultationPeriod period) {
+        AgentRun run = new AgentRun();
+        run.setRunType(AgentRun.Type.CONSULTA);
+        run.setPatientId(forPatient);
+        run.setRequestedBy(doctor);
+        run.setPeriodStart(period.start());
+        run.setPeriodEnd(period.end());
+        runs.save(run);
+        runIds.add(run.getId());
+        return run;
+    }
+
+    private UUID aDoctor() {
+        return jdbc.queryForObject("SELECT u.id FROM app_users u JOIN app_user_roles ur ON ur.user_id = u.id "
+                + "JOIN app_roles r ON r.id = ur.role_id WHERE r.code = 'MEDICO' LIMIT 1", UUID.class);
+    }
+
+    private static String periodDraft() {
+        return """
+                {"summary":"Las náuseas aparecieron en el período consultado.",
+                 "claims":[{"claim_key":"c1","text":"Las náuseas aparecieron 4 días en el período.",
+                   "criterion":"Días del período","entry_ids":["e1"],
+                   "figures":[{"key":"NAUSEAS.days","value":4}]}],
+                 "changes_vs_previous":[],"recurring_patterns":[]}""";
+    }
+
+    @Test
+    void aConsultationRunReadsThePeriodAndSavesADoctorConsultationNeverAReport() throws Exception {
+        UUID doctor = aDoctor();
+        AgentRunner.ConsultationPeriod period = new AgentRunner.ConsultationPeriod(WEEK, WEEK.plusDays(6), null, null);
+        ScriptedClient groq = new ScriptedClient("groq", true)
+                .then(tools(1200, 70, call("1", "get_period_metrics", "{}"), call("2", "get_period_entries", "{}")))
+                .then(tools(3000, 300, call("3", "save_draft", periodDraft())));
+        AgentRun run = newConsultationRun(patient, doctor, period);
+
+        AgentRunner.Outcome outcome = runner(groq, new ScriptedClient("gemini", true))
+                .run(run, AgentRunner.Task.consultation(patient, doctor, period));
+
+        assertThat(outcome.status()).isEqualTo(AgentRun.Status.COMPLETADA);
+        assertThat(outcome.stopReason()).isEqualTo(AgentRun.StopReason.EXITO);
+        // No es un Report: ningun registro en `reports` quedo ligado a esta ejecucion.
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM reports WHERE run_id = ?", Integer.class, run.getId())).isZero();
+        Integer consultations = jdbc.queryForObject("SELECT count(*) FROM doctor_consultations WHERE run_id = ?", Integer.class, run.getId());
+        assertThat(consultations).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT doctor_id FROM doctor_consultations WHERE run_id = ?", UUID.class, run.getId())).isEqualTo(doctor);
+        assertThat(jdbc.queryForObject("SELECT patient_id FROM doctor_consultations WHERE run_id = ?", UUID.class, run.getId())).isEqualTo(patient);
+        assertThat(jdbc.queryForObject("SELECT period_start FROM doctor_consultations WHERE run_id = ?", java.sql.Date.class, run.getId()).toLocalDate())
+                .isEqualTo(WEEK);
+        assertThat(jdbc.queryForObject("SELECT period_end FROM doctor_consultations WHERE run_id = ?", java.sql.Date.class, run.getId()).toLocalDate())
+                .isEqualTo(WEEK.plusDays(6));
+        assertThat((Boolean) jdbc.queryForObject("SELECT comparison_start IS NULL FROM doctor_consultations WHERE run_id = ?", Boolean.class, run.getId()))
+                .isTrue();
+        String content = jdbc.queryForObject("SELECT content::text FROM doctor_consultations WHERE run_id = ?", String.class, run.getId());
+        JsonNode json = mapper.readTree(content);
+        assertThat(json.path("metrics").path("symptoms").path("NAUSEAS").path("days").asInt()).isEqualTo(4);
+        assertThat(json.path("period").path("compared_with").isNull()).isTrue();
+        // Lo que el modelo lee no trae el alias, la cama ni el id del paciente ni del medico
+        String everything = groq.calls.stream().flatMap(r -> r.messages().stream()).map(LlmMessage::content).filter(c -> c != null).reduce("", String::concat);
+        assertThat(everything).doesNotContain("P-014").doesNotContain("204-A").doesNotContain(patient.toString()).doesNotContain(doctor.toString());
+        // La traza de la consulta es la ejecucion CONSULTA, con las mismas herramientas de lectura que el período ve.
+        assertThat(groq.calls.get(0).tools()).extracting(t -> t.name())
+                .containsExactlyInAnyOrder("get_period_entries", "get_period_metrics", "get_symptom_history", "save_draft");
+    }
+
+    @Test
+    void aConsultationDraftWithAFigureThatDoesNotMatchTheCodeIsRejectedAndCorrected() {
+        UUID doctor = aDoctor();
+        AgentRunner.ConsultationPeriod period = new AgentRunner.ConsultationPeriod(WEEK, WEEK.plusDays(6), null, null);
+        String altered = periodDraft().replace("\"value\":4", "\"value\":5");
+        ScriptedClient groq = new ScriptedClient("groq", true)
+                .then(tools(1200, 70, call("1", "get_period_metrics", "{}"), call("2", "get_period_entries", "{}")))
+                .then(tools(2000, 200, call("3", "save_draft", altered)))
+                .then(tools(2500, 300, call("4", "save_draft", periodDraft())));
+        AgentRun run = newConsultationRun(patient, doctor, period);
+
+        AgentRunner.Outcome outcome = runner(groq, new ScriptedClient("gemini", true))
+                .run(run, AgentRunner.Task.consultation(patient, doctor, period));
+
+        assertThat(outcome.status()).isEqualTo(AgentRun.Status.COMPLETADA);
+        String problem = groq.calls.get(2).messages().stream().filter(m -> m.role() == LlmMessage.Role.TOOL).map(LlmMessage::content)
+                .reduce((a, b) -> b).orElseThrow();
+        assertThat(problem).contains("El borrador NO se guardó").contains("vale 4").contains("escribió 5");
+        assertThat(stepTypes(run)).contains(AgentStep.Type.VALIDACION);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM doctor_consultations WHERE run_id = ?", Integer.class, run.getId())).isEqualTo(1);
+    }
+
+    @Test
+    void aConsultationPeriodWithoutEntriesIsBlockedWithoutCallingTheModel() {
+        UUID doctor = aDoctor();
+        // Un periodo fuera de todo registro sembrado (DemoDataSeeder termina en octubre de 2026).
+        AgentRunner.ConsultationPeriod period = new AgentRunner.ConsultationPeriod(LocalDate.of(2020, 1, 1), LocalDate.of(2020, 1, 7), null, null);
+        ScriptedClient groq = new ScriptedClient("groq", true);
+        AgentRun run = newConsultationRun(patient, doctor, period);
+
+        AgentRunner.Outcome outcome = runner(groq, new ScriptedClient("gemini", true))
+                .run(run, AgentRunner.Task.consultation(patient, doctor, period));
+
+        assertThat(outcome.status()).isEqualTo(AgentRun.Status.FALLIDA);
+        assertThat(outcome.message()).contains("no tiene registros: no hay nada que resumir");
+        assertThat(groq.calls).isEmpty();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM doctor_consultations WHERE run_id = ?", Integer.class, run.getId())).isZero();
     }
 
     // --- límites ---
@@ -555,6 +692,87 @@ class AgentRunnerTest {
         assertThat(stepTypes(run)).contains(AgentStep.Type.ERROR, AgentStep.Type.LLAMADA_LLM);
     }
 
+    // --- Langfuse (D28, RF-43): lo que el agente entrega al cerrar ---
+
+    @Test
+    void aFullRunSendsOneTraceWhoseTotalsAreTheOnesOfTheRunRow() {
+        ScriptedClient groq = new ScriptedClient("groq", true)
+                .then(tools(1500, 80, call("1", "get_week_metrics", WEEK_ARGS), call("2", "get_week_entries", WEEK_ARGS)))
+                .then(tools(3200, 60, call("3", "get_symptom_history", "{\"symptom\":\"NAUSEAS\",\"weeks_back\":5}")))
+                .then(tools(4000, 420, call("4", "save_draft", goodDraft())));
+        AgentRun run = newRun();
+
+        execute(runner(groq, new ScriptedClient("gemini", true)), run);
+
+        LangfuseRun sent = sent();
+        AgentRun saved = runs.findById(run.getId()).orElseThrow();
+        assertThat(sent.runId()).isEqualTo(run.getId());
+        assertThat(sent.type()).isEqualTo("INFORME");
+        assertThat(sent.status()).isEqualTo("COMPLETADA");
+        assertThat(sent.stopReason()).isEqualTo("EXITO");
+        assertThat(sent.startedAt()).isEqualTo(run.getStartedAt());
+        assertThat(sent.attempts()).hasSize(3).allMatch(Attempt::succeeded);
+        // El criterio 1 del plan, a nivel de unidad: lo que Langfuse suma es lo que quedo en agent_runs.
+        assertThat(saved.getCostUsd()).isNotNull();
+        assertThat(sent.costUsd()).isEqualByComparingTo(saved.getCostUsd());
+        assertThat(sent.tokensIn()).isEqualTo(saved.getTokensIn());
+        assertThat(sent.tokensOut()).isEqualTo(saved.getTokensOut());
+    }
+
+    @Test
+    void aRateLimitFollowedByTheFallbackSendsTheFailedAttemptsAndTheCostsStillAddUp() {
+        // Un 429 que pide esperar mas que el tope (30 s contra 8 s) no se reintenta: se pasa directo al respaldo.
+        ScriptedClient groq = new ScriptedClient("groq", true)
+                .thenAlways(new LlmException(Kind.RATE_LIMIT, "groq", Duration.ofSeconds(30), "HTTP 429"), 1);
+        ScriptedClient gemini = new ScriptedClient("gemini", true)
+                .then(tools(1500, 80, call("1", "get_week_metrics", WEEK_ARGS), call("2", "get_week_entries", WEEK_ARGS)))
+                .then(tools(4000, 420, call("3", "save_draft", goodDraft())));
+        AgentRun run = newRun();
+
+        AgentRunner.Outcome outcome = execute(runner(groq, gemini), run);
+
+        assertThat(outcome.status()).isEqualTo(AgentRun.Status.COMPLETADA);
+        LangfuseRun sent = sent();
+        AgentRun saved = runs.findById(run.getId()).orElseThrow();
+        assertThat(sent.attempts()).extracting(Attempt::provider).containsExactly("groq", "gemini", "groq", "gemini");
+        assertThat(sent.attempts()).extracting(Attempt::failure).containsExactly(Kind.RATE_LIMIT, null, Kind.RATE_LIMIT, null);
+        // Precio de Gemini: (1500 + 4000) * 0,30 + (80 + 420) * 2,50 por millon de tokens. Los dos 429 no suman nada.
+        assertThat(sent.costUsd()).isEqualByComparingTo("0.002900");
+        assertThat(saved.getCostUsd()).isEqualByComparingTo(sent.costUsd());
+        assertThat(saved.isFallbackUsed()).isTrue();
+    }
+
+    @Test
+    void aRunWhereNoProviderAnswersSendsItsFailedAttemptsWithNoCost() {
+        ScriptedClient groq = new ScriptedClient("groq", true).thenAlways(new LlmException(Kind.UNAVAILABLE, "groq", "HTTP 503"), 1);
+        ScriptedClient gemini = new ScriptedClient("gemini", true).thenAlways(new LlmException(Kind.UNAVAILABLE, "gemini", "HTTP 503"), 1);
+        AgentRun run = newRun();
+
+        execute(runner(groq, gemini), run);
+
+        LangfuseRun sent = sent();
+        assertThat(sent.status()).isEqualTo("FALLIDA");
+        assertThat(sent.stopReason()).isEqualTo("PROVEEDOR_NO_DISPONIBLE");
+        // Cuatro intentos por proveedor (el primero y tres reintentos), ninguno con respuesta.
+        assertThat(sent.attempts()).hasSize(8).noneMatch(Attempt::succeeded);
+        assertThat(sent.costUsd()).isNull();
+        assertThat(runs.findById(run.getId()).orElseThrow().getCostUsd()).isNull();
+    }
+
+    @Test
+    void anIterationLimitSendsTheRunAsIncompleteWithItsStopReason() {
+        ScriptedClient groq = new ScriptedClient("groq", true).thenAlways(tools(500, 30, call("1", "list_patient_weeks", "{}")), 1);
+        AgentRun run = newRun();
+
+        execute(runner(groq, new ScriptedClient("gemini", true)), run);
+
+        LangfuseRun sent = sent();
+        assertThat(sent.status()).isEqualTo("INCOMPLETA");
+        assertThat(sent.stopReason()).isEqualTo("MAX_ITERACIONES");
+        assertThat(sent.attempts()).hasSize(5);
+        assertThat(sent.costUsd()).isEqualByComparingTo(runs.findById(run.getId()).orElseThrow().getCostUsd());
+    }
+
     @Test
     void aWeekWithoutEntriesDoesNotCallTheModelAtAll() {
         ScriptedClient groq = new ScriptedClient("groq", true);
@@ -565,7 +783,8 @@ class AgentRunnerTest {
 
         assertThat(outcome.status()).isEqualTo(AgentRun.Status.FALLIDA);
         assertThat(outcome.message()).contains("no tiene registros");
-        assertThat(groq.calls).isEmpty();
+        assertThat(groq.calls).isEmpty();        // Sin llamadas al modelo no hay consulta: la traza que se entrega no trae intentos (el exportador la ignora).
+        assertThat(sent().attempts()).isEmpty();
     }
 
     @Test

@@ -105,6 +105,34 @@ def evaluate(report, case, truth):
     return out
 
 
+NUMBER_WORDS = {"dos": "2", "tres": "3", "cuatro": "4", "cinco": "5", "seis": "6", "siete": "7", "ocho": "8", "nueve": "9", "diez": "10"}
+NEGATIONS = {"sin", "no", "nunca", "ni", "nada", "ningun", "ninguna", "ninguno", "jamas", "tampoco"}
+
+
+def _tokens(text):
+    return re.sub(r"[^a-z0-9]+", " ", plain(text).replace("una vez", "1 vez")).split()
+
+
+def score_correction(note, corrected, want=None, forbidden=None):
+    """Texto corregido de la vista previa (RF-42, E19): reglas verificables, escritas aparte de las del servidor.
+
+    `want`: fragmentos que deben estar (sin importar mayusculas; las tildes SI importan: es lo que se corrige);
+    `forbidden`: la falta de ortografia original, que ya no debe estar. Ademas, en todos los casos: que haya texto, que empiece
+    con mayuscula y termine en punto, y que conserve los numeros y las negaciones de la nota (corregir es de forma, no de contenido).
+    """
+    text = (corrected or "").strip()
+    lower = text.lower()
+    missing = [w for w in (want or []) if w.lower() not in lower]
+    kept_errors = [w for w in (forbidden or []) if w.lower() in lower]
+    nums = lambda t: sorted(NUMBER_WORDS.get(w, w) for w in _tokens(t) if w.isdigit() or w in NUMBER_WORDS)  # noqa: E731
+    negs = lambda t: sum(1 for w in _tokens(t) if w in NEGATIONS)  # noqa: E731
+    present = bool(text)
+    well_formed = present and text[0].isupper() and text[-1] in ".!?"
+    preserved = present and nums(note) == nums(text) and negs(note) == negs(text)
+    return {"ok": present and well_formed and preserved and not missing and not kept_errors, "present": present,
+            "well_formed": well_formed, "preserved": preserved, "missing": missing, "kept_errors": kept_errors}
+
+
 def score_structuring(proposed, expected):
     """Compara los eventos propuestos con los esperados: (exacto, falsos positivos, omitidos, intensidades acertadas/pedidas).
 

@@ -10,7 +10,7 @@ export interface MenuModule {
   sub?: MenuLink[];
 }
 
-// ROLES.enf del mockup. El menu del medico y el del administrador no se construyen en esta entrega.
+// ROLES.enf del mockup.
 export const NURSING_MENU: MenuModule[] = [
   { text: 'Pacientes', icon: 'pacientes', path: '/enf/pacientes' },
   {
@@ -30,4 +30,24 @@ export const NURSING_MENU: MenuModule[] = [
       { text: 'Aprobados', path: '/enf/informes/aprobados' },
     ],
   },
+];
+
+// ROLES.med del mockup, con «Armar informe» (D31, RF-46, Pieza 6 de docs/PLAN_M3.md).
+export const DOCTOR_MENU: MenuModule[] = [
+  { text: 'Mis pacientes', icon: 'pacientes', path: '/med/pacientes' },
+  {
+    text: 'Informes',
+    icon: 'informes',
+    sub: [
+      { text: 'Recibidos', path: '/med/informes/recibidos' },
+      { text: 'Armar informe', path: '/med/informes/armar' },
+    ],
+  },
+];
+
+// ROLES.adm del mockup con «Usuarios» (RF-33) y «Auditoría» (RF-35, docs/auditoria/): «Permisos por rol» y «Trazas del
+// agente» quedaron fuera (docs/admin-usuarios, Fuera de alcance). «Auditoría» usa el icono de trazas del mockup.
+export const ADMIN_MENU: MenuModule[] = [
+  { text: 'Usuarios', icon: 'usuarios', path: '/adm/usuarios' },
+  { text: 'Auditoría', icon: 'trazas', path: '/adm/auditoria' },
 ];

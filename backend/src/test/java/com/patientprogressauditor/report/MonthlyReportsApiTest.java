@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import com.patientprogressauditor.support.TestAuth;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -49,12 +50,14 @@ class MonthlyReportsApiTest {
     private UUID p014;
     private UUID monthly;
     private List<Entry> first;
+    private List<UUID> weekly;
 
     @BeforeEach
     void setUp() {
         fx = new ReportFixtures(jdbc, entries, mapper);
         p014 = fx.patient("P-014");
         first = fx.weekEntries(p014, START);
+        weekly = jdbc.queryForList("SELECT id FROM reports WHERE patient_id = ? AND report_type = 'SEMANAL' AND status IN ('APROBADO', 'ENVIADO') ORDER BY period_start", UUID.class, p014);
         monthly = UUID.randomUUID();
         UUID version = UUID.randomUUID();
         jdbc.update("""
@@ -63,7 +66,6 @@ class MonthlyReportsApiTest {
         jdbc.update("INSERT INTO report_versions (id, report_id, version_no, origin, content) VALUES (?, ?, 1, 'MODELO', ?::jsonb)",
                 version, monthly, content().toString());
         jdbc.update("INSERT INTO report_citations (report_version_id, claim_key, entry_id) VALUES (?, 'c1', ?)", version, first.get(0).getId());
-        List<UUID> weekly = jdbc.queryForList("SELECT id FROM reports WHERE patient_id = ? AND report_type = 'SEMANAL' AND status = 'APROBADO' ORDER BY period_start", UUID.class, p014);
         for (int i = 0; i < 4; i++) {
             jdbc.update("INSERT INTO monthly_report_weeks (monthly_report_id, week_no, weekly_report_id) VALUES (?, ?, ?)", monthly, i + 1, weekly.get(i));
         }
@@ -83,7 +85,13 @@ class MonthlyReportsApiTest {
         for (int i = 0; i < 4; i++) {
             weeks.addObject().put("week", START.plusWeeks(i).toString()).put("entries", 7).putObject("symptoms").putObject("NAUSEAS").put("days", i == 0 ? 3 : 1);
         }
-        content.putArray("weekly_reports");
+        // La semilla de P-014 trae 3 ENVIADO y 1 APROBADO (D29): asi el contenido congelado tiene, de verdad, una
+        // semana sin enviar que probar (ver theWeeklyReportsCarryTheirLiveSentFlagNotTheFrozenContent).
+        var weeklyReports = content.putArray("weekly_reports");
+        for (int i = 0; i < 4; i++) {
+            weeklyReports.addObject().put("week_no", i + 1).put("week_start", START.plusWeeks(i).toString())
+                    .put("report_id", weekly.get(i).toString()).put("summary", "Resumen de la semana " + (i + 1) + ".");
+        }
         content.putArray("insufficient_data");
         content.putNull("out_of_scope");
         return content;
@@ -97,24 +105,28 @@ class MonthlyReportsApiTest {
     }
 
     private ResultActions putContent(String user, String json) throws Exception {
-        return mockMvc.perform(put("/api/reports/" + monthly + "/content").header("X-Demo-User", user).contentType(MediaType.APPLICATION_JSON).content(json));
+        return mockMvc.perform(put("/api/reports/" + monthly + "/content").with(TestAuth.as(user)).contentType(MediaType.APPLICATION_JSON).content(json));
     }
 
     @Test
-    void theMonthlyIsVisibleToNursingFilterableByTypeAndHiddenFromTheDoctorUntilApproved() throws Exception {
-        mockMvc.perform(get("/api/reports?type=MENSUAL&patientId=" + p014).header("X-Demo-User", NURSE))
+    void theMonthlyIsVisibleToNursingFilterableByTypeAndHiddenFromTheDoctorUntilSent() throws Exception {
+        mockMvc.perform(get("/api/reports?type=MENSUAL&patientId=" + p014).with(TestAuth.as(NURSE)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].reportType").value("MENSUAL"))
                 .andExpect(jsonPath("$[0].periodEnd").value("2026-10-18"));
-        mockMvc.perform(get("/api/reports/" + monthly).header("X-Demo-User", DOCTOR)).andExpect(status().isNotFound());
-        mockMvc.perform(get("/api/reports?type=MENSUAL").header("X-Demo-User", DOCTOR)).andExpect(jsonPath("$.length()").value(0));
+        mockMvc.perform(get("/api/reports/" + monthly).with(TestAuth.as(DOCTOR))).andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/reports?type=MENSUAL").with(TestAuth.as(DOCTOR))).andExpect(jsonPath("$.length()").value(0));
 
-        mockMvc.perform(post("/api/reports/" + monthly + "/approve").header("X-Demo-User", DOCTOR).contentType(MediaType.APPLICATION_JSON).content("{}"))
+        mockMvc.perform(post("/api/reports/" + monthly + "/approve").with(TestAuth.as(DOCTOR)).contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isForbidden());
-        mockMvc.perform(post("/api/reports/" + monthly + "/approve").header("X-Demo-User", NURSE).contentType(MediaType.APPLICATION_JSON).content("{}"))
+        mockMvc.perform(post("/api/reports/" + monthly + "/approve").with(TestAuth.as(NURSE)).contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.report.status").value("APROBADO"))
                 .andExpect(jsonPath("$.report.reviewedBy").value("Camilo Torres"));
 
-        mockMvc.perform(get("/api/reports/" + monthly).header("X-Demo-User", DOCTOR)).andExpect(status().isOk());
+        // Aprobado no es enviado: el medico todavia no lo ve (D29). Cuando enfermeria lo envia, si.
+        mockMvc.perform(get("/api/reports/" + monthly).with(TestAuth.as(DOCTOR))).andExpect(status().isNotFound());
+        mockMvc.perform(post("/api/reports/" + monthly + "/send").with(TestAuth.as(NURSE))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.report.status").value("ENVIADO"));
+        mockMvc.perform(get("/api/reports/" + monthly).with(TestAuth.as(DOCTOR))).andExpect(status().isOk());
         putContent(NURSE, edit("Las náuseas aparecen 3 días en la primera semana.", first.get(0).getId())).andExpect(status().isConflict());
     }
 
@@ -124,7 +136,7 @@ class MonthlyReportsApiTest {
         putContent(NURSE, edit("Las náuseas pasan de 3 días en la primera semana a 1 día en las demás.", first.get(0).getId()))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.version.versionNo").value(2)).andExpect(jsonPath("$.version.origin").value("ENFERMERIA"));
 
-        mockMvc.perform(get("/api/reports/" + monthly + "/versions/1").header("X-Demo-User", NURSE))
+        mockMvc.perform(get("/api/reports/" + monthly + "/versions/1").with(TestAuth.as(NURSE)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.content.claims[0].text").value("Las náuseas aparecen 3 días en la primera semana."));
     }
 
@@ -140,6 +152,22 @@ class MonthlyReportsApiTest {
         List<Entry> later = fx.weekEntries(p014, LocalDate.of(2026, 10, 19));
         putContent(NURSE, edit("Las náuseas aparecen 3 días en la primera semana.", later.get(0).getId()))
                 .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.fields['claims[0].entryIds']").exists());
+    }
+
+    // D29, extension del 2026-11-07: el contenido del mensual congela el resumen de sus cuatro semanas al generarse
+    // (no dice si una se envio por separado), asi que `sent` se calcula en vivo cada vez que se sirve el informe.
+    @Test
+    void theWeeklyReportsCarryTheirLiveSentFlagNotTheFrozenContent() throws Exception {
+        mockMvc.perform(get("/api/reports/" + monthly).with(TestAuth.as(NURSE))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.version.content.weekly_reports[0].sent").value(true))
+                .andExpect(jsonPath("$.version.content.weekly_reports[1].sent").value(true))
+                .andExpect(jsonPath("$.version.content.weekly_reports[2].sent").value(true))
+                .andExpect(jsonPath("$.version.content.weekly_reports[3].sent").value(false));
+
+        // La cuarta semana ya esta APROBADO en la semilla (D29): al enviarla, el enlace se habilita sin regenerar nada.
+        mockMvc.perform(post("/api/reports/" + weekly.get(3) + "/send").with(TestAuth.as(NURSE))).andExpect(status().isOk());
+        mockMvc.perform(get("/api/reports/" + monthly).with(TestAuth.as(NURSE))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.version.content.weekly_reports[3].sent").value(true));
     }
 
     @Test

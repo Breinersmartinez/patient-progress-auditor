@@ -34,4 +34,18 @@ describe('EntryCardComponent (regCard del mockup)', () => {
     const root = render({ ...ENTRY, symptoms: [], structuringStatus: 'SIN_ESTRUCTURAR' });
     expect(root.querySelector('p.sec')?.textContent).toBe('Sin estructurar: solo se guardó el texto.');
   });
+
+  it('con texto corregido muestra ese texto y deja el original a un clic', () => {
+    const root = render({ ...ENTRY, body: 'vomito 2 veces', correctedBody: 'Vomitó 2 veces.' });
+
+    expect(root.querySelector('article.card > p')?.textContent).toBe('Vomitó 2 veces.');
+    expect(root.querySelector('details.original summary')?.textContent).toContain('original');
+    expect(root.querySelector('details.original p')?.textContent).toBe('vomito 2 veces');
+  });
+
+  it('sin texto corregido muestra el original y no ofrece "ver el original"', () => {
+    const root = render(ENTRY);
+
+    expect(root.querySelector('details.original')).toBeNull();
+  });
 });

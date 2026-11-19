@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import com.patientprogressauditor.support.TestAuth;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -62,12 +63,12 @@ class EntryConfirmApiTest {
     }
 
     private ResultActions propose(String user, String body) throws Exception {
-        return mockMvc.perform(post("/api/patients/" + patient + "/entries/propose").header("X-Demo-User", user)
+        return mockMvc.perform(post("/api/patients/" + patient + "/entries/propose").with(TestAuth.as(user))
                 .contentType(MediaType.APPLICATION_JSON).content(mapper.writeValueAsString(java.util.Map.of("body", body))));
     }
 
     private ResultActions confirm(String user, String json) throws Exception {
-        return mockMvc.perform(post("/api/patients/" + patient + "/entries").header("X-Demo-User", user)
+        return mockMvc.perform(post("/api/patients/" + patient + "/entries").with(TestAuth.as(user))
                 .contentType(MediaType.APPLICATION_JSON).content(json));
     }
 
@@ -126,7 +127,7 @@ class EntryConfirmApiTest {
         mockMvc.perform(post("/api/patients/" + patient + "/entries/propose").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"body\":\"hola\"}")).andExpect(status().isUnauthorized());
         propose(DOCTOR, "Sin novedades.").andExpect(status().isOk());
-        mockMvc.perform(post("/api/patients/" + UUID.randomUUID() + "/entries/propose").header("X-Demo-User", NURSE)
+        mockMvc.perform(post("/api/patients/" + UUID.randomUUID() + "/entries/propose").with(TestAuth.as(NURSE))
                 .contentType(MediaType.APPLICATION_JSON).content("{\"body\":\"hola\"}")).andExpect(status().isNotFound());
         // Solo la propuesta valida del medico llego al modelo: ni el texto en blanco ni el paciente inexistente.
         org.mockito.Mockito.verify(gateway, org.mockito.Mockito.times(1)).structured(any(), any());
@@ -160,7 +161,7 @@ class EntryConfirmApiTest {
             assertThat(r.get("confirmed_by").toString()).isEqualTo(NURSE);
             assertThat(r.get("confirmed_at")).isNotNull();
         });
-        mockMvc.perform(get("/api/patients/" + patient + "/entries").header("X-Demo-User", NURSE))
+        mockMvc.perform(get("/api/patients/" + patient + "/entries").with(TestAuth.as(NURSE)))
                 .andExpect(jsonPath("$[0].symptoms.length()").value(3));
     }
 
@@ -205,7 +206,7 @@ class EntryConfirmApiTest {
         assertThat(rows).extracting(r -> r.get("symptom")).containsExactly("DOLOR_DE_GARGANTA", "FIEBRE", "PICAZON_EN_LOS_BRAZOS");
         assertThat(rows).extracting(r -> r.get("symptom_label")).containsExactly("Dolor de garganta", null, "Picazón en los brazos");
         assertThat(rows).allSatisfy(r -> assertThat(r.get("confirmed_by").toString()).isEqualTo(NURSE));
-        mockMvc.perform(get("/api/patients/" + patient + "/entries").header("X-Demo-User", NURSE))
+        mockMvc.perform(get("/api/patients/" + patient + "/entries").with(TestAuth.as(NURSE)))
                 .andExpect(jsonPath("$[0].symptoms[0].label").value("Dolor de garganta"));
     }
 
@@ -285,5 +286,90 @@ class EntryConfirmApiTest {
                 .andExpect(jsonPath("$.authorName").value("Dr. Andrés Salazar"));
         assertThat(jdbc.queryForObject("SELECT confirmed_by::text FROM entry_events WHERE entry_id = (SELECT id FROM entries WHERE patient_id = ?)",
                 String.class, patient)).isEqualTo(DOCTOR);
+    }
+
+    // --- texto corregido (RF-42, E19) ---
+
+    private static final String NOTE = "dolor de cabeza intenso desde la mañana tuvo diarea dos veces comio poko";
+    private static final String FIXED = "Dolor de cabeza intenso desde la mañana. Tuvo diarrea dos veces. Comió poco.";
+
+    @Test
+    void theProposalCarriesTheCorrectedTextAndSavesNothing() throws Exception {
+        modelAnswers("{\"events\":[],\"correctedText\":\"" + FIXED + "\"}");
+        int versions = count("entry_versions");
+
+        propose(NURSE, NOTE).andExpect(status().isOk()).andExpect(jsonPath("$.correctedText").value(FIXED));
+
+        assertThat(count("entry_versions")).isEqualTo(versions);
+    }
+
+    @Test
+    void aCorrectionThatChangesTheContentIsDroppedButTheSymptomsStillComeAndTheTraceSaysWhy() throws Exception {
+        modelAnswers("{\"events\":[{\"symptom\":\"DIARREA\",\"intensity\":\"SIN_INDICAR\",\"occurrences\":3}],"
+                + "\"correctedText\":\"Tuvo diarrea tres veces.\"}");
+
+        propose(NURSE, "tuvo diarea dos veces").andExpect(status().isOk())
+                .andExpect(jsonPath("$.correctedText").doesNotExist())
+                .andExpect(jsonPath("$.failure").doesNotExist())
+                .andExpect(jsonPath("$.events.length()").value(1));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM agent_steps WHERE message LIKE 'Se descartó el texto corregido%'", Integer.class))
+                .isEqualTo(1);
+    }
+
+    @Test
+    void confirmingWithACorrectionKeepsTheOriginalAndSavesTheVersionWithWhoAndHow() throws Exception {
+        confirm(NURSE, mapper.writeValueAsString(java.util.Map.of("entryDate", "2026-10-27", "body", NOTE, "events", List.of(),
+                "correction", java.util.Map.of("body", FIXED, "origin", "IA_ACEPTADA"))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.body").value(NOTE))
+                .andExpect(jsonPath("$.correctedBody").value(FIXED));
+
+        assertThat(jdbc.queryForObject("SELECT body FROM entries WHERE patient_id = ?", String.class, patient)).isEqualTo(NOTE);
+        java.util.Map<String, Object> version = jdbc.queryForMap("""
+                SELECT body, origin, version_no, created_by::text AS who FROM entry_versions
+                WHERE entry_id = (SELECT id FROM entries WHERE patient_id = ?)""", patient);
+        assertThat(version.get("body")).isEqualTo(FIXED);
+        assertThat(version.get("origin")).isEqualTo("IA_ACEPTADA");
+        assertThat(((Number) version.get("version_no")).intValue()).isEqualTo(1);
+        assertThat(version.get("who")).isEqualTo(NURSE);
+        mockMvc.perform(get("/api/patients/" + patient + "/entries").with(TestAuth.as(NURSE)))
+                .andExpect(jsonPath("$[0].body").value(NOTE))
+                .andExpect(jsonPath("$[0].correctedBody").value(FIXED));
+        mockMvc.perform(get("/api/entries").with(TestAuth.as(DOCTOR)))
+                .andExpect(jsonPath("$[?(@.patientAlias=='P-902')].correctedBody").value(FIXED));
+    }
+
+    @Test
+    void aCorrectionTheNurseEditedIsSavedAsEditedWithoutTheModelsRules() throws Exception {
+        confirm(NURSE, mapper.writeValueAsString(java.util.Map.of("entryDate", "2026-10-27", "body", NOTE, "events", List.of(),
+                "correction", java.util.Map.of("body", FIXED + " Sin fiebre.", "origin", "IA_EDITADA"))))
+                .andExpect(status().isCreated());
+        assertThat(jdbc.queryForObject("SELECT origin FROM entry_versions", String.class)).isEqualTo("IA_EDITADA");
+    }
+
+    @Test
+    void noVersionIsSavedWhenThereIsNoCorrectionOrItEqualsTheOriginalOrIsBlank() throws Exception {
+        int versions = count("entry_versions");
+        confirm(NURSE, "{\"entryDate\":\"2026-10-27\",\"body\":\"Sin novedades.\",\"events\":[]}")
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.correctedBody").doesNotExist());
+        confirm(NURSE, "{\"entryDate\":\"2026-10-26\",\"body\":\"Sin novedades.\",\"events\":[],"
+                + "\"correction\":{\"body\":\"Sin novedades.\",\"origin\":\"IA_ACEPTADA\"}}").andExpect(status().isCreated());
+        confirm(NURSE, "{\"entryDate\":\"2026-10-25\",\"body\":\"Sin novedades.\",\"events\":[],"
+                + "\"correction\":{\"body\":\"   \",\"origin\":\"IA_EDITADA\"}}").andExpect(status().isCreated());
+
+        assertThat(count("entry_versions")).isEqualTo(versions);
+    }
+
+    @Test
+    void aBadCorrectionIsRejectedAndNothingIsSaved() throws Exception {
+        int entries = count("entries");
+        String head = "{\"entryDate\":\"2026-10-27\",\"body\":\"Sin novedades.\",\"events\":[],\"correction\":";
+        confirm(NURSE, head + "{\"body\":\"Todo bien.\",\"origin\":\"MAGIA\"}}").andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fields.correction").value("El origen del texto corregido no es válido."));
+        confirm(NURSE, mapper.writeValueAsString(java.util.Map.of("entryDate", "2026-10-27", "body", "x", "correction",
+                java.util.Map.of("body", "y".repeat(4001), "origin", "MANUAL")))).andExpect(status().isBadRequest());
+        confirm(NURSE, head + "{\"body\":\"Todo\\u0000bien.\",\"origin\":\"MANUAL\"}}").andExpect(status().isBadRequest());
+
+        assertThat(count("entries")).isEqualTo(entries);
     }
 }

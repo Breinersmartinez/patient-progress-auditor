@@ -96,8 +96,7 @@ Con los puertos por defecto (cámbielos si `run.sh` avisó otros):
 
 ```bash
 curl -s http://localhost:8080/api/system/status    # {"status":"UP","database":"UP","today":"AAAA-MM-DD"}
-curl -s http://localhost:8080/api/demo-users       # los 4 usuarios de demostración
-curl -s -H 'X-Demo-User: 20000000-0000-0000-0000-000000000001' http://localhost:8080/api/llm/status   # proveedor principal y si tiene llave (nunca la muestra)
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:8080/api/session   # 401: el API exige el token de Keycloak
 curl -s -o /dev/null -w '%{http_code}\n' http://localhost:4200/   # 200
 docker compose ps                                   # db, backend y frontend en "healthy"
 ```
@@ -118,7 +117,15 @@ Si después de `down -v` se borra también `.env` (o se clona de nuevo) pero que
 
 ## 2. Usuarios de demostración y qué probar
 
-**No hay inicio de sesión en esta entrega** (D23, decidido por el equipo: la autenticación y las credenciales llegan en el Momento 3). La aplicación abre con usuarios sembrados y se elige con cuál trabajar en el selector «Ver como» de la barra superior. No es un control de seguridad: sirve para que cada acción tenga un autor y para que las reglas de rol se cumplan en el servidor.
+**Inicio de sesión (propuesta del 2026-11-10, pendiente de aprobación del equipo).** Al abrir <http://localhost:4200> el navegador va al login de Keycloak (tema `auditor`, en el puerto `KC_PORT`, 7070 por defecto). Los usuarios ya vienen cargados en el realm `auditor`, que `./run.sh` importa solo. Contraseña de demostración de todos: `Auditor2026!` (sintética, solo para desarrollo).
+
+| Correo | Rol | Qué ve |
+|---|---|---|
+| `marcela.rojas@example.test`, `camilo.torres@example.test` | Enfermería | Todas las pantallas |
+| `andres.salazar@example.test`, `julian.ortiz@example.test` | Médico | «Mis pacientes» (con «Nuevo registro» en la ficha), «Informes → Recibidos» (solo los enviados por enfermería) y «Armar informe», con la campana de avisos |
+| `admin@example.test` | Administración | «Usuarios»: crea, edita, desactiva y ve usuarios (sin datos clínicos). «Auditoría»: quién aprobó, rechazó, editó o envió un informe, qué médico registró una entrada y quién creó o cambió un usuario, solo lectura (RF-35). Si crea uno, el correo de invitación llega a Mailpit (<http://localhost:8026>); ábralo con la sesión de Keycloak cerrada |
+
+Cada pieza, en corto: el **realm** es el espacio de usuarios y reglas (`keycloak/realm/auditor-realm.json`); el **client** `auditor-web` es la app Angular (público, sin secreto, con PKCE); los **roles** del realm viajan en el token y el backend los valida; el **flujo** `ppa reset credentials` recupera la contraseña con un código de 6 dígitos que llega al correo de prueba (Mailpit, <http://localhost:8025>); la invitación de alta es un enlace de 12 horas; el **tema** `auditor` (`keycloak/themes/auditor/`) dibuja el login, las pantallas de estado y los correos; la **extensión** Java (`keycloak/extensiones/codigo-recuperacion/`) genera y valida el código. El JSON del realm salió de configurarlo en una consola real y exportarlo; para volver a importarlo borre los datos con `docker compose down -v`.
 
 | Usuario | Rol | Identificador (para la API) |
 |---|---|---|
@@ -127,11 +134,14 @@ Si después de `down -v` se borra también `.env` (o se clona de nuevo) pero que
 | Dr. Andrés Salazar | Médico | `20000000-0000-0000-0000-000000000003` |
 | Dr. Julián Ortiz | Médico | `20000000-0000-0000-0000-000000000004` |
 
-La interfaz de esta entrega es la de **enfermería**; el selector solo ofrece a Marcela y a Camilo. **No hay pantalla del médico** (decisión del equipo, E12c fuera de esta entrega). La regla del médico sí está en el servidor y se comprueba por la API enviando su identificador en la cabecera `X-Demo-User`:
+Para los `curl` de este README: inicie sesión en la app con el usuario que corresponda, abra las herramientas del navegador (pestaña Red), copie el valor de la cabecera `Authorization: Bearer …` de cualquier petición a `/api/` y expórtelo como `TOKEN_DE_ENFERMERIA` o `TOKEN_DEL_MEDICO`. El token dura unos minutos.
+
+La interfaz ofrece las pantallas de **enfermería** y las del **médico** («Mis pacientes», «Informes → Recibidos»), que reutilizan las de enfermería con lo que su rol puede hacer (D12). Para verlas, inicie sesión con un médico sembrado (`andres.salazar@example.test`). La regla de qué ve el médico la decide el servidor, y se comprueba igual por la API con el token del médico:
 
 ```bash
-# El médico solo recibe informes APROBADOS (los 4 sembrados); un informe pendiente le responde 404.
-curl -s -H 'X-Demo-User: 20000000-0000-0000-0000-000000000003' http://localhost:8080/api/reports
+# El médico solo recibe informes ENVIADOS (3 de los 4 sembrados; el cuarto queda aprobado, para enviarlo en vivo);
+# un informe pendiente, incompleto, rechazado o aprobado sin enviar le responde 404, como si no existiera.
+curl -s -H "Authorization: Bearer $TOKEN_DEL_MEDICO" http://localhost:8080/api/reports
 ```
 
 ### Los cinco pacientes (sintéticos)
@@ -140,7 +150,7 @@ Fechas fijas: los registros terminan el domingo 25-oct-2026 y el reloj de la apl
 
 | Paciente | Semanas con registros | Para qué sirve en la demostración |
 |---|---|---|
-| P-014 | 5 (21-sep a 25-oct) | Tiene 4 informes aprobados sembrados; la semana del 19-oct no tiene informe: es la que se genera. Permite el mensual |
+| P-014 | 5 (21-sep a 25-oct) | Tiene 4 informes sembrados: 3 ya enviados al médico y 1 aprobado sin enviar, para enviarlo en vivo; la semana del 19-oct no tiene informe: es la que se genera. Permite el mensual |
 | P-021 | 4 | Tiene 1 informe sembrado pendiente de revisión (semana del 12-oct) |
 | P-007 | 3 | Pocos registros: el informe dice «sin información suficiente» en vez de rellenar |
 | P-033 | 4 | Solo negaciones («sin vómito», «sin dolor»): el informe no inventa síntomas |
@@ -148,15 +158,24 @@ Fechas fijas: los registros terminan el domingo 25-oct-2026 y el reloj de la apl
 
 ### Recorrido de 5 minutos (necesita llave, ver §3)
 
-1. Elija **Marcela Rojas**. En **Nuevo registro diario**, elija un paciente, escriba por ejemplo `Hoy vomitó dos veces, dolor de cabeza leve, no tuvo fiebre.`, pulse **Enviar** y revise los eventos que sugiere la IA (síntoma, intensidad, veces). Nada se guarda hasta pulsar **Aprobar y guardar**; **Descartar** cierra la vista previa sin guardar. No hay lista cerrada de síntomas: pruebe también `Le duele la garganta y tiene tos seca. Sin dolor de cabeza.` y verá «Dolor de garganta» y «Tos seca» como síntomas propuestos (con la frase de la nota que los respalda), o escriba cualquier síntoma a mano con **Agregar síntoma**.
+1. Elija **Marcela Rojas**. En **Nuevo registro diario**, elija un paciente, escriba por ejemplo `Hoy vomitó dos veces, dolor de cabeza leve, no tuvo fiebre.`, pulse **Enviar** y revise los eventos que sugiere la IA (síntoma, intensidad, veces). Arriba verá el **Texto corregido** (su nota con ortografía, tildes y puntuación arregladas, en oraciones cortas), que puede editar; se guarda aparte como una versión y **el texto original se guarda tal como lo escribió** (los informes citan el original). Pruebe con `dolor de cabeza intenso desde la mañana tuvo diarea dos veces comio poko`. Nada se guarda hasta pulsar **Aprobar y guardar**; **Descartar** cierra la vista previa sin guardar. No hay lista cerrada de síntomas: pruebe también `Le duele la garganta y tiene tos seca. Sin dolor de cabeza.` y verá «Dolor de garganta» y «Tos seca» como síntomas propuestos (con la frase de la nota que los respalda), o escriba cualquier síntoma a mano con **Agregar síntoma**.
 2. En **Generar informe**, elija **P-014**, la semana del **19-oct** y pulse **Generar con IA**. La pantalla muestra los pasos reales del agente a medida que ocurren (consulta de registros, métricas, validación). No bloquea la página: la ejecución corre en segundo plano.
 3. Se abre el informe pendiente de revisión. Cada afirmación lleva un número `[n]` que lleva al registro original (fecha y texto) y el criterio de comparación; **Ver cómo se generó** muestra la herramienta, los parámetros, el resultado, los milisegundos y los tokens de cada paso.
-4. **Editar** (crea la versión 2; la versión 1 de la IA no se toca), **Rechazar** (con motivo) o **Aprobar informe**. Solo un informe aprobado llega al médico.
-5. En **Informes aprobados** están los 4 sembrados de P-014 y el que acaba de aprobar.
+4. **Editar** (crea la versión 2; la versión 1 de la IA no se toca), **Rechazar** (con motivo) o **Aprobar informe**. Aprobar guarda el informe, pero todavía no lo hace llegar al médico.
+5. En **Informes aprobados** están los 4 sembrados de P-014 (3 «Enviado», 1 «Aprobado») y el que acaba de aprobar. Ábralo y pulse **Enviar al médico**: pasa a «Enviado», con la nota «Enviado al médico el …», y solo entonces lo recibe el médico (RF-44, D29).
 6. **Informe mensual.** En **Generar informe**, elija **P-014**, el período **Un mes (cuatro semanas)** y la ventana **del 21 de septiembre al 18 de octubre** (sus cuatro semanas ya tienen informe semanal aprobado). El agente lee los cuatro informes y las cifras de cada semana y redacta la evolución; la hoja muestra la tabla **Evolución semana a semana**, enlaza los cuatro informes de origen y pasa por la misma revisión (editar, rechazar, aprobar). Con **P-021** la ventana no se puede generar: la pantalla dice qué semanas faltan y en qué estado está su informe (regla RN-10, decidida por el código y no por el modelo).
-7. **Imprimir.** En cualquier informe **aprobado** (semanal o mensual) pulse **Descargar PDF**: el servidor lo arma con JasperReports y trae el aprobador, la fecha de aprobación, el id del informe, el resumen con sus `[n]`, las cifras, las fuentes con el texto original y la nota de asistencia de IA. Solo se imprime lo aprobado: un informe pendiente responde 409, y para el médico «no existe». Por API: `curl -s -H 'X-Demo-User: 20000000-0000-0000-0000-000000000003' -o informe.pdf http://localhost:8080/api/reports/<id>/pdf` (el `<id>` sale de `GET /api/reports?status=APROBADO`).
+7. **Imprimir.** En cualquier informe **aprobado** (semanal o mensual) pulse **Descargar PDF**: el servidor lo arma con JasperReports y trae el aprobador, la fecha de aprobación, el id del informe, el resumen con sus `[n]`, las cifras, las fuentes con el texto original y la nota de asistencia de IA. Se imprime lo aprobado o lo enviado: un informe pendiente responde 409. Lo que el rol no puede ver «no existe» (404): el médico solo descarga un informe ya enviado. Por API: `curl -s -H "Authorization: Bearer $TOKEN_DEL_MEDICO" -o informe.pdf http://localhost:8080/api/reports/<id>/pdf` (el `<id>` sale de `GET /api/reports?status=ENVIADO`, con el token del médico).
 
 Sin llave (ver §3) los pasos 1, 2 y 6 muestran un aviso claro; todo lo demás (pacientes, historial, informes sembrados, revisión, aprobación, rechazo) funciona.
+
+### Recorrido del médico (1 minuto)
+
+1. Inicie sesión como **Dr. Andrés Salazar** (`andres.salazar@example.test`). La interfaz abre sus pantallas: **Mis pacientes** y **Informes → Recibidos**; no hay «Nuevo paciente» ni «Generar informe» (no tiene esos permisos).
+2. Abra **P-014**: el último informe dice **«Último informe recibido»** y es el más reciente de los tres `ENVIADO` (la semana del 5 de octubre), nunca el `APROBADO` sin enviar del 12 de octubre, aunque sea más nuevo. Puede registrar con **Nuevo registro** (misma pantalla que enfermería, con estructuración, vista previa y texto corregido; necesita llave, ver §3); la entrada queda con su autoría.
+3. En **Informes → Recibidos** solo aparecen los informes `ENVIADO`, por período del más reciente al más antiguo, con la columna **Recibido** (la fecha de envío). Ábralo: tiene la misma hoja con sus citas, pero solo **Descargar PDF** (sin editar, aprobar, rechazar ni enviar). Los tres sembrados no traen **Ver cómo se generó** (los escribió una plantilla, sin pasar por el agente, D11); un informe que el médico vea y haya generado el agente sí lo trae, como para enfermería.
+4. El `APROBADO` sin enviar de P-014 (12-oct) y el `PENDIENTE_REVISION` de P-021 no aparecen en ninguna pantalla del médico ni por la API: `curl -s -H "Authorization: Bearer $TOKEN_DEL_MEDICO" http://localhost:8080/api/reports/<id-del-aprobado-sin-enviar>` responde 404, igual que si no existiera (D29).
+
+Sin llave (ver §3), el paso 2 (registrar) muestra un aviso claro; los pasos 1, 3 y 4 funcionan igual.
 
 ---
 
@@ -182,7 +201,7 @@ Las variables exactas están en [.env.example](.env.example), sin valores reales
 Comprobar que la tomó (no imprime la llave; la API pide un usuario de demostración en la cabecera, aquí Marcela):
 
 ```bash
-curl -s -H 'X-Demo-User: 20000000-0000-0000-0000-000000000001' http://localhost:8080/api/llm/status
+curl -s -H "Authorization: Bearer $TOKEN_DE_ENFERMERIA" http://localhost:8080/api/llm/status
 # "available": true y "configured": true en el proveedor principal
 ```
 
@@ -207,7 +226,7 @@ Edite `.env` (o exporte las variables) y recree el backend; no hay que reconstru
 # ejemplo: Gemini como principal y Groq como respaldo
 sed -i 's/^LLM_PROVIDER=.*/LLM_PROVIDER=gemini/; s/^LLM_FALLBACK=.*/LLM_FALLBACK=groq/' .env
 docker compose up -d backend
-curl -s -H 'X-Demo-User: 20000000-0000-0000-0000-000000000001' http://localhost:8080/api/llm/status     # muestra el nuevo orden
+curl -s -H "Authorization: Bearer $TOKEN_DE_ENFERMERIA" http://localhost:8080/api/llm/status     # muestra el nuevo orden
 ```
 
 `LLM_FALLBACK=none` desactiva el respaldo. Esto necesita `GEMINI_API_KEY` en `.env`.
@@ -265,21 +284,21 @@ Decisiones que el profesor suele preguntar (todas con su razón y la alternativa
 Las pruebas del backend usan un PostgreSQL real y lo modifican: use una base desechable, no la de la aplicación.
 
 ```bash
-# Backend (350 pruebas): necesita un PostgreSQL 16 accesible y Java 17 + Maven en la máquina
+# Backend (366 pruebas): necesita un PostgreSQL 16 accesible y Java 17 + Maven en la máquina
 docker run -d --name ppa-test-pg -e POSTGRES_DB=patient_auditor -e POSTGRES_USER=patient_auditor \
   -e POSTGRES_PASSWORD=prueba -p 55432:5432 postgres:16.15-alpine
 cd backend && SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:55432/patient_auditor \
   SPRING_DATASOURCE_USERNAME=patient_auditor SPRING_DATASOURCE_PASSWORD=prueba mvn -B verify
 
-# Frontend (121 pruebas): Node 20 y Chrome
+# Frontend (129 pruebas): Node 20 y Chrome
 cd frontend && npm ci && npx ng test --watch=false --browsers=ChromeHeadless
 
-# Variables documentadas, y las 31 pruebas de la propia evaluación
+# Variables documentadas, y las 36 pruebas de la propia evaluación
 scripts/check-env-example.sh
 python3 -m unittest discover -s eval
 ```
 
-**Evaluación del agente (`eval/`)**: 8 casos dorados de informes semanales (con un rechazo, una inyección y datos insuficientes), 3 del informe mensual y 24 de estructuración (8 con síntomas fuera del catálogo), verificados a mano. Un comando corre todo contra la aplicación levantada y escribe un resultado con fecha:
+**Evaluación del agente (`eval/`)**: 8 casos dorados de informes semanales (con un rechazo, una inyección y datos insuficientes), 3 del informe mensual y 28 de estructuración (8 con síntomas fuera del catálogo y 4 con notas mal escritas para el texto corregido), verificados a mano. Un comando corre todo contra la aplicación levantada y escribe un resultado con fecha:
 
 ```bash
 python3 eval/run_eval.py                    # contra la app en :8080 (gasta cuota de la llave)
@@ -308,7 +327,9 @@ La suite rechaza cada informe que genera para poder repetir la semana: úsela en
 
 **Momento 2.** Está: registro con estructuración por IA y confirmación humana, agente con cuatro límites, informe semanal y mensual (cuatro semanas aprobadas, RN-10) con citas y traza, revisión (editar con versiones, aprobar, rechazar), PDF del informe aprobado (JasperReports), ejecución en segundo plano con progreso por SSE, semilla sin llamar al modelo, evaluación con cifras.
 
-**No está (decidido y declarado):** autenticación y credenciales (Momento 3, D23); pantalla del médico (E12c fuera; la regla se aplica en el servidor y se prueba por API); dictado por voz (opcional); fallos del proveedor forzables en vivo (se prueban con pruebas automáticas).
+**Momento 3 (en construcción).** Está: «Enviar al médico» y el estado `ENVIADO` (D29, RF-44); las pantallas del médico («Mis pacientes», «Informes → Recibidos», su registro), reutilizando las de enfermería (D12).
+
+**No está (decidido y declarado):** autenticación y credenciales (Momento 3, D23); dictado por voz (opcional); fallos del proveedor forzables en vivo (se prueban con pruebas automáticas).
 
 **Prueba del compañero.** El procedimiento (otra persona, sin el código, que solo lee este README en un clon limpio, con el tiempo medido desde `git clone` hasta ver la interfaz con los pacientes; meta: menos de 5 minutos) y su registro están en [docs/prueba_companero.md](docs/prueba_companero.md). **Estado al 30-oct: la plantilla está lista y todavía no la llenó una persona ajena al equipo.** Lo medido por el equipo (4 min 23 s, §1) no la sustituye.
 
@@ -322,9 +343,9 @@ frontend/     SPA Angular 19 (Node 20)
 docker-compose.yml · run.sh · .env.example               — arranque en un comando
 eval/         casos dorados, solución convencional, script y resultados fechados
 scripts/      verificación de variables, cálculo independiente de métricas, generador de la semilla
-docs/         SPEC.md · REQUISITOS.md · PLAN.md · decisiones.md · decisiones/ · diccionarios de datos
+docs/         SPEC.md · REQUISITOS.md · PLAN.md · decisiones.md · decisiones/ · diccionarios de datos · entregables/
 skills/       los cuatro skills del curso (especifica-encargo, planea-trabajo, ejecuta-plan, valida-resultado)
-.github/      CI, Security (CodeQL, Dependency Review, Gitleaks) y Qodana
+.github/      CI, Security (CodeQL, Dependency Review, Gitleaks), Qodana y la plantilla de pull request
 ```
 
 | Para saber… | Lea |
@@ -334,4 +355,5 @@ skills/       los cuatro skills del curso (especifica-encargo, planea-trabajo, e
 | Cada decisión técnica con su razón y alternativa | [docs/decisiones.md](docs/decisiones.md) |
 | Tablas, columnas y reglas de integridad | [docs/DICCIONARIO_DATOS_M2.md](docs/DICCIONARIO_DATOS_M2.md) |
 | Reglas del proyecto y del curso | [AGENTS.md](AGENTS.md) |
+| Cómo contribuir: ramas, commits, pruebas y herramientas de IA | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Prueba con una persona ajena al código | [docs/prueba_companero.md](docs/prueba_companero.md) |

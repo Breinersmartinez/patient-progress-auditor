@@ -11,49 +11,65 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.patientprogressauditor.entry.Entry;
 import com.patientprogressauditor.entry.EntryRepository;
+import com.patientprogressauditor.support.AuditCleanup;
 
 // Informes de prueba con contenido real: citan registros del paciente de esa semana y traen las cifras (`metrics`) que el
 // codigo guardaria. Se insertan por JDBC para fijar el estado sin pasar por el agente.
-final class ReportFixtures {
+// Publica desde la Pieza 5 (notificaciones): NotificationsApiTest tambien necesita un informe APROBADO real para
+// probar que enviarlo notifica, y repetir esta logica en otro paquete habria duplicado la validacion de contenido.
+public final class ReportFixtures {
 
-    static final String NURSE = "20000000-0000-0000-0000-000000000002";
-    static final String DOCTOR = "20000000-0000-0000-0000-000000000003";
+    public static final String NURSE = "20000000-0000-0000-0000-000000000002";
+    public static final String DOCTOR = "20000000-0000-0000-0000-000000000003";
 
     private final JdbcTemplate jdbc;
     private final EntryRepository entries;
     private final ObjectMapper mapper;
 
-    ReportFixtures(JdbcTemplate jdbc, EntryRepository entries, ObjectMapper mapper) {
+    public ReportFixtures(JdbcTemplate jdbc, EntryRepository entries, ObjectMapper mapper) {
         this.jdbc = jdbc;
         this.entries = entries;
         this.mapper = mapper;
     }
 
-    UUID patient(String alias) {
+    public UUID patient(String alias) {
         return jdbc.queryForObject("SELECT id FROM patients WHERE alias = ?", UUID.class, alias);
     }
 
-    List<Entry> weekEntries(UUID patient, LocalDate monday) {
+    public List<Entry> weekEntries(UUID patient, LocalDate monday) {
         return entries.findByPatientIdAndEntryDateBetweenOrderByEntryDateAscCreatedAtAsc(patient, monday, monday.plusDays(6));
     }
 
     // Un informe SEMANAL de la semana `monday` en el estado dado, con su version 1 (MODELO) y sus citas.
-    UUID report(UUID patient, LocalDate monday, String status) {
-        List<Entry> week = weekEntries(patient, monday);
+    public UUID report(UUID patient, LocalDate monday, String status) {
+        return insert(patient, monday, monday.plusDays(6), "SEMANAL", status);
+    }
+
+    // Un informe MENSUAL que empieza el `monday` (cuatro semanas), en el estado dado. El contenido es el mismo
+    // minimo valido de `report()`: alcanza para probar que enviarlo notifica con reportType MENSUAL (Pieza 5),
+    // no el contenido real de un mensual (RF-36), que no hace falta para eso.
+    public UUID monthlyReport(UUID patient, LocalDate monday, String status) {
+        return insert(patient, monday, monday.plusDays(27), "MENSUAL", status);
+    }
+
+    private UUID insert(UUID patient, LocalDate periodStart, LocalDate periodEnd, String type, String status) {
+        List<Entry> week = weekEntries(patient, periodStart);
         UUID id = UUID.randomUUID();
         UUID version = UUID.randomUUID();
-        boolean reviewed = status.equals("APROBADO") || status.equals("RECHAZADO");
+        boolean sent = status.equals("ENVIADO");
+        boolean approved = status.equals("APROBADO") || sent;
+        boolean reviewed = approved || status.equals("RECHAZADO");
         Instant now = Instant.now();
         jdbc.update("""
                 INSERT INTO reports (id, patient_id, report_type, period_start, period_end, status, status_reason, requested_by,
-                    reviewed_by, reviewed_at, approved_version_no)
-                VALUES (?, ?, 'SEMANAL', ?, ?, ?, ?, ?, ?, ?, ?)""",
-                id, patient, monday, monday.plusDays(6), status,
+                    reviewed_by, reviewed_at, approved_version_no, sent_by, sent_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                id, patient, type, periodStart, periodEnd, status,
                 status.equals("INCOMPLETO") ? "Se agotó el límite de 5 llamadas al modelo." : status.equals("RECHAZADO") ? "No concuerda con los registros." : null,
                 UUID.fromString(NURSE), reviewed ? UUID.fromString(NURSE) : null, reviewed ? java.sql.Timestamp.from(now) : null,
-                status.equals("APROBADO") ? 1 : null);
+                approved ? 1 : null, sent ? UUID.fromString(NURSE) : null, sent ? java.sql.Timestamp.from(now) : null);
         jdbc.update("INSERT INTO report_versions (id, report_id, version_no, origin, content) VALUES (?, ?, 1, 'MODELO', ?::jsonb)",
-                version, id, content(monday, week.get(0).getId(), week.get(1).getId()).toString());
+                version, id, content(periodStart, week.get(0).getId(), week.get(1).getId()).toString());
         jdbc.update("INSERT INTO report_citations (report_version_id, claim_key, entry_id) VALUES (?, 'c1', ?), (?, 'c2', ?)",
                 version, week.get(0).getId(), version, week.get(1).getId());
         return id;
@@ -83,6 +99,8 @@ final class ReportFixtures {
     }
 
     void delete(UUID patient) {
+        // RF-35: las anotaciones sobreviven a los informes que borra la prueba (audit_logs no tiene clave foranea al objeto).
+        AuditCleanup.deleteFor(jdbc, jdbc.queryForList("SELECT id FROM reports WHERE patient_id = ?", UUID.class, patient));
         jdbc.update("DELETE FROM report_citations WHERE report_version_id IN (SELECT v.id FROM report_versions v JOIN reports r ON r.id = v.report_id WHERE r.patient_id = ?)", patient);
         jdbc.update("DELETE FROM report_versions WHERE report_id IN (SELECT id FROM reports WHERE patient_id = ?)", patient);
         jdbc.update("DELETE FROM reports WHERE patient_id = ?", patient);

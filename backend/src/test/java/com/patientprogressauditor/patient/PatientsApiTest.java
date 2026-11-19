@@ -4,6 +4,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import com.patientprogressauditor.support.TestAuth;
 
 import java.time.LocalDate;
 import java.util.UUID;
@@ -30,7 +31,7 @@ class PatientsApiTest {
     @Autowired private JdbcTemplate jdbc;
 
     private static MockHttpServletRequestBuilder asNurse(MockHttpServletRequestBuilder request) {
-        return request.header("X-Demo-User", NURSE);
+        return request.with(TestAuth.as(NURSE));
     }
 
     private static MockHttpServletRequestBuilder json(MockHttpServletRequestBuilder request, String body) {
@@ -126,8 +127,8 @@ class PatientsApiTest {
     @Test
     void permissionsAreEnforcedByTheServer() throws Exception {
         mockMvc.perform(get("/api/patients")).andExpect(status().isUnauthorized());
-        mockMvc.perform(get("/api/patients").header("X-Demo-User", DOCTOR)).andExpect(status().isOk());
-        mockMvc.perform(json(post("/api/patients").header("X-Demo-User", DOCTOR), "{\"alias\":\"P-047\"}"))
+        mockMvc.perform(get("/api/patients").with(TestAuth.as(DOCTOR))).andExpect(status().isOk());
+        mockMvc.perform(json(post("/api/patients").with(TestAuth.as(DOCTOR)), "{\"alias\":\"P-047\"}"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value("Su rol no tiene permiso para esta accion."));
     }
@@ -150,24 +151,25 @@ class PatientsApiTest {
     }
 
     @Test
-    void theLastReportIsTheMostRecentPeriodAndTheDoctorOnlySeesApprovedOnes() throws Exception {
-        // El aprobado del 12 de octubre ya viene sembrado (E14): solo se agrega el pendiente de la semana siguiente.
+    void theLastReportIsTheMostRecentPeriodAndTheDoctorOnlySeesSentOnes() throws Exception {
+        // Ya vienen sembrados (E14, D29) tres enviados (21-sep, 28-sep y 5-oct) y el aprobado del 12 de octubre, que enfermeria
+        // todavia no envio: solo se agrega el pendiente de la semana siguiente.
         insertReport("P-014", "2026-10-19", "PENDIENTE_REVISION");
 
         mockMvc.perform(asNurse(get("/api/patients/" + patientId("P-014"))))
                 .andExpect(jsonPath("$.lastReport.status").value("PENDIENTE_REVISION"))
                 .andExpect(jsonPath("$.lastReport.periodStart").value("2026-10-19"))
                 .andExpect(jsonPath("$.lastReport.periodEnd").value("2026-10-25"));
-        mockMvc.perform(get("/api/patients/" + patientId("P-014")).header("X-Demo-User", DOCTOR))
-                .andExpect(jsonPath("$.lastReport.status").value("APROBADO"))
-                .andExpect(jsonPath("$.lastReport.periodStart").value("2026-10-12"));
+        mockMvc.perform(get("/api/patients/" + patientId("P-014")).with(TestAuth.as(DOCTOR)))
+                .andExpect(jsonPath("$.lastReport.status").value("ENVIADO"))
+                .andExpect(jsonPath("$.lastReport.periodStart").value("2026-10-05"));
     }
 
     @Test
     void theDoctorSeesNoReportWhenTheOnlyOneIsPending() throws Exception {
         insertReport("P-021", "2026-10-19", "PENDIENTE_REVISION");
 
-        mockMvc.perform(get("/api/patients").header("X-Demo-User", DOCTOR))
+        mockMvc.perform(get("/api/patients").with(TestAuth.as(DOCTOR)))
                 .andExpect(jsonPath("$[?(@.alias == 'P-021')].lastReport").isEmpty());
         mockMvc.perform(asNurse(get("/api/patients")))
                 .andExpect(jsonPath("$[?(@.alias == 'P-021')].lastReport.status").value("PENDIENTE_REVISION"));

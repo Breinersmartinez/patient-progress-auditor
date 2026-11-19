@@ -3,7 +3,7 @@
     {
       "alias": "P-014",
       "weekStart": "2026-09-21",
-      "status": "APROBADO",
+      "status": "ENVIADO",
       "requestedBy": "camilo",
       "generatedAt": "2026-09-28T08:00:00-05:00",
       "summary": "La semana tiene registros de 7 de 7 días. La semana anterior no tiene registros: no se pudo comparar.",
@@ -55,12 +55,14 @@
       "changesVsPrevious": [],
       "recurringPatterns": [],
       "reviewer": "marcela",
-      "reviewedAt": "2026-09-28T09:00:00-05:00"
+      "reviewedAt": "2026-09-28T09:00:00-05:00",
+      "sentBy": "marcela",
+      "sentAt": "2026-09-28T10:00:00-05:00"
     },
     {
       "alias": "P-014",
       "weekStart": "2026-09-28",
-      "status": "APROBADO",
+      "status": "ENVIADO",
       "requestedBy": "camilo",
       "generatedAt": "2026-10-05T08:00:00-05:00",
       "summary": "La semana tiene registros de 7 de 7 días. Se comparó con la semana anterior.",
@@ -122,12 +124,14 @@
         "c2"
       ],
       "reviewer": "marcela",
-      "reviewedAt": "2026-10-05T09:00:00-05:00"
+      "reviewedAt": "2026-10-05T09:00:00-05:00",
+      "sentBy": "marcela",
+      "sentAt": "2026-10-05T10:00:00-05:00"
     },
     {
       "alias": "P-014",
       "weekStart": "2026-10-05",
-      "status": "APROBADO",
+      "status": "ENVIADO",
       "requestedBy": "camilo",
       "generatedAt": "2026-10-12T08:00:00-05:00",
       "summary": "La semana tiene registros de 7 de 7 días. Se comparó con la semana anterior.",
@@ -206,7 +210,9 @@
         "c4"
       ],
       "reviewer": "marcela",
-      "reviewedAt": "2026-10-12T09:00:00-05:00"
+      "reviewedAt": "2026-10-12T09:00:00-05:00",
+      "sentBy": "marcela",
+      "sentAt": "2026-10-12T10:00:00-05:00"
     },
     {
       "alias": "P-014",

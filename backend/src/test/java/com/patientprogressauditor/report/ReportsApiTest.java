@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import com.patientprogressauditor.support.TestAuth;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -75,32 +76,37 @@ class ReportsApiTest {
     }
 
     private ResultActions putContent(String user, UUID report, String json) throws Exception {
-        return mockMvc.perform(put("/api/reports/" + report + "/content").header("X-Demo-User", user)
+        return mockMvc.perform(put("/api/reports/" + report + "/content").with(TestAuth.as(user))
                 .contentType(MediaType.APPLICATION_JSON).content(json));
     }
 
     private ResultActions action(String user, UUID report, String what, String json) throws Exception {
-        return mockMvc.perform(post("/api/reports/" + report + "/" + what).header("X-Demo-User", user)
+        return mockMvc.perform(post("/api/reports/" + report + "/" + what).with(TestAuth.as(user))
                 .contentType(MediaType.APPLICATION_JSON).content(json));
     }
 
     // ---- lectura: la regla de estado la pone el servidor ----
 
     @Test
-    void theDoctorListsOnlyApprovedReportsAndNursingListsAllOfThem() throws Exception {
+    void theDoctorListsOnlySentReportsAndNursingListsAllOfThem() throws Exception {
         UUID pending = fx.report(p014, W1, "PENDIENTE_REVISION");
         UUID incomplete = fx.report(p014, W2, "INCOMPLETO");
+        UUID rejected = fx.report(p014, W2, "RECHAZADO");
         UUID approved = fx.report(p014, W3, "APROBADO");
-        UUID rejected = fx.report(p014, W4, "RECHAZADO");
+        UUID sent = fx.report(p014, W4, "ENVIADO");
 
-        List<String> nurse = ids(body(mockMvc.perform(get("/api/reports?patientId=" + p014).header("X-Demo-User", NURSE))));
-        assertThat(nurse).containsExactly(pending.toString(), rejected.toString(), approved.toString(), incomplete.toString());
+        List<String> nurse = ids(body(mockMvc.perform(get("/api/reports?patientId=" + p014).with(TestAuth.as(NURSE)))));
+        // Del periodo mas reciente al mas antiguo; el rechazado y el incompleto comparten semana y su orden no importa.
+        assertThat(nurse).startsWith(pending.toString(), sent.toString(), approved.toString())
+                .containsExactlyInAnyOrder(pending.toString(), sent.toString(), approved.toString(), rejected.toString(), incomplete.toString());
 
-        List<String> doctor = ids(body(mockMvc.perform(get("/api/reports?patientId=" + p014).header("X-Demo-User", DOCTOR))));
-        assertThat(doctor).containsExactly(approved.toString());
+        // Aprobado no es enviado (D29): el medico solo ve el enviado.
+        List<String> doctor = ids(body(mockMvc.perform(get("/api/reports?patientId=" + p014).with(TestAuth.as(DOCTOR)))));
+        assertThat(doctor).containsExactly(sent.toString());
+        assertThat(body(mockMvc.perform(get("/api/reports?status=APROBADO&patientId=" + p014).with(TestAuth.as(DOCTOR))))).isEmpty();
         // Pedir un estado que no ve no es un error ni lo revela: lista vacia.
-        assertThat(body(mockMvc.perform(get("/api/reports?status=PENDIENTE_REVISION").header("X-Demo-User", DOCTOR)))).isEmpty();
-        assertThat(ids(body(mockMvc.perform(get("/api/reports?status=INCOMPLETO&patientId=" + p014).header("X-Demo-User", NURSE)))))
+        assertThat(body(mockMvc.perform(get("/api/reports?status=PENDIENTE_REVISION").with(TestAuth.as(DOCTOR))))).isEmpty();
+        assertThat(ids(body(mockMvc.perform(get("/api/reports?status=INCOMPLETO&patientId=" + p014).with(TestAuth.as(NURSE))))))
                 .containsExactly(incomplete.toString());
         mockMvc.perform(get("/api/reports")).andExpect(status().isUnauthorized());
     }
@@ -110,13 +116,14 @@ class ReportsApiTest {
     }
 
     @Test
-    void theDoctorCannotOpenAReportThatIsNotApprovedAndItLooksLikeItDoesNotExist() throws Exception {
-        for (String state : List.of("PENDIENTE_REVISION", "INCOMPLETO", "RECHAZADO")) {
-            UUID report = fx.report(p014, state.equals("INCOMPLETO") ? W1 : state.equals("RECHAZADO") ? W2 : W3, state);
-            mockMvc.perform(get("/api/reports/" + report).header("X-Demo-User", DOCTOR))
+    void theDoctorCannotOpenAReportThatIsNotSentAndItLooksLikeItDoesNotExist() throws Exception {
+        java.util.Map<String, LocalDate> weeks = java.util.Map.of("INCOMPLETO", W1, "RECHAZADO", W2, "PENDIENTE_REVISION", W3, "APROBADO", W4);
+        for (String state : List.of("PENDIENTE_REVISION", "INCOMPLETO", "RECHAZADO", "APROBADO")) {
+            UUID report = fx.report(p014, weeks.get(state), state);
+            mockMvc.perform(get("/api/reports/" + report).with(TestAuth.as(DOCTOR)))
                     .andExpect(status().isNotFound()).andExpect(jsonPath("$.message").value("No encontramos ese informe."));
-            mockMvc.perform(get("/api/reports/" + report + "/trace").header("X-Demo-User", DOCTOR)).andExpect(status().isNotFound());
-            mockMvc.perform(get("/api/reports/" + report).header("X-Demo-User", NURSE)).andExpect(status().isOk());
+            mockMvc.perform(get("/api/reports/" + report + "/trace").with(TestAuth.as(DOCTOR))).andExpect(status().isNotFound());
+            mockMvc.perform(get("/api/reports/" + report).with(TestAuth.as(NURSE))).andExpect(status().isOk());
         }
     }
 
@@ -125,7 +132,7 @@ class ReportsApiTest {
         UUID report = fx.report(p014, W4, "PENDIENTE_REVISION");
         List<Entry> week = fx.weekEntries(p014, W4);
 
-        JsonNode detail = body(mockMvc.perform(get("/api/reports/" + report).header("X-Demo-User", NURSE)).andExpect(status().isOk()));
+        JsonNode detail = body(mockMvc.perform(get("/api/reports/" + report).with(TestAuth.as(NURSE))).andExpect(status().isOk()));
         assertThat(detail.path("report").path("patientAlias").asText()).isEqualTo("P-033");
         assertThat(detail.path("report").path("status").asText()).isEqualTo("PENDIENTE_REVISION");
         assertThat(detail.path("version").path("versionNo").asInt()).isEqualTo(1);
@@ -144,7 +151,7 @@ class ReportsApiTest {
     void editingKeepsTheModelsVersionAndAddsTheNursesWithItsCitations() throws Exception {
         UUID report = fx.report(p014, W4, "PENDIENTE_REVISION");
         List<Entry> week = fx.weekEntries(p014, W4);
-        JsonNode original = body(mockMvc.perform(get("/api/reports/" + report + "/versions/1").header("X-Demo-User", NURSE)));
+        JsonNode original = body(mockMvc.perform(get("/api/reports/" + report + "/versions/1").with(TestAuth.as(NURSE))));
 
         JsonNode edited = body(putContent(NURSE, report, edit(report, "La semana tiene registros todos los días y las náuseas aparecen en 3 días.",
                 "Las náuseas se registraron en 3 días; el lunes con más detalle.", "Texto de los registros de la semana",
@@ -162,13 +169,13 @@ class ReportsApiTest {
         assertThat(edited.path("version").path("content").path("claims").get(1).path("text").asText())
                 .isEqualTo(original.path("content").path("claims").get(1).path("text").asText());
         // La version 1 sigue siendo exactamente la del modelo (RF-25).
-        JsonNode stillOriginal = body(mockMvc.perform(get("/api/reports/" + report + "/versions/1").header("X-Demo-User", NURSE)));
+        JsonNode stillOriginal = body(mockMvc.perform(get("/api/reports/" + report + "/versions/1").with(TestAuth.as(NURSE))));
         assertThat(stillOriginal).isEqualTo(original);
         assertThat(stillOriginal.path("origin").asText()).isEqualTo("MODELO");
         assertThat(jdbc.queryForObject("SELECT count(*) FROM report_citations c JOIN report_versions v ON v.id = c.report_version_id WHERE v.report_id = ? AND v.version_no = 2",
                 Integer.class, report)).isEqualTo(3);
-        mockMvc.perform(get("/api/reports/" + report + "/versions/9").header("X-Demo-User", NURSE)).andExpect(status().isNotFound());
-        mockMvc.perform(get("/api/reports/" + report + "/versions/1").header("X-Demo-User", DOCTOR)).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/reports/" + report + "/versions/9").with(TestAuth.as(NURSE))).andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/reports/" + report + "/versions/1").with(TestAuth.as(DOCTOR))).andExpect(status().isForbidden());
     }
 
     @Test
@@ -202,7 +209,7 @@ class ReportsApiTest {
         putContent(NURSE, report, "{\"summary\":\"Resumen\",\"claims\":[]}").andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.fields.claims").exists());
         // Sin cambios no se crea una version.
-        JsonNode v1 = body(mockMvc.perform(get("/api/reports/" + report + "/versions/1").header("X-Demo-User", NURSE)));
+        JsonNode v1 = body(mockMvc.perform(get("/api/reports/" + report + "/versions/1").with(TestAuth.as(NURSE))));
         String same = mapper.createObjectNode().put("summary", v1.path("content").path("summary").asText())
                 .<com.fasterxml.jackson.databind.node.ObjectNode>set("claims", sameClaims(v1)).toString();
         putContent(NURSE, report, same).andExpect(status().isBadRequest()).andExpect(jsonPath("$.message").value("No hay cambios que guardar."));
@@ -224,7 +231,7 @@ class ReportsApiTest {
     // ---- decisiones ----
 
     @Test
-    void approvingRecordsWhoWhenAndWhichVersionAndTheDoctorSeesThatVersion() throws Exception {
+    void approvingRecordsWhoWhenAndWhichVersionAndTheDoctorSeesThatVersionOnceSent() throws Exception {
         UUID report = fx.report(p014, W4, "PENDIENTE_REVISION");
         List<Entry> week = fx.weekEntries(p014, W4);
         putContent(NURSE, report, edit(report, "La semana tiene registros todos los días.", "Las náuseas se registraron en 3 días de la semana.",
@@ -239,13 +246,18 @@ class ReportsApiTest {
         assertThat(approved.path("report").path("reviewedAt").asText()).isNotBlank();
         assertThat(approved.path("approvedVersionNo").asInt()).isEqualTo(2);
 
-        JsonNode forDoctor = body(mockMvc.perform(get("/api/reports/" + report).header("X-Demo-User", DOCTOR)).andExpect(status().isOk()));
+        // Aprobar no lo hace llegar al medico (D29): para el, el informe todavia no existe.
+        mockMvc.perform(get("/api/reports/" + report).with(TestAuth.as(DOCTOR))).andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/reports/" + report + "/trace").with(TestAuth.as(DOCTOR))).andExpect(status().isNotFound());
+        action(NURSE, report, "send", "").andExpect(status().isOk());
+
+        JsonNode forDoctor = body(mockMvc.perform(get("/api/reports/" + report).with(TestAuth.as(DOCTOR))).andExpect(status().isOk()));
         assertThat(forDoctor.path("version").path("versionNo").asInt()).isEqualTo(2);
         assertThat(forDoctor.path("version").path("content").path("claims").get(0).path("text").asText())
                 .isEqualTo("Las náuseas se registraron en 3 días de la semana.");
         assertThat(forDoctor.path("versions")).as("el historial de versiones es de enfermería").isEmpty();
         assertThat(forDoctor.path("citations").path("c1")).isNotEmpty();
-        mockMvc.perform(get("/api/reports/" + report + "/trace").header("X-Demo-User", DOCTOR)).andExpect(status().isOk());
+        mockMvc.perform(get("/api/reports/" + report + "/trace").with(TestAuth.as(DOCTOR))).andExpect(status().isOk());
     }
 
     @Test
@@ -269,6 +281,77 @@ class ReportsApiTest {
         action(NURSE, UUID.randomUUID(), "approve", "").andExpect(status().isNotFound());
     }
 
+    // ---- enviar al medico (D29, RF-44) ----
+
+    @Test
+    void sendingRecordsWhoAndWhenKeepsTheApprovalAndOnlyNursingCanDoIt() throws Exception {
+        UUID report = fx.report(p014, W4, "APROBADO");
+
+        action(DOCTOR, report, "send", "").andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/reports/" + report + "/send")).andExpect(status().isUnauthorized());
+        assertThat(jdbc.queryForObject("SELECT status FROM reports WHERE id = ?", String.class, report)).isEqualTo("APROBADO");
+
+        JsonNode sent = body(action(NURSE, report, "send", "").andExpect(status().isOk()));
+        assertThat(sent.path("report").path("status").asText()).isEqualTo("ENVIADO");
+        assertThat(sent.path("report").path("sentBy").asText()).isEqualTo("Camilo Torres");
+        assertThat(sent.path("report").path("sentAt").asText()).isNotBlank();
+        // Lo aprobado no cambia: quien y cuando lo aprobo y que version.
+        assertThat(sent.path("report").path("reviewedBy").asText()).isEqualTo("Camilo Torres");
+        assertThat(sent.path("report").path("reviewedAt").asText()).isNotBlank();
+        assertThat(sent.path("approvedVersionNo").asInt()).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT sent_by::text FROM reports WHERE id = ?", String.class, report)).isEqualTo(NURSE);
+
+        // Un enviado es final: enviarlo otra vez, o tocarlo, es una transicion que no existe y no cambia nada.
+        Object sentAt = jdbc.queryForObject("SELECT sent_at FROM reports WHERE id = ?", Object.class, report);
+        action(NURSE, report, "send", "").andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("ya fue enviado al médico")));
+        for (String what : List.of("approve", "reject")) {
+            action(NURSE, report, what, "{\"reason\":\"Motivo\"}").andExpect(status().isConflict());
+        }
+        putContent(NURSE, report, "{\"summary\":\"Resumen\",\"claims\":[]}").andExpect(status().isConflict());
+        assertThat(jdbc.queryForObject("SELECT sent_at FROM reports WHERE id = ?", Object.class, report)).isEqualTo(sentAt);
+        assertThat(jdbc.queryForObject("SELECT status FROM reports WHERE id = ?", String.class, report)).isEqualTo("ENVIADO");
+    }
+
+    @Test
+    void onlyAnApprovedReportCanBeSentAndAnyOtherIsRefusedWith409() throws Exception {
+        java.util.Map<String, LocalDate> weeks = java.util.Map.of("PENDIENTE_REVISION", W1, "INCOMPLETO", W2, "RECHAZADO", W3);
+        for (String state : weeks.keySet()) {
+            UUID report = fx.report(p014, weeks.get(state), state);
+            action(NURSE, report, "send", "").andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.startsWith("No se puede enviar este informe")));
+            assertThat(jdbc.queryForObject("SELECT status FROM reports WHERE id = ?", String.class, report)).isEqualTo(state);
+            assertThat(jdbc.queryForObject("SELECT sent_by FROM reports WHERE id = ?", Object.class, report)).isNull();
+        }
+        UUID pending = jdbc.queryForObject("SELECT id FROM reports WHERE patient_id = ? AND status = 'PENDIENTE_REVISION'", UUID.class, p014);
+        action(NURSE, pending, "send", "").andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("todavía no fue aprobado")));
+        action(NURSE, UUID.randomUUID(), "send", "").andExpect(status().isNotFound());
+    }
+
+    @Test
+    void aSentReportKeepsItsWeekTakenSoNoSecondOneCanBeRequestedOrInserted() throws Exception {
+        UUID report = fx.report(p014, W4, "ENVIADO");
+        assertThat(runner.blockedReason(p014, W4)).as("un enviado es el informe vigente de su semana").contains("informe vigente");
+
+        JsonNode week = null;
+        for (JsonNode option : body(mockMvc.perform(get("/api/patients/" + p014 + "/report-weeks").with(TestAuth.as(NURSE))))) {
+            if (option.path("weekStart").asText().equals(W4.toString())) {
+                week = option;
+            }
+        }
+        assertThat(week).as("la semana del enviado se ofrece").isNotNull();
+        assertThat(week.path("reportId").asText()).isEqualTo(report.toString());
+        assertThat(week.path("reportStatus").asText()).isEqualTo("ENVIADO");
+        assertThat(week.path("canGenerate").asBoolean()).isFalse();
+
+        // El indice de la base tambien lo impide (uq_reports_current_period incluye ENVIADO).
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> jdbc.update(
+                "INSERT INTO reports (id, patient_id, report_type, period_start, period_end, status, requested_by)"
+                        + " VALUES (?, ?, 'SEMANAL', ?, ?, 'PENDIENTE_REVISION', ?)",
+                UUID.randomUUID(), p014, W4, W4.plusDays(6), UUID.fromString(NURSE)))
+                .isInstanceOf(org.springframework.dao.DuplicateKeyException.class);
+    }
+
     @Test
     void rejectingNeedsAReasonSavesItAndLetsTheWeekBeRequestedAgain() throws Exception {
         UUID report = fx.report(p014, W4, "PENDIENTE_REVISION");
@@ -290,10 +373,10 @@ class ReportsApiTest {
 
     @Test
     void theTraceOfTheRunThatProducedTheReportIsReadFromTheReport() throws Exception {
-        UUID report = fx.report(p014, W4, "APROBADO");
+        UUID report = fx.report(p014, W4, "ENVIADO");
         // Un informe sin ejecucion (p. ej. el sembrado) tiene la traza vacia.
         UUID seeded = fx.report(p014, W3, "PENDIENTE_REVISION");
-        mockMvc.perform(get("/api/reports/" + seeded + "/trace").header("X-Demo-User", NURSE))
+        mockMvc.perform(get("/api/reports/" + seeded + "/trace").with(TestAuth.as(NURSE)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
 
         UUID run = UUID.randomUUID();
@@ -303,7 +386,7 @@ class ReportsApiTest {
         jdbc.update("UPDATE reports SET run_id = ? WHERE id = ?", run, report);
 
         for (String user : List.of(NURSE, DOCTOR)) {
-            mockMvc.perform(get("/api/reports/" + report + "/trace").header("X-Demo-User", user))
+            mockMvc.perform(get("/api/reports/" + report + "/trace").with(TestAuth.as(user)))
                     .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2))
                     .andExpect(jsonPath("$[0].tool").value("get_week_entries"));
         }
@@ -318,7 +401,7 @@ class ReportsApiTest {
         jdbc.update("INSERT INTO entries (id, patient_id, entry_date, body, author_id, source, structuring_status) VALUES (?, ?, ?, 'Hoy sin novedad.', ?, 'TEXTO', 'SIN_ESTRUCTURAR')",
                 UUID.randomUUID(), p014, today, author);
 
-        JsonNode weeks = body(mockMvc.perform(get("/api/patients/" + p014 + "/report-weeks").header("X-Demo-User", NURSE)).andExpect(status().isOk()));
+        JsonNode weeks = body(mockMvc.perform(get("/api/patients/" + p014 + "/report-weeks").with(TestAuth.as(NURSE))).andExpect(status().isOk()));
         List<String> starts = weeks.findValuesAsText("weekStart");
         assertThat(starts).isSortedAccordingTo(java.util.Comparator.reverseOrder());
         assertThat(starts).contains("2026-10-19", "2026-10-12").doesNotContain(today.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY)).toString());
@@ -331,11 +414,11 @@ class ReportsApiTest {
         assertThat(w4.path("reportId").asText()).isEqualTo(report.toString());
         assertThat(w4.path("canGenerate").asBoolean()).isFalse();
         assertThat(w4.path("reason").asText()).isEqualTo("Ya hay un informe de esta semana.");
-        mockMvc.perform(get("/api/patients/" + p014 + "/report-weeks").header("X-Demo-User", DOCTOR)).andExpect(status().isForbidden());
-        mockMvc.perform(get("/api/patients/" + UUID.randomUUID() + "/report-weeks").header("X-Demo-User", NURSE)).andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/patients/" + p014 + "/report-weeks").with(TestAuth.as(DOCTOR))).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/patients/" + UUID.randomUUID() + "/report-weeks").with(TestAuth.as(NURSE))).andExpect(status().isNotFound());
 
         // Pedir la semana en curso se rechaza antes de crear ninguna ejecucion.
-        mockMvc.perform(post("/api/runs").header("X-Demo-User", NURSE).contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(post("/api/runs").with(TestAuth.as(NURSE)).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"patientId\":\"" + p014 + "\",\"weekStart\":\"" + today.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY)) + "\"}"))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields.weekStart").value(org.hamcrest.Matchers.containsString("completa")));
     }

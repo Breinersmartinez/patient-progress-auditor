@@ -69,4 +69,18 @@ describe('EntryHistoryComponent (vRegHistorial del mockup)', () => {
     expect(fixture.nativeElement.querySelector('.vacio h3').textContent).toBe('Aún no hay registros');
     expect(fixture.nativeElement.querySelector('.vacio a').getAttribute('href')).toBe('/enf/registro/nuevo');
   });
+
+  it('muestra el texto corregido y deja el original en el título; la búsqueda encuentra los dos', async () => {
+    const fixture = await load([entry({ id: 'a', body: 'vomito 2 veces', correctedBody: 'Vomitó 2 veces.' })]);
+    const root = fixture.nativeElement as HTMLElement;
+    const cell = root.querySelectorAll('tbody tr')[0].querySelectorAll('td')[2];
+
+    expect(cell.textContent?.trim()).toBe('Vomitó 2 veces.');
+    expect(cell.querySelector('span')?.getAttribute('title')).toBe('Texto original: vomito 2 veces');
+    const search = root.querySelector<HTMLInputElement>('input[type="search"], input.inp')!;
+    search.value = 'vomito';
+    search.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    expect(root.querySelectorAll('tbody tr').length).toBe(1);
+  });
 });

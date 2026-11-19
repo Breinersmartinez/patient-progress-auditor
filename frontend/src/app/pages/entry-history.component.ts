@@ -25,7 +25,7 @@ import { CellDirective, ListingComponent } from '../ui/listing.component';
           @switch (col) {
             @case (0) { <span style="white-space: nowrap">{{ dCorto(e.entryDate) }}</span> }
             @case (1) { <b>{{ e.patientAlias }}</b> }
-            @case (2) { {{ e.body }} }
+            @case (2) { <span [attr.title]="e.correctedBody ? 'Texto original: ' + e.body : null">{{ e.correctedBody || e.body }}</span> }
             @case (3) {
               @if (e.symptoms.length) {
                 {{ symptomNames(e) }}
@@ -51,7 +51,7 @@ export class EntryHistoryComponent implements OnInit {
 
   protected readonly symptomNames = (e: Entry) => e.symptoms.map((s) => symptomName(s.symptom, s.label)).join(', ');
   protected readonly searchText = (e: Entry) =>
-    `${e.patientAlias} ${e.body} ${e.entryDate} ${this.symptomNames(e)}`;
+    `${e.patientAlias} ${e.body} ${e.correctedBody ?? ''} ${e.entryDate} ${this.symptomNames(e)}`;
   protected readonly href = (e: Entry) => `/enf/pacientes/ficha/${e.patientId}`;
 
   async ngOnInit(): Promise<void> {

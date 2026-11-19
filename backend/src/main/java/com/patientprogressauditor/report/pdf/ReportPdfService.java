@@ -13,7 +13,7 @@ import org.springframework.stereotype.Service;
 import com.patientprogressauditor.report.Report;
 import com.patientprogressauditor.report.ReportService;
 import com.patientprogressauditor.report.ReportService.Detail;
-import com.patientprogressauditor.session.DemoPrincipal;
+import com.patientprogressauditor.session.AppPrincipal;
 import com.patientprogressauditor.web.FieldException;
 
 import net.sf.jasperreports.engine.JRException;
@@ -27,9 +27,9 @@ import net.sf.jasperreports.export.SimpleOutputStreamExporterOutput;
 import net.sf.jasperreports.pdf.SimplePdfExporterConfiguration;
 import net.sf.jasperreports.pdf.JRPdfExporter;
 
-// El PDF de un informe APROBADO (RF-37, CU-09, D13: JasperReports). La regla de quien puede verlo es la del informe
-// (ReportService.detail: el medico solo ve lo aprobado y lo demas «no existe»), y ademas aqui solo se imprime un informe
-// APROBADO: nada de borradores con marca. Imprime la version que se aprobo, no la que redacto el modelo.
+// El PDF de un informe aprobado o enviado (RF-37, CU-09, D13: JasperReports). La regla de quien puede verlo es la del informe
+// (ReportService.detail: el medico solo ve lo enviado y lo demas «no existe»), y ademas aqui solo se imprime un informe
+// aprobado o enviado: nada de borradores con marca. Imprime la version que se aprobo, no la que redacto el modelo.
 @Service
 public class ReportPdfService {
 
@@ -46,14 +46,14 @@ public class ReportPdfService {
         this.reports = reports;
     }
 
-    public Pdf render(UUID id, DemoPrincipal principal) {
+    public Pdf render(UUID id, AppPrincipal principal) {
         Detail detail = reports.detail(id, principal);
-        if (detail.report().status() != Report.Status.APROBADO) {
+        if (!detail.report().status().approved()) {
             String state = switch (detail.report().status()) {
                 case PENDIENTE_REVISION -> "pendiente de revisión";
                 case INCOMPLETO -> "incompleto";
                 case RECHAZADO -> "rechazado";
-                case APROBADO -> "aprobado";
+                case APROBADO, ENVIADO -> "aprobado";
             };
             throw new FieldException(HttpStatus.CONFLICT, "status", "Solo se puede imprimir un informe aprobado. Este está " + state + ".");
         }

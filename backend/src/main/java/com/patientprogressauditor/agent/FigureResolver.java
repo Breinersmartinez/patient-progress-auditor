@@ -159,7 +159,12 @@ public class FigureResolver {
     }
 
     private JsonNode metricsOf(AgentRunContext context, LocalDate week) {
-        WeeklyMetrics data = context.metrics(week, w -> metrics.weekly(context.patientId(), w));
+        // En una consulta (D31) `weeks()` solo trae un valor (`periodEnd()`): una sola cifra para todo el periodo,
+        // no una por semana.
+        WeeklyMetrics data = context.isPeriod()
+                ? context.metrics(week, w -> metrics.period(context.patientId(), context.periodStart(), context.periodEnd(),
+                        context.comparisonStart(), context.comparisonEnd()))
+                : context.metrics(week, w -> metrics.weekly(context.patientId(), w));
         return MetricsView.of(data, mapper);
     }
 

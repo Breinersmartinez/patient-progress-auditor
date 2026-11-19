@@ -1,0 +1,16 @@
+# Configuracion de Gitleaks (la lee solo la accion de CI y `gitleaks detect`).
+# Se extiende la configuracion por defecto: solo se agrega la excepcion de abajo, nada se desactiva.
+[extend]
+useDefault = true
+
+# Falso positivo conocido: en la semilla de demostracion cada cifra del informe lleva un campo "key" con un
+# identificador de metrica (por ejemplo "vs_previous.days.NAUSEAS.0"). La regla generic-api-key lo toma por una llave.
+# Son datos sinteticos, no hay ninguna credencial. La excepcion es solo para este archivo y esta regla: un secreto
+# real en este archivo, o esta regla en cualquier otro, se sigue detectando.
+[[allowlists]]
+description = "Identificadores de metrica de la semilla de demostracion (datos sinteticos)"
+condition = "AND"
+targetRules = ["generic-api-key"]
+paths = ['''backend/src/main/resources/seed/demo-reports\.json''']
+regexTarget = "line"
+regexes = ['''"key"\s*:\s*"vs_previous\.days\.[A-Z_]+\.[0-9]+"''']

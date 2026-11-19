@@ -197,4 +197,67 @@ class StructuringPromptTest {
         assertThat(json.path("intensity").asText()).isEqualTo("LEVE");
         assertThat(json.size()).isEqualTo(4);
     }
+
+    // --- texto corregido (RF-42, E19) ---
+
+    @Test
+    void aCorrectionThatOnlyFixesTheFormIsAccepted() {
+        String note = "dolor de cabeza intenso desde la mañana tuvo diarea dos veces comio poko";
+        StructuringPrompt.Corrected corrected = StructuringPrompt.acceptCorrection(note,
+                " Dolor de cabeza intenso desde la mañana. Tuvo diarrea dos veces. Comió poco. ");
+
+        assertThat(corrected.dropped()).isNull();
+        assertThat(corrected.text()).isEqualTo("Dolor de cabeza intenso desde la mañana. Tuvo diarrea dos veces. Comió poco.");
+    }
+
+    @Test
+    void aNoteThatWasAlreadyCorrectIsAcceptedAsIs() {
+        assertThat(StructuringPrompt.acceptCorrection("Sin novedades.", "Sin novedades.").text()).isEqualTo("Sin novedades.");
+    }
+
+    @Test
+    void aCorrectionThatChangesANumberIsDropped() {
+        StructuringPrompt.Corrected corrected = StructuringPrompt.acceptCorrection("vomito 2 veces y fiebre de 38", "Vomitó 3 veces y tuvo fiebre de 38.");
+
+        assertThat(corrected.text()).isNull();
+        assertThat(corrected.dropped()).contains("números");
+    }
+
+    @Test
+    void numbersWrittenAsWordsCountToo() {
+        assertThat(StructuringPrompt.acceptCorrection("tuvo diarea dos veces", "Tuvo diarrea tres veces.").dropped()).contains("números");
+        assertThat(StructuringPrompt.acceptCorrection("vomito una vez", "Vomitó dos veces.").dropped()).contains("números");
+        // La misma cantidad escrita de otra forma no cambia el contenido.
+        assertThat(StructuringPrompt.acceptCorrection("tuvo diarea 2 veces", "Tuvo diarrea dos veces.").text()).isNotNull();
+        assertThat(StructuringPrompt.acceptCorrection("vomito una vez", "Vomitó 1 vez.").text()).isNotNull();
+    }
+
+    @Test
+    void aCorrectionThatDropsOrAddsANegationIsDropped() {
+        assertThat(StructuringPrompt.acceptCorrection("sin vomito hoy, comio bien", "Vomitó hoy. Comió bien.").dropped()).contains("negaciones");
+        assertThat(StructuringPrompt.acceptCorrection("vomito hoy, comio bien", "Vomitó hoy. No comió bien.").dropped()).contains("negaciones");
+        assertThat(StructuringPrompt.acceptCorrection("ayer no comio nada", "Ayer no comió nada.").text()).isNotNull();
+    }
+
+    @Test
+    void aCorrectionMuchLongerOrShorterThanTheNoteIsDropped() {
+        String note = "tuvo diarea dos veces y comio poko durante toda la tarde";
+        assertThat(StructuringPrompt.acceptCorrection(note, "Diarrea.").dropped()).contains("largo");
+        assertThat(StructuringPrompt.acceptCorrection(note, note + " ".repeat(1) + "x".repeat(200)).dropped()).contains("largo");
+    }
+
+    @Test
+    void anEmptyOrMissingCorrectionIsDroppedWithAReason() {
+        assertThat(StructuringPrompt.acceptCorrection("hola", null).dropped()).contains("no devolvió");
+        assertThat(StructuringPrompt.acceptCorrection("hola", "   ").text()).isNull();
+    }
+
+    @Test
+    void theSchemaAsksForTheCorrectedTextAndThePromptTellsTheModelToChangeOnlyTheForm() {
+        JsonNode schema = StructuringPrompt.schema(MAPPER).schema();
+
+        assertThat(schema.path("properties").path("correctedText").path("type").asText()).isEqualTo("string");
+        assertThat(schema.path("required")).extracting(JsonNode::asText).containsExactly("events", "correctedText");
+        assertThat(StructuringPrompt.SYSTEM).contains("correctedText").contains("NO el contenido").contains("negaciones");
+    }
 }

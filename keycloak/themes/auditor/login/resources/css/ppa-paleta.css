@@ -1,0 +1,8 @@
+/* Paleta de EPS Sanitas para las pantallas que vienen de los prototipos de PGRP (estado, alta y código).
+   Los valores salen del último bloque de docs/07-mockups/login-sanitas/auditor_login_sanitas.html
+   ([data-pal="marino"]): claro #0079C1 con celeste, oscuro #3FB8EC sobre marino. Se carga después del CSS de cada
+   prototipo para no editar sus copias literales. */
+[data-mode="light"] { --vx-bg: #E3F1FA; --vx-ring: #0079C1; --vx-p1: #0079C1; --vx-p2: #1A97D4; --surface: #FFFFFF; --surface-raised: #FFFFFF; --surface-sunken: #EBF3F9;
+  --text-primary: #0B2A44; --text-secondary: #4A6074; --divider: rgb(11 42 68 / 0.10); --color-primary: #0079C1; --on-primary: #FFFFFF; --danger-text: #B3302B; --shadow-rgb: 0 40 80; }
+[data-mode="dark"] { --vx-bg: #00172B; --vx-ring: #3FB8EC; --vx-p1: #3FB8EC; --vx-p2: #8FD8F7; --surface: #002038; --surface-raised: #002038; --surface-sunken: #0B2F4D;
+  --text-primary: #F2F7FB; --text-secondary: #A7BCCD; --divider: rgb(255 255 255 / 0.10); --color-primary: #3FB8EC; --on-primary: #00172B; --danger-text: #F0665C; --shadow-rgb: 0 0 0; }

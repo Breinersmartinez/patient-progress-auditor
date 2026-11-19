@@ -54,11 +54,37 @@ if [ -z "$(get_var DB_PASSWORD)" ]; then
   echo "Se genero DB_PASSWORD en .env."
 fi
 
+# Keycloak: su base y su administrador tambien reciben una contrasena aleatoria la primera vez.
+if [ -z "$(get_var KC_DB_PASSWORD)" ]; then
+  if docker volume ls -q | grep -qx "${COMPOSE_PROJECT_NAME:-patient-progress-auditor}_kcdata"; then
+    fail "Existe un volumen de la base de Keycloak creado con otra contrasena. Si no necesita esos datos, ejecute 'docker compose down -v' y repita."
+  fi
+  set_var KC_DB_PASSWORD "$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')"
+  echo "Se genero KC_DB_PASSWORD en .env."
+fi
+if [ -z "$(get_var KC_BOOTSTRAP_ADMIN_PASSWORD)" ]; then
+  set_var KC_BOOTSTRAP_ADMIN_PASSWORD "$(od -An -N18 -tx1 /dev/urandom | tr -d ' \n')"
+  echo "Se genero KC_BOOTSTRAP_ADMIN_PASSWORD en .env (administrador de la consola de Keycloak)."
+fi
+
+# Secreto del cliente de servicio con el que el backend gestiona usuarios en Keycloak (docs/admin-usuarios). El realm lo toma
+# al importarse: con un volumen de Keycloak anterior hay que repetir 'docker compose down -v'.
+if [ -z "$(get_var AUDITOR_ADMIN_CLIENT_SECRET)" ]; then
+  set_var AUDITOR_ADMIN_CLIENT_SECRET "$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')"
+  echo "Se genero AUDITOR_ADMIN_CLIENT_SECRET en .env (cliente de servicio de la gestion de usuarios)."
+fi
+
 # Si el proyecto aun no corre y el puerto esta ocupado, se usa el siguiente libre.
 if [ -z "$(docker compose ps -q 2> /dev/null)" ]; then
-  for var in BACKEND_PORT FRONTEND_PORT; do
+  for var in BACKEND_PORT FRONTEND_PORT KC_PORT MAILPIT_PORT; do
     current=$(get_var "$var")
-    current=${current:-$([ "$var" = BACKEND_PORT ] && echo 8080 || echo 4200)}
+    case "$var" in
+      BACKEND_PORT) default=8080 ;;
+      FRONTEND_PORT) default=4200 ;;
+      KC_PORT) default=7070 ;;
+      MAILPIT_PORT) default=8025 ;;
+    esac
+    current=${current:-$default}
     free=$(free_port_from "$current")
     if [ "$free" != "$current" ]; then
       echo "El puerto $current esta ocupado; $var pasa a $free."
@@ -104,10 +130,15 @@ fi
 
 frontend_port=$(get_var FRONTEND_PORT)
 backend_port=$(get_var BACKEND_PORT)
+kc_port=$(get_var KC_PORT)
+mailpit_port=$(get_var MAILPIT_PORT)
 echo
 echo "La aplicacion esta arriba."
 echo "  Interfaz:  http://localhost:${frontend_port:-4200}"
 echo "  API:       http://localhost:${backend_port:-8080}/swagger-ui.html"
+echo "  Correos:   http://localhost:${mailpit_port:-8025}   (Mailpit: aqui llegan los codigos y las invitaciones)"
+echo "  Keycloak:  http://localhost:${kc_port:-7070}   (consola: usuario $(get_var KC_BOOTSTRAP_ADMIN_USERNAME), contrasena en .env)"
+echo "  Ingreso de demostracion (enfermeria): marcela.rojas@example.test / Auditor2026!   (otros usuarios en el README)"
 echo "  Detener:   docker compose down"
 if [ -n "$missing_key" ]; then
   echo

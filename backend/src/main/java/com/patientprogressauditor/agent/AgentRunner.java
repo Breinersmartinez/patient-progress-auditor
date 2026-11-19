@@ -26,8 +26,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.patientprogressauditor.agent.tools.AgentTool;
 import com.patientprogressauditor.agent.tools.ToolException;
+import com.patientprogressauditor.consultation.ConsultationDraftService;
 import com.patientprogressauditor.entry.EntryRepository;
 import com.patientprogressauditor.llm.Attempt;
+import com.patientprogressauditor.llm.LangfuseExporter;
 import com.patientprogressauditor.llm.LlmGateway;
 import com.patientprogressauditor.llm.LlmMessage;
 import com.patientprogressauditor.llm.LlmPurpose;
@@ -52,11 +54,28 @@ public class AgentRunner {
 
     private static final Logger log = LoggerFactory.getLogger(AgentRunner.class);
 
-    // `weekStart` es el lunes de la semana (semanal) o de la PRIMERA de las cuatro semanas (mensual).
-    public record Task(Report.Type type, UUID patientId, LocalDate weekStart, UUID requestedBy, String request) {
+    // Un periodo cualquiera (no una semana) y su comparacion opcional: la consulta del medico (D31, RF-46). Cuando
+    // `consultation` no es null, `type`/`weekStart` del Task que lo contiene no se usan (quedan con su valor por
+    // defecto, SEMANAL): el periodo real vive aqui.
+    public record ConsultationPeriod(LocalDate start, LocalDate end, LocalDate comparisonStart, LocalDate comparisonEnd) {
+    }
+
+    // `weekStart` es el lunes de la semana (semanal) o de la PRIMERA de las cuatro semanas (mensual); no se usa si
+    // `consultation` no es null.
+    public record Task(Report.Type type, UUID patientId, LocalDate weekStart, UUID requestedBy, String request,
+            ConsultationPeriod consultation) {
 
         public Task(UUID patientId, LocalDate weekStart, UUID requestedBy, String request) {
-            this(Report.Type.SEMANAL, patientId, weekStart, requestedBy, request);
+            this(Report.Type.SEMANAL, patientId, weekStart, requestedBy, request, null);
+        }
+
+        public Task(Report.Type type, UUID patientId, LocalDate weekStart, UUID requestedBy, String request) {
+            this(type, patientId, weekStart, requestedBy, request, null);
+        }
+
+        // La consulta del medico: el periodo manda, no hay "semana" (D31, RF-46).
+        public static Task consultation(UUID patientId, UUID requestedBy, ConsultationPeriod period) {
+            return new Task(Report.Type.SEMANAL, patientId, period.start(), requestedBy, null, period);
         }
     }
 
@@ -69,6 +88,7 @@ public class AgentRunner {
     private final AgentRunRepository runs;
     private final AgentStepRepository steps;
     private final ReportDraftService drafts;
+    private final ConsultationDraftService consultations;
     private final ReportContentBuilder contentBuilder;
     private final ReportRepository reports;
     private final EntryRepository entries;
@@ -76,6 +96,7 @@ public class AgentRunner {
     private final ApprovedWeeklyReports approvedWeekly;
     private final Clock clock;
     private final ObjectMapper mapper;
+    private final LangfuseExporter langfuse;
     // Las herramientas corren aparte para poder cortarlas al pasar su tiempo maximo.
     private final ExecutorService toolPool = Executors.newCachedThreadPool(r -> {
         Thread t = new Thread(r, "agent-tool");
@@ -84,15 +105,16 @@ public class AgentRunner {
     });
 
     public AgentRunner(LlmGateway gateway, List<AgentTool> tools, AgentProperties properties, AgentRunRepository runs,
-            AgentStepRepository steps, ReportDraftService drafts, ReportContentBuilder contentBuilder,
-            ReportRepository reports, EntryRepository entries, MonthlyEligibility eligibility, ApprovedWeeklyReports approvedWeekly,
-            Clock clock, ObjectMapper mapper) {
+            AgentStepRepository steps, ReportDraftService drafts, ConsultationDraftService consultations,
+            ReportContentBuilder contentBuilder, ReportRepository reports, EntryRepository entries, MonthlyEligibility eligibility,
+            ApprovedWeeklyReports approvedWeekly, Clock clock, ObjectMapper mapper, LangfuseExporter langfuse) {
         this.gateway = gateway;
         this.tools = tools.stream().collect(Collectors.toMap(AgentTool::name, Function.identity()));
         this.properties = properties;
         this.runs = runs;
         this.steps = steps;
         this.drafts = drafts;
+        this.consultations = consultations;
         this.contentBuilder = contentBuilder;
         this.reports = reports;
         this.entries = entries;
@@ -100,6 +122,7 @@ public class AgentRunner {
         this.approvedWeekly = approvedWeekly;
         this.clock = clock;
         this.mapper = mapper;
+        this.langfuse = langfuse;
     }
 
     // Las herramientas que el modelo puede pedir (sin ninguna de salida ni de aprobacion).
@@ -134,11 +157,24 @@ public class AgentRunner {
         }
     }
 
-    // Lo mismo para cualquier tipo de informe: en el mensual decide la regla de las cuatro semanas aprobadas (RN-10).
+    // Lo mismo para cualquier tipo de ejecucion: en el mensual decide la regla de las cuatro semanas aprobadas
+    // (RN-10); en la consulta (D31), que el periodo tenga al menos un registro.
     public String blockedReason(Task task) {
+        if (task.consultation() != null) {
+            return blockedReasonConsultation(task.patientId(), task.consultation());
+        }
         return task.type() == Report.Type.MENSUAL
                 ? eligibility.evaluate(task.patientId(), task.weekStart()).problem()
                 : blockedReason(task.patientId(), task.weekStart());
+    }
+
+    // El periodo de una consulta sin ningun registro no tiene nada que resumir (criterio 4 de la Pieza 6): se
+    // rechaza antes de crear la ejecucion, sin gastar una llamada al modelo. El tope de 31 dias y que la comparacion
+    // no se cruce con el periodo ya los exige ConsultationService antes de llamar aqui.
+    public String blockedReasonConsultation(UUID patientId, ConsultationPeriod period) {
+        boolean empty = entries.findByPatientIdAndEntryDateBetweenOrderByEntryDateAscCreatedAtAsc(patientId, period.start(),
+                period.end()).isEmpty();
+        return empty ? "El período del " + period.start() + " al " + period.end() + " no tiene registros: no hay nada que resumir." : null;
     }
 
     // Por que no tiene sentido generar este informe (o null si se puede). Lo comprueba quien pide la ejecucion, antes de
@@ -150,19 +186,29 @@ public class AgentRunner {
         }
         boolean current = reports.findByPatientIdOrderByPeriodStartDesc(patientId).stream()
                 .anyMatch(r -> r.getReportType() == Report.Type.SEMANAL && r.getPeriodStart().equals(weekStart)
-                        && (r.getStatus() == Report.Status.PENDIENTE_REVISION || r.getStatus() == Report.Status.APROBADO));
+                        && r.getStatus().current());
         return current ? "Ya hay un informe vigente de esa semana." : null;
     }
 
     private Outcome loop(State s) {
         boolean monthly = s.context.isMonthly();
-        // El semanal no ve las herramientas propias del mensual.
-        List<ToolSpec> specs = tools.values().stream().filter(t -> monthly || !t.monthlyOnly())
+        boolean period = s.context.isPeriod();
+        // El semanal no ve las herramientas propias del mensual, ni al reves. La consulta (D31) solo ve las suyas
+        // (consultationOnly) mas save_draft, la unica que escribe: nunca las de leer una semana o un mes.
+        List<ToolSpec> specs = tools.values().stream()
+                .filter(t -> period ? t.consultationOnly() || t.writes() || t.sharedAcrossRoutes()
+                        : !t.consultationOnly() && (monthly || !t.monthlyOnly()))
                 .map(t -> t.spec(properties.getToolDescriptions())).toList();
         List<LlmMessage> messages = new ArrayList<>();
-        messages.add(LlmMessage.system(monthly ? AgentPrompt.systemMonthly(properties.getMaxIterations()) : AgentPrompt.system(properties.getMaxIterations())));
-        messages.add(LlmMessage.user(monthly ? AgentPrompt.taskMonthly(s.task.weekStart(), s.task.request())
-                : AgentPrompt.task(s.task.weekStart(), s.task.request())));
+        if (period) {
+            ConsultationPeriod p = s.task.consultation();
+            messages.add(LlmMessage.system(AgentPrompt.systemConsultation(properties.getMaxIterations())));
+            messages.add(LlmMessage.user(AgentPrompt.taskConsultation(p.start(), p.end(), p.comparisonStart(), p.comparisonEnd(), s.task.request())));
+        } else {
+            messages.add(LlmMessage.system(monthly ? AgentPrompt.systemMonthly(properties.getMaxIterations()) : AgentPrompt.system(properties.getMaxIterations())));
+            messages.add(LlmMessage.user(monthly ? AgentPrompt.taskMonthly(s.task.weekStart(), s.task.request())
+                    : AgentPrompt.task(s.task.weekStart(), s.task.request())));
+        }
 
         for (int iteration = 1; iteration <= properties.getMaxIterations(); iteration++) {
             // Limite de tokens, antes de gastar otra llamada: la siguiente cuesta al menos lo que costo la anterior.
@@ -231,15 +277,25 @@ public class AgentRunner {
         boolean fallbackUsed;
         String lastDraft;
         List<UUID> weeklyReportIds = List.of();
+        // Todos los intentos de la ejecucion, en orden: al cerrar se mandan a Langfuse como una traza.
+        final List<Attempt> allAttempts = new ArrayList<>();
 
         State(AgentRun run, Task task) {
             this.run = run;
             this.task = task;
-            this.context = task.type() == Report.Type.MENSUAL
-                    ? AgentRunContext.monthly(task.patientId(), task.weekStart())
-                    : new AgentRunContext(task.patientId(), task.weekStart());
+            if (task.consultation() != null) {
+                ConsultationPeriod p = task.consultation();
+                this.context = AgentRunContext.period(task.patientId(), p.start(), p.end(), p.comparisonStart(), p.comparisonEnd());
+                // La consulta no cita citations.Map aparte (DraftValidator ya deja el entry_ids validado dentro del
+                // propio content de cada claim): el sink de una consulta ignora el segundo parametro.
+                this.context.setSink((content, citations) -> consultations.save(consultationOrigin(), content));
+            } else {
+                this.context = task.type() == Report.Type.MENSUAL
+                        ? AgentRunContext.monthly(task.patientId(), task.weekStart())
+                        : new AgentRunContext(task.patientId(), task.weekStart());
+                this.context.setSink((content, citations) -> drafts.saveDraft(origin(), content, citations));
+            }
             this.context.setRequest(task.request());
-            this.context.setSink((content, citations) -> drafts.saveDraft(origin(), content, citations));
         }
 
         int tokens() {
@@ -249,6 +305,12 @@ public class AgentRunner {
         ReportDraftService.Origin origin() {
             return new ReportDraftService.Origin(task.type(), task.patientId(), task.weekStart(), task.requestedBy(), run.getId(),
                     provider, model, weeklyReportIds);
+        }
+
+        ConsultationDraftService.Origin consultationOrigin() {
+            ConsultationPeriod p = task.consultation();
+            return new ConsultationDraftService.Origin(task.requestedBy(), task.patientId(), p.start(), p.end(),
+                    p.comparisonStart(), p.comparisonEnd(), run.getId());
         }
 
         // El mensual parte de los cuatro informes semanales aprobados: se leen una vez, al empezar, y alimentan la
@@ -279,6 +341,7 @@ public class AgentRunner {
         }
 
         void attempts(List<Attempt> attempts) {
+            allAttempts.addAll(attempts);
             String previous = null;
             for (Attempt a : attempts) {
                 if (previous != null && !previous.equals(a.provider())) {
@@ -383,33 +446,41 @@ public class AgentRunner {
                 case "get_symptom_history" -> "Revisando el historial de " + a.path("symptom").asText("un síntoma") + " en las últimas "
                         + a.path("weeks_back").asText("?") + " semanas";
                 case "get_approved_weekly_reports" -> "Leyendo los cuatro informes semanales aprobados del mes";
-                case "save_draft" -> "Guardando el borrador del informe";
+                case "get_period_entries" -> "Leyendo los registros del período";
+                case "get_period_metrics" -> "Calculando las cifras del período";
+                case "save_draft" -> context.isPeriod() ? "Guardando la consulta" : "Guardando el borrador del informe";
                 default -> "Herramienta " + call.name();
             };
         }
 
         Outcome success() {
             // El paso va antes del estado final: quien sigue la traza en vivo cierra al ver el estado final (D24).
-            step(AgentStep.Type.ESTADO, "Borrador guardado: queda pendiente de revisión por enfermería", false, null, null, null, null);
+            step(AgentStep.Type.ESTADO, context.isPeriod() ? "Consulta guardada" : "Borrador guardado: queda pendiente de revisión por enfermería",
+                    false, null, null, null, null);
             finish(AgentRun.Status.COMPLETADA, AgentRun.StopReason.EXITO, null);
             return new Outcome(AgentRun.Status.COMPLETADA, AgentRun.StopReason.EXITO, context.savedReport(), null);
         }
 
-        // Un limite se agoto: se detiene, se deja el informe INCOMPLETO con el motivo y se avisa (RF-16, RF-17).
+        // Un limite se agoto: se detiene, se deja el informe (o la consulta) INCOMPLETO con el motivo y se avisa (RF-16, RF-17).
         Outcome limit(AgentRun.StopReason reason, String message) {
             step(AgentStep.Type.LIMITE, message, true, null, null, null, null);
-            UUID report = drafts.saveIncomplete(origin(), message, skeleton(message), null);
+            UUID saved = saveIncomplete(message, skeleton(message), null);
             finish(AgentRun.Status.INCOMPLETA, reason, message);
-            return new Outcome(AgentRun.Status.INCOMPLETA, reason, report, message);
+            return new Outcome(AgentRun.Status.INCOMPLETA, reason, saved, message);
         }
 
         Outcome degrade() {
             String message = "El borrador no cumplió el formato tras " + context.rejectedDrafts()
                     + " intentos; se conserva su texto sin validar.";
             step(AgentStep.Type.ERROR, message, true, null, null, null, null);
-            UUID report = drafts.saveIncomplete(origin(), message, skeleton(message), plainText());
+            UUID saved = saveIncomplete(message, skeleton(message), plainText());
             finish(AgentRun.Status.INCOMPLETA, AgentRun.StopReason.SALIDA_INVALIDA, message);
-            return new Outcome(AgentRun.Status.INCOMPLETA, AgentRun.StopReason.SALIDA_INVALIDA, report, message);
+            return new Outcome(AgentRun.Status.INCOMPLETA, AgentRun.StopReason.SALIDA_INVALIDA, saved, message);
+        }
+
+        UUID saveIncomplete(String message, ObjectNode content, String plainText) {
+            return context.isPeriod() ? consultations.saveIncomplete(consultationOrigin(), content, plainText)
+                    : drafts.saveIncomplete(origin(), message, content, plainText);
         }
 
         Outcome fail(AgentRun.Status status, AgentRun.StopReason reason, String message) {
@@ -453,6 +524,8 @@ public class AgentRunner {
             run.setErrorMessage(status == AgentRun.Status.COMPLETADA || message == null ? null : message.substring(0, Math.min(500, message.length())));
             run.setFinishedAt(clock.instant());
             runs.save(run);
+            // Despues de guardar la fila: la traza de Langfuse nunca cuenta algo que la base no tiene. No bloquea ni lanza.
+            langfuse.export(LangfuseTraces.of(run, allAttempts));
         }
     }
 }

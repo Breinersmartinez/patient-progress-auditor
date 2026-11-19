@@ -53,4 +53,30 @@ public class MetricsService {
 
         return MetricsCalculator.compute(patientId, weekStart, entryFacts, eventFacts, earlier);
     }
+
+    // La consulta del medico (D31, RF-46): un periodo cualquiera (no exige lunes) y su comparacion con OTRO periodo
+    // cualquiera, o sin comparacion si `comparisonStart` es null. `comparisonStart`/`comparisonEnd` van las dos null o
+    // las dos con valor (lo exige el servicio que arma la tarea, antes de llegar aqui).
+    @Transactional(readOnly = true)
+    public WeeklyMetrics period(UUID patientId, LocalDate periodStart, LocalDate periodEnd, LocalDate comparisonStart,
+            LocalDate comparisonEnd) {
+        if (!patients.existsById(patientId)) {
+            throw new NotFoundException("No encontramos ese paciente.");
+        }
+        LocalDate readFrom = comparisonStart == null ? periodStart : comparisonStart.isBefore(periodStart) ? comparisonStart : periodStart;
+        LocalDate readTo = comparisonEnd == null ? periodEnd : comparisonEnd.isAfter(periodEnd) ? comparisonEnd : periodEnd;
+
+        List<EntryFact> entryFacts = entries
+                .findByPatientIdAndEntryDateBetweenOrderByEntryDateAscCreatedAtAsc(patientId, readFrom, readTo).stream()
+                .map(e -> new EntryFact(e.getId(), e.getEntryDate(),
+                        e.getStructuringStatus() == Entry.StructuringStatus.SIN_ESTRUCTURAR))
+                .toList();
+        List<EventFact> eventFacts = events.findRows(patientId, readFrom, readTo).stream()
+                .map(r -> new EventFact(r.getEntryId(), r.getEntryDate(), r.getSymptom(), r.getIntensity(), r.getOccurrences()))
+                .toList();
+        Set<Symptom> earlier = events.findSymptomCodesBefore(patientId, readFrom).stream()
+                .map(code -> Symptom.of(code, null)).collect(java.util.stream.Collectors.toSet());
+
+        return MetricsCalculator.computePeriod(patientId, periodStart, periodEnd, comparisonStart, comparisonEnd, entryFacts, eventFacts, earlier);
+    }
 }

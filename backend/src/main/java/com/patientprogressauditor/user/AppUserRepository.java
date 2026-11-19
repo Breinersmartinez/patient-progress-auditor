@@ -1,11 +1,30 @@
 package com.patientprogressauditor.user;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface AppUserRepository extends JpaRepository<AppUser, UUID> {
 
-    List<AppUser> findByDemoTrueAndActiveTrueOrderByDisplayName();
+    // El correo del token es la llave entre Keycloak y la aplicacion.
+    Optional<AppUser> findByEmailIgnoreCaseAndActiveTrue(String email);
+
+    // A quien avisar (D30, RF-45): todo activo del rol, menos quien hizo la accion (una entrada no se notifica a su
+    // propio autor). `excludedId` puede ser null (enviar un informe no excluye a nadie: enfermeria nunca es medico).
+    @Query("SELECT u FROM AppUser u JOIN u.roles r WHERE r.code = :roleCode AND u.active = true "
+            + "AND (:excludedId IS NULL OR u.id <> :excludedId)")
+    List<AppUser> findActiveByRoleExcluding(@Param("roleCode") String roleCode, @Param("excludedId") UUID excludedId);
+
+    boolean existsByEmailIgnoreCase(String email);
+
+    // Para ordenar la lista del administrador sin importar mayusculas.
+    List<AppUser> findAllByOrderByDisplayNameAsc();
+
+    // Cuantos administradores activos hay: la proteccion de "siempre queda uno" (docs/admin-usuarios).
+    @Query("SELECT COUNT(u) FROM AppUser u JOIN u.roles r WHERE r.code = 'ADMIN' AND u.active = true")
+    long countActiveAdmins();
 }
