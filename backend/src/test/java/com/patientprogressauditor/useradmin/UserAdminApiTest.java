@@ -17,6 +17,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -36,6 +38,7 @@ import com.patientprogressauditor.keycloak.KeycloakAdminClient;
 import com.patientprogressauditor.keycloak.KeycloakUnavailableException;
 import com.patientprogressauditor.keycloak.KeycloakUserExistsException;
 import com.patientprogressauditor.session.AppPrincipal;
+import com.patientprogressauditor.support.AuditCleanup;
 import com.patientprogressauditor.support.TestAuth;
 import com.patientprogressauditor.web.FieldException;
 
@@ -55,6 +58,8 @@ class UserAdminApiTest {
 
     @AfterEach
     void cleanUp() {
+        // audit_logs es de solo agregar (V13) y su actor_id apunta a app_users: primero se quitan las anotaciones.
+        AuditCleanup.deleteForUsersOf(jdbc, DOMAIN);
         jdbc.update("DELETE FROM app_users WHERE email LIKE ?", "%" + DOMAIN);
     }
 
@@ -72,6 +77,16 @@ class UserAdminApiTest {
 
     private int count(String sql, Object... args) {
         return jdbc.queryForObject(sql, Integer.class, args);
+    }
+
+    // RF-35 (docs/auditoria/plan.md, paso 3): las anotaciones sobre un usuario.
+    private List<Map<String, Object>> auditOf(UUID user) {
+        return jdbc.queryForList("SELECT actor_id, actor_role, action, entity_type, before_state::text AS before,"
+                + " after_state::text AS after FROM audit_logs WHERE entity_id = ? ORDER BY id", user);
+    }
+
+    private UUID seededAdmin() {
+        return jdbc.queryForObject("SELECT id FROM app_users WHERE email = ?", UUID.class, SEEDED_ADMIN);
     }
 
     private static String body(String name, String email, String role) {
@@ -339,5 +354,58 @@ class UserAdminApiTest {
         mockMvc.perform(post("/api/admin/users/" + inactive + "/invitation").with(TestAuth.token("marcela.rojas@example.test", "ENFERMERIA")))
                 .andExpect(status().isForbidden());
         verify(keycloak, never()).sendInvitation(any());
+    }
+
+    // ---- RF-35: auditoria de la gestion de usuarios (docs/auditoria/plan.md, paso 3; criterios 3, 4 y 8)
+
+    @Test
+    void creatingAUserLeavesOneAnnotationWithNameRoleAndStateButNotTheEmail() throws Exception {
+        when(keycloak.createUser("lia.prueba" + DOMAIN, "Lia Prueba", "MEDICO", true)).thenReturn("kc-a1");
+
+        mockMvc.perform(post("/api/admin/users").with(admin()).contentType(MediaType.APPLICATION_JSON)
+                .content(body("Lia Prueba", "lia.prueba" + DOMAIN, "MEDICO"))).andExpect(status().isCreated());
+
+        UUID id = jdbc.queryForObject("SELECT id FROM app_users WHERE email = ?", UUID.class, "lia.prueba" + DOMAIN);
+        List<Map<String, Object>> rows = auditOf(id);
+        assertThat(rows).hasSize(1);
+        assertThat(rows.get(0)).containsEntry("action", "CREAR_USUARIO").containsEntry("entity_type", "USER")
+                .containsEntry("actor_role", "ADMIN").containsEntry("actor_id", seededAdmin()).containsEntry("before", null);
+        assertThat((String) rows.get(0).get("after")).contains("\"role\": \"MEDICO\"", "\"active\": true", "Lia Prueba")
+                .doesNotContain("@");
+    }
+
+    @Test
+    void changingTheRoleAndDeactivatingLeaveTheBeforeAndTheAfter() throws Exception {
+        UUID id = insertUser("Ana Prueba", "ENFERMERIA", true);
+        when(keycloak.findIdByEmail("ana.prueba" + DOMAIN)).thenReturn(Optional.of("kc-a2"));
+
+        mockMvc.perform(put("/api/admin/users/" + id).with(admin()).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Ana Prueba\",\"role\":\"MEDICO\",\"active\":false}")).andExpect(status().isOk());
+
+        List<Map<String, Object>> rows = auditOf(id);
+        assertThat(rows).hasSize(1);
+        assertThat(rows.get(0)).containsEntry("action", "ACTUALIZAR_USUARIO").containsEntry("actor_id", seededAdmin());
+        assertThat((String) rows.get(0).get("before")).contains("\"role\": \"ENFERMERIA\"", "\"active\": true");
+        assertThat((String) rows.get(0).get("after")).contains("\"role\": \"MEDICO\"", "\"active\": false");
+    }
+
+    @Test
+    void whenKeycloakFailsOrTheChangeIsRefusedNothingIsAnnotated() throws Exception {
+        when(keycloak.createUser(anyString(), anyString(), anyString(), anyBoolean())).thenThrow(new KeycloakUnavailableException("caido"));
+        mockMvc.perform(post("/api/admin/users").with(admin()).contentType(MediaType.APPLICATION_JSON)
+                .content(body("Zoe Caida", "zoe.caida" + DOMAIN, "MEDICO"))).andExpect(status().isBadGateway());
+        assertThat(count("SELECT count(*) FROM audit_logs WHERE action = 'CREAR_USUARIO' AND after_state->>'name' = 'Zoe Caida'")).isZero();
+
+        UUID id = insertUser("Ana Prueba", "ENFERMERIA", true);
+        when(keycloak.findIdByEmail("ana.prueba" + DOMAIN)).thenReturn(Optional.of("kc-a3"));
+        org.mockito.Mockito.doThrow(new KeycloakUnavailableException("caido")).when(keycloak).updateUser(eq("kc-a3"), anyString(), anyString(), anyBoolean());
+        mockMvc.perform(put("/api/admin/users/" + id).with(admin()).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Ana Prueba\",\"role\":\"MEDICO\",\"active\":true}")).andExpect(status().isBadGateway());
+        // El administrador no puede desactivarse a si mismo: rechazado, sin anotacion.
+        mockMvc.perform(put("/api/admin/users/" + seededAdmin()).with(admin()).contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Admin\",\"role\":\"ADMIN\",\"active\":false}")).andExpect(status().isConflict());
+
+        assertThat(auditOf(id)).isEmpty();
+        assertThat(auditOf(seededAdmin())).isEmpty();
     }
 }

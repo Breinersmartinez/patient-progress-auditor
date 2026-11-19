@@ -15,6 +15,7 @@ import { ReportListComponent } from './pages/report-list.component';
 import { ReportViewComponent } from './pages/report-view.component';
 import { ConsultationFormComponent } from './pages/consultation-form.component';
 import { ConsultationViewComponent } from './pages/consultation-view.component';
+import { AuditListComponent } from './pages/audit-list.component';
 import { UserFormComponent } from './pages/user-form.component';
 import { UsersListComponent } from './pages/users-list.component';
 
@@ -58,6 +59,7 @@ export const routes: Routes = [
   { path: 'adm/usuarios', component: UsersListComponent, canMatch: [roleGuard('ADMIN')], data: { title: 'Usuarios' } },
   { path: 'adm/usuarios/nuevo', component: UserFormComponent, canMatch: [roleGuard('ADMIN')], data: { title: 'Nuevo usuario', menu: '/adm/usuarios' } },
   { path: 'adm/usuarios/editar/:id', component: UserFormComponent, canMatch: [roleGuard('ADMIN')], data: { title: 'Editar usuario', menu: '/adm/usuarios' } },
+  { path: 'adm/auditoria', component: AuditListComponent, canMatch: [roleGuard('ADMIN')], data: { title: 'Auditoría' } },
 
   { path: '**', component: NotFoundComponent, data: { title: 'No encontrado' } },
 ];

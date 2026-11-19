@@ -29,6 +29,9 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.patientprogressauditor.agent.AgentRun;
 import com.patientprogressauditor.agent.AgentRunRepository;
 import com.patientprogressauditor.agent.AgentStepRepository;
+import com.patientprogressauditor.audit.AuditAction;
+import com.patientprogressauditor.audit.AuditEntity;
+import com.patientprogressauditor.audit.AuditService;
 import com.patientprogressauditor.entry.Entry;
 import com.patientprogressauditor.entry.EntryRepository;
 import com.patientprogressauditor.notification.NotificationService;
@@ -74,6 +77,7 @@ public class ReportService {
     }
 
     private final ReportRepository reports;
+    private final AuditService audit;
     private final ReportVersionRepository versions;
     private final ReportCitationRepository citations;
     private final PatientRepository patients;
@@ -87,7 +91,9 @@ public class ReportService {
 
     public ReportService(ReportRepository reports, ReportVersionRepository versions, ReportCitationRepository citations,
             PatientRepository patients, EntryRepository entries, AppUserRepository users, AgentRunRepository runs,
-            AgentStepRepository steps, ReportEditValidator editValidator, NotificationService notificationService, Clock clock) {
+            AgentStepRepository steps, ReportEditValidator editValidator, NotificationService notificationService, Clock clock,
+            AuditService audit) {
+        this.audit = audit;
         this.reports = reports;
         this.versions = versions;
         this.citations = citations;
@@ -185,6 +191,10 @@ public class ReportService {
         citations.saveAllAndFlush(rows);
         report.setUpdatedAt(clock.instant());
         reports.saveAndFlush(report);
+        // RF-35: solo los numeros de version, nunca el contenido del informe (el administrador lee la bitacora).
+        audit.record(principal, AuditAction.EDITAR_INFORME, AuditEntity.REPORT, id,
+                Map.of("versionNo", latest.getVersionNo(), "status", report.getStatus().name()),
+                Map.of("versionNo", version.getVersionNo(), "status", report.getStatus().name()));
         return detail(id, principal);
     }
 
@@ -192,6 +202,7 @@ public class ReportService {
     public Detail approve(UUID id, AppPrincipal principal) {
         Report report = locked(id);
         ReportTransitions.require(report, Report.Status.APROBADO);
+        Report.Status from = report.getStatus();
         List<ReportVersion> all = versions.findByReportIdOrderByVersionNoAsc(id);
         report.setStatus(Report.Status.APROBADO);
         report.setReviewedBy(principal.id());
@@ -199,6 +210,8 @@ public class ReportService {
         report.setApprovedVersionNo(all.get(all.size() - 1).getVersionNo());
         report.setUpdatedAt(clock.instant());
         reports.saveAndFlush(report);
+        audit.record(principal, AuditAction.APROBAR_INFORME, AuditEntity.REPORT, id, Map.of("status", from.name()),
+                Map.of("status", report.getStatus().name(), "approvedVersionNo", report.getApprovedVersionNo()));
         return detail(id, principal);
     }
 
@@ -208,6 +221,7 @@ public class ReportService {
     public Detail send(UUID id, AppPrincipal principal) {
         Report report = locked(id);
         ReportTransitions.require(report, Report.Status.ENVIADO);
+        Report.Status from = report.getStatus();
         report.setStatus(Report.Status.ENVIADO);
         report.setSentBy(principal.id());
         report.setSentAt(clock.instant());
@@ -215,6 +229,8 @@ public class ReportService {
         reports.saveAndFlush(report);
         // Avisa a todo medico activo (RF-45, D30): misma transaccion, si falla, falla el envio entero.
         notificationService.notifyReportSent(report.getPatientId(), report.getId());
+        audit.record(principal, AuditAction.ENVIAR_INFORME, AuditEntity.REPORT, id, Map.of("status", from.name()),
+                Map.of("status", report.getStatus().name()));
         return detail(id, principal);
     }
 
@@ -222,12 +238,16 @@ public class ReportService {
     public Detail reject(UUID id, String reason, AppPrincipal principal) {
         Report report = locked(id);
         ReportTransitions.require(report, Report.Status.RECHAZADO);
+        Report.Status from = report.getStatus();
         report.setStatus(Report.Status.RECHAZADO);
         report.setStatusReason(reason.strip());
         report.setReviewedBy(principal.id());
         report.setReviewedAt(clock.instant());
         report.setUpdatedAt(clock.instant());
         reports.saveAndFlush(report);
+        // El motivo es texto libre de enfermeria y puede traer datos clinicos: solo su longitud (decision del encargo).
+        audit.record(principal, AuditAction.RECHAZAR_INFORME, AuditEntity.REPORT, id, Map.of("status", from.name()),
+                Map.of("status", report.getStatus().name(), "reasonLength", report.getStatusReason().length()));
         return detail(id, principal);
     }
 

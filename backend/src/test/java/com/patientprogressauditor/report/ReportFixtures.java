@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.patientprogressauditor.entry.Entry;
 import com.patientprogressauditor.entry.EntryRepository;
+import com.patientprogressauditor.support.AuditCleanup;
 
 // Informes de prueba con contenido real: citan registros del paciente de esa semana y traen las cifras (`metrics`) que el
 // codigo guardaria. Se insertan por JDBC para fijar el estado sin pasar por el agente.
@@ -98,6 +99,8 @@ public final class ReportFixtures {
     }
 
     void delete(UUID patient) {
+        // RF-35: las anotaciones sobreviven a los informes que borra la prueba (audit_logs no tiene clave foranea al objeto).
+        AuditCleanup.deleteFor(jdbc, jdbc.queryForList("SELECT id FROM reports WHERE patient_id = ?", UUID.class, patient));
         jdbc.update("DELETE FROM report_citations WHERE report_version_id IN (SELECT v.id FROM report_versions v JOIN reports r ON r.id = v.report_id WHERE r.patient_id = ?)", patient);
         jdbc.update("DELETE FROM report_versions WHERE report_id IN (SELECT id FROM reports WHERE patient_id = ?)", patient);
         jdbc.update("DELETE FROM reports WHERE patient_id = ?", patient);

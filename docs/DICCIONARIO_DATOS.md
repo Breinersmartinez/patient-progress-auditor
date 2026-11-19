@@ -48,7 +48,7 @@
 | `monthly_report_weeks` | Semanas del informe mensual | Las cuatro semanas aprobadas que componen un mensual | M2-N | RF-36, RN-10 |
 | `agent_runs` | Ejecuciones | Estado, límites, proveedor y costo de cada ejecución del agente o de cada estructuración | M2-N | RF-16, RF-17, RF-19, RF-22, D24 |
 | `agent_steps` | Pasos de la ejecución | La traza: cada llamada, herramienta, validación y fallo, en orden | M2-N | RF-22, RNF-07, D24 |
-| `audit_logs` | Auditoría | Quién hizo una acción sensible, cuándo, y el antes y el después | M2-S | RF-35, D12 |
+| `audit_logs` | Auditoría | Quién hizo una acción sensible, cuándo, y el antes y el después | M3 (creada en `V3`, en uso y de solo agregar desde `V13`) | RF-35, D12, D33 |
 | `notifications` | Notificaciones | Un aviso al médico de una entrada nueva o un informe enviado, sin texto clínico | M3 (nueva, `V11`) | RF-45, D30 |
 | `doctor_consultations` | Consultas del médico | «Armar informe»: la consulta que un médico arma de sus propios registros, solo para él, fuera del historial | M3 (nueva, `V12`) | RF-46, D31 |
 
@@ -109,7 +109,7 @@ Se guardan como `VARCHAR` con `CHECK`, no como `ENUM` de PostgreSQL, para poder 
 | `agent_runs.status` | `EN_COLA`, `EN_CURSO`, `COMPLETADA`, `INCOMPLETA`, `FALLIDA` | **[Propuesta]**: el estado de la ejecución vive en la BD para poder consultarlo y reanudar | D24 |
 | `agent_runs.stop_reason` | `EXITO`, `MAX_ITERACIONES`, `MAX_TOKENS`, `TIMEOUT_HERRAMIENTA`, `SALIDA_INVALIDA`, `PROVEEDOR_NO_DISPONIBLE` | **[Propuesta]**: el motivo con el que termina | RF-16, RF-17, RF-19 |
 | `agent_steps.step_type` | `ESTADO`, `LLAMADA_LLM`, `HERRAMIENTA`, `VALIDACION`, `LIMITE`, `FALLBACK`, `ERROR` | **[Propuesta]** | RF-22, D24 |
-| `audit_logs.action` | `APROBAR_INFORME`, `ENVIAR_INFORME` (M3, D29), `RECHAZAR_INFORME`, `EDITAR_INFORME`, `EDITAR_ENTRADA`, `REGISTRAR_ENTRADA_MEDICO`, `CAMBIAR_PERMISOS` | `CAMBIAR_PERMISOS` es del Momento 3 | RF-35 |
+| `audit_logs.action` | `APROBAR_INFORME`, `RECHAZAR_INFORME`, `ENVIAR_INFORME` (D29), `EDITAR_INFORME`, `EDITAR_ENTRADA`, `REGISTRAR_ENTRADA_MEDICO`, `CREAR_USUARIO`, `ACTUALIZAR_USUARIO` | M3, `CHECK` de `V13` (reemplaza el de `V3`). `EDITAR_ENTRADA` queda reservada para RF-03, que no existe. `CAMBIAR_PERMISOS` se quitó: RF-34 se descartó y el cambio de rol de un usuario se anota como `ACTUALIZAR_USUARIO` (D33) | RF-35, D33 |
 | `notifications.notification_type` | `ENTRY`, `REPORT` | M3, nueva en `V11`. La frase que ve el médico se arma al leerla, con el tipo y la fecha (D30) | RF-45 |
 | `doctor_consultations.comparison_*` | Dos columnas de fecha, ambas `NULL` o ambas con valor | M3, nueva en `V12`. `NULL` cuando el médico elige «No comparar» | RF-46, D31 |
 
@@ -365,9 +365,9 @@ Una fila por cosa que pasó: cada llamada al modelo, cada herramienta, cada vali
 | `tokens_out` | Tokens de salida | `INTEGER` | Sí | — | | RF-22 |
 | `created_at` | Cuándo | `TIMESTAMPTZ` | No | — | | RF-22 |
 
-### 4.13 `audit_logs` — Auditoría (M2-S)
+### 4.13 `audit_logs` — Auditoría (M3, D33, RF-35)
 
-Una fila por acción sensible. Solo se agregan filas; nunca se actualizan ni se borran.
+Una fila por acción sensible, escrita en la misma transacción que la acción. Solo se agregan filas: desde `V13` la base rechaza `UPDATE`, `DELETE` y `TRUNCATE` con triggers (el dueño de la tabla puede desactivarlos: no es una prueba forense). Solo metadatos: el antes y el después llevan estados, números de versión o nombre, rol y estado de un usuario, nunca texto de un registro o de un informe, el motivo de un rechazo (solo su longitud) ni el correo de un usuario.
 
 | Columna | Etiqueta | Tipo | Nulo | Clave | Descripción y reglas | Origen |
 |---|---|---|---|---|---|---|
@@ -375,13 +375,13 @@ Una fila por acción sensible. Solo se agregan filas; nunca se actualizan ni se 
 | `actor_id` | Quién | `UUID` | No | FK → `app_users` | Usuario de demostración elegido (Momento 2) o autenticado (Momento 3). Para un registro del médico identifica qué médico lo hizo | RF-35, D12, D26 |
 | `actor_role` | Rol de quien actúa | `VARCHAR(20)` | No | — | Rol con el que actuó en ese momento | RF-35 |
 | `action` | Acción | `VARCHAR(40)` | No | — | Valores en §3.2 | RF-35 |
-| `entity_type` | Tipo de objeto | `VARCHAR(30)` | No | — | `ENTRY`, `REPORT` o `ROLE_PERMISSION` | RF-35 |
-| `entity_id` | Objeto afectado | `UUID` | No | — | Id de la entrada, del informe o del rol; sin clave foránea porque apunta a varias tablas | RF-35 |
+| `entity_type` | Tipo de objeto | `VARCHAR(30)` | No | — | `ENTRY`, `REPORT` o `USER` (`USER` desde `V13`; `ROLE_PERMISSION` no se usa: RF-34 se descartó) | RF-35, D33 |
+| `entity_id` | Objeto afectado | `UUID` | No | — | Id de la entrada, del informe o del usuario; sin clave foránea porque apunta a varias tablas (la anotación sobrevive si el objeto se borra) | RF-35 |
 | `occurred_at` | Cuándo | `TIMESTAMPTZ` | No | — | Por defecto `CURRENT_TIMESTAMP` | RF-35 |
 | `before_state` | Antes | `JSONB` | Sí | — | Estado previo; vacío si la acción crea el objeto | RF-35 |
 | `after_state` | Después | `JSONB` | Sí | — | Estado resultante | RF-35 |
 
-**Índices:** `(entity_type, entity_id)` y `(actor_id, occurred_at DESC)`.
+**Índices:** `(entity_type, entity_id)` y `(actor_id, occurred_at DESC)` de `V3`; `(occurred_at DESC, id DESC)` y `(action, occurred_at DESC)` de `V13`, para la lista del administrador.
 
 ### 4.14 `notifications` — Notificaciones al médico (M3, D30, RF-45, nueva en `V11`)
 
@@ -485,6 +485,7 @@ V1 y V2 existen y no se editan: se agregan migraciones nuevas. Roles y permisos 
 | `V3__domain_schema.sql` | En `app_users`: agrega `display_name` e `is_demo` y permite `NULL` en `password_hash`. Crea `patients`, `entries`, `entry_events`, `entry_versions`, `reports`, `report_versions`, `report_citations`, `monthly_report_weeks`, `agent_runs`, `agent_steps` y `audit_logs`, con sus `CHECK`, claves e índices | M2-N (`entry_versions` y `audit_logs` M2-S) |
 | `V4__seed_domain_rbac.sql` | Siembra los roles `ENFERMERIA`, `MEDICO` y `AGENTE` y los permisos del dominio de §3.3 con sus asignaciones, con UUID fijos y `ON CONFLICT DO NOTHING` como V2 | M2-N |
 | `V12__doctor_consultations.sql` | Suma `CONSULTA` al `CHECK` de `agent_runs.run_type` (reemplaza el de `V9`). Crea `doctor_consultations`, con sus `CHECK`, FK e índice, y el permiso `CONSULTATIONS_REQUEST` para `MEDICO` | M3 (D31, RF-46) |
+| `V13__audit_logs_append_only.sql` | Reemplaza los `CHECK` de `audit_logs.action` (8 valores) y `entity_type` (suma `USER`); agrega los triggers de solo agregar y los índices por fecha y por acción | M3 (D33, RF-35) |
 | `ApplicationRunner` de la semilla | Con `APP_SEED_DEMO=true` y nunca en `prod`: usuarios de demostración con su rol, 5 pacientes (D11), unas 120 entradas con sus eventos ya confirmados y 5 informes semanales: 4 `APROBADO` del paciente con cinco semanas, para mostrar el mensual, y 1 `PENDIENTE_REVISION`. No llama al LLM | M2-N |
 | Credenciales y administrador | Desde el Momento 3: contraseña de los usuarios de demostración desde una variable de entorno, y el usuario `ADMIN` | M3 |
 

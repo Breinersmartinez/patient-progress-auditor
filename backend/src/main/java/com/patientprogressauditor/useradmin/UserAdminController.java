@@ -49,8 +49,8 @@ public class UserAdminController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public CreatedUser create(@RequestBody CreateUserRequest request) {
-        return service.create(new NewUser(request.name(), request.email(), request.role(), request.active()));
+    public CreatedUser create(@RequestBody CreateUserRequest request, @AuthenticationPrincipal AppPrincipal actor) {
+        return service.create(new NewUser(request.name(), request.email(), request.role(), request.active()), actor);
     }
 
     @PutMapping("/{id}")

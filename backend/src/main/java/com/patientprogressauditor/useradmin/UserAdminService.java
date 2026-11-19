@@ -15,6 +15,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.patientprogressauditor.audit.AuditAction;
+import com.patientprogressauditor.audit.AuditEntity;
+import com.patientprogressauditor.audit.AuditService;
 import com.patientprogressauditor.keycloak.KeycloakAdminClient;
 import com.patientprogressauditor.keycloak.KeycloakUnavailableException;
 import com.patientprogressauditor.keycloak.KeycloakUserExistsException;
@@ -56,9 +59,11 @@ public class UserAdminService {
     private final AppRoleRepository roles;
     private final KeycloakAdminClient keycloak;
     private final TransactionTemplate transaction;
+    private final AuditService audit;
 
     public UserAdminService(AppUserRepository users, AppRoleRepository roles, KeycloakAdminClient keycloak,
-            TransactionTemplate transaction) {
+            TransactionTemplate transaction, AuditService audit) {
+        this.audit = audit;
         this.users = users;
         this.roles = roles;
         this.keycloak = keycloak;
@@ -69,7 +74,7 @@ public class UserAdminService {
         return users.findAllByOrderByDisplayNameAsc().stream().map(UserAdminService::view).toList();
     }
 
-    public CreatedUser create(NewUser request) {
+    public CreatedUser create(NewUser request, AppPrincipal actor) {
         String name = request.name() == null ? "" : request.name().trim();
         String email = request.email() == null ? "" : request.email().trim().toLowerCase();
         validate(name, request.role(), email);
@@ -87,6 +92,8 @@ public class UserAdminService {
                 user.setActive(active);
                 user.getRoles().add(roles.findByCode(request.role()).orElseThrow());
                 users.saveAndFlush(user);
+                // RF-35: antes de Keycloak, que no es transaccional. Si la anotacion falla, Keycloak no se toca.
+                audit.record(actor, AuditAction.CREAR_USUARIO, AuditEntity.USER, user.getId(), null, state(name, request.role(), active));
                 keycloakId[0] = keycloak.createUser(email, name, request.role(), active);
                 return view(user);
             });
@@ -124,6 +131,7 @@ public class UserAdminService {
         }
         String keycloakId = keycloak.findIdByEmail(user.getEmail()).orElseThrow(
                 () -> new KeycloakUnavailableException("El usuario " + user.getEmail() + " no existe en Keycloak."));
+        Map<String, Object> before = state(user.getDisplayName(), currentRole, user.isActive());
         return transaction.execute(status -> {
             user.setDisplayName(name);
             user.setActive(changes.active());
@@ -131,12 +139,20 @@ public class UserAdminService {
             user.getRoles().add(roles.findByCode(changes.role()).orElseThrow());
             user.setUpdatedAt(Instant.now());
             users.saveAndFlush(user);
+            // RF-35: antes de Keycloak, por la misma razon que al crear. Incluye el cambio de rol y la desactivacion.
+            audit.record(actor, AuditAction.ACTUALIZAR_USUARIO, AuditEntity.USER, user.getId(), before,
+                    state(name, changes.role(), changes.active()));
             keycloak.updateUser(keycloakId, name, changes.role(), changes.active());
             return view(user);
         });
     }
 
     // Reenviar deja sin efecto la invitacion anterior; un usuario desactivado primero se reactiva.
+    // Lo que la bitacora guarda de un usuario: nombre, rol y estado. Nunca el correo ni credenciales.
+    private static Map<String, Object> state(String name, String role, boolean active) {
+        return Map.of("name", name, "role", role, "active", active);
+    }
+
     public void resendInvitation(UUID id) {
         AppUser user = find(id);
         if (!user.isActive()) {

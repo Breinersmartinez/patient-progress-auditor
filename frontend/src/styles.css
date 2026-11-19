@@ -460,6 +460,14 @@ select.inp:disabled { background-color: var(--surface-sunken); cursor: not-allow
 .barra .inp { max-width: 420px; padding-left: 46px; border-radius: 999px;
   background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2356667B' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='6.5'/%3E%3Cpath d='m16 16 4.5 4.5'/%3E%3C/svg%3E") no-repeat 16px center / 20px; -webkit-appearance: none; appearance: none; }
 .barra .total { padding: 2px 10px; border: 1px solid var(--divider); border-radius: var(--r-sm); background: var(--surface-sunken); color: var(--ink2); }
+/* Bitácora (RF-35): filtros en la barra del listado. Son select de formulario (su flecha), no el buscador (su lupa). */
+.barra select.inp { max-width: 280px; padding-left: 18px; border-radius: 999px;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23697386' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 14px center; }
+.paginas { display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding-top: 16px; color: var(--text-secondary); font-size: 14px; }
+@media (max-width: 700px) {
+  .barra select.inp { max-width: none; flex: 1 1 100%; }
+  .paginas { justify-content: space-between; }
+}
 .cont { padding: 0 24px 24px; background: #fff; border: 1px solid var(--divider); border-top: 0; border-radius: 0 0 var(--r-lg) var(--r-lg);
   box-shadow: var(--shadow); clip-path: inset(0 -30px -30px -30px); }
 .cont .tabla-wrap { border: 1px solid var(--divider); border-radius: var(--r-md); box-shadow: none; }
@@ -477,7 +485,8 @@ select.inp:disabled { background-color: var(--surface-sunken); cursor: not-allow
 /* Códigos de paciente y fechas no se parten en dos líneas (el avatar le quita ancho a la columna). */
 @media (min-width: 701px) {
   .tabla td b, .tabla td[data-label="Fecha"], .tabla td[data-label="Cama"], .tabla td[data-label="Edad"],
-  .tabla td[data-label="Último registro"], .tabla td[data-label="Período"], .tabla td[data-label="Recibido"], .tabla td[data-label="Generado"] { white-space: nowrap; }
+  .tabla td[data-label="Último registro"], .tabla td[data-label="Período"], .tabla td[data-label="Recibido"], .tabla td[data-label="Generado"],
+  .tabla td[data-label="Cuándo"] { white-space: nowrap; }
 }
 @media (min-width: 701px) and (max-width: 1000px) {
   .view { padding-left: 16px; padding-right: 16px; }
