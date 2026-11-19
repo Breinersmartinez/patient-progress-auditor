@@ -1,0 +1,757 @@
+<!doctype html>
+<html lang="es" class="no-js" data-type="software">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="page-type" content="software">
+<meta name="site-kind" content="software">
+<meta name="description" content="Patient Progress Auditor: registros diarios de enfermería e informes de evolución redactados con IA y aprobados por enfermería antes de llegar al médico.">
+<meta name="theme-color" content="#0F5FA8">
+<title>Patient Progress Auditor</title>
+<!--
+  Mockup de la home (docs/prompts/home-mockup.md). Un solo archivo, sin red: nada de fuentes, CDN ni imagenes remotas (D22).
+  Estilo: los tokens de frontend/src/styles.css (bloque «Diseño nuevo», mockups-vC). Movimiento: la tecnica de
+  vortexbird.com (reveal al hacer scroll, contadores, franja continua), sin su contenido ni su marca; Sanitas, solo como
+  referencia de composicion. Datos: solo los de la semilla sintetica (pacientes P-007 a P-040, ficticios).
+  JS: sin innerHTML, sin eval, sin leer location.hash. Los enlaces a los modulos son fijos.
+-->
+<script>document.documentElement.classList.replace('no-js', 'js');</script>
+<style>
+/* ===== Tokens: los mismos de frontend/src/styles.css (:root y bloque «Diseño nuevo») ===== */
+:root {
+  --color-primary: #0F5FA8; --on-primary: #FFFFFF;
+  --pri-d: #0B4A85; --pri-50: #EAF3FB; --pri-100: #D3E6F6; --pri-200: #A9CDEB;
+  --color-success: #0F7A3D; --color-danger: #B3261E;
+  --bg: #F3F7FB; --surface: #FFFFFF; --surface-sunken: #F0F5FA;
+  --text-primary: #14243A; --text-secondary: #56667B; --ink2: #3A4A60; --navy: #0B2A4A;
+  --divider: #D5E0EB; --field: #7D90A6;
+  --r-lg: 16px; --r-md: 12px; --r-sm: 8px;
+  --shadow-rgb: 11 42 74;
+  --lift-interactive: -1.5px; --press-in: 100ms;
+  /* Colores de los puntos de estado: los de frontend/src/app/ui/status-chip.component.ts */
+  --dot-revision: #7F77DD; --dot-ok: #1D9E75;
+
+  /* Movimiento: una sola curva (la de vortexbird) y tres tiempos */
+  --ease: cubic-bezier(.22, 1, .36, 1);
+  --t-short: 200ms;   /* controles: botones, interruptor, menu */
+  --t-mid: 450ms;     /* tarjetas */
+  --t-long: 850ms;    /* reveals de seccion */
+
+  --content: 1160px;
+  --gutter: 32px;
+}
+* { --shadow: 0 1px 4px rgb(var(--shadow-rgb) / 0.08); --shadow-hover: 0 3px 10px rgb(var(--shadow-rgb) / 0.12); }
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--text-primary);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-tap-highlight-color: transparent; }
+h1, h2, h3, p, ul, ol, dl, dd { margin: 0; }
+ul, ol { padding: 0; list-style: none; }
+a { color: inherit; }
+:focus-visible { outline: 3px solid var(--color-primary); outline-offset: 2px; box-shadow: 0 0 0 2px #fff; }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.icon { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.wrap { width: 100%; max-width: calc(var(--content) + 2 * var(--gutter)); margin: 0 auto; padding: 0 var(--gutter); }
+
+.saltar { position: absolute; left: 16px; top: 12px; z-index: 50; padding: 10px 16px; border-radius: 999px;
+  background: var(--navy); color: #fff; font-weight: 600; text-decoration: none; transform: translateY(-160%); }
+.saltar:focus-visible { transform: none; }
+
+/* ===== Botones: los de la app (píldora de 48 px, borde de 2 px) ===== */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 24px;
+  border: 2px solid transparent; border-radius: 999px; font: inherit; font-size: 16px; line-height: 20px; font-weight: 600;
+  text-decoration: none; cursor: pointer; user-select: none;
+  transition: transform var(--t-short) var(--ease), background-color var(--t-short) ease, color var(--t-short) ease; }
+.btn--primary { background: var(--color-primary); color: var(--on-primary); }
+.btn--sec { background: #fff; color: var(--color-primary); border-color: var(--color-primary); }
+.btn--blanco { background: #fff; color: var(--navy); }
+.btn--borde-claro { background: transparent; color: #fff; border-color: #fff; }
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover { transform: translateY(var(--lift-interactive)); }
+  .btn--primary:hover { background: var(--pri-d); }
+  .btn--sec:hover { background: var(--pri-50); color: var(--pri-d); }
+  .btn--blanco:hover { background: var(--pri-50); }
+  .btn--borde-claro:hover { background: rgb(255 255 255 / 0.12); }
+}
+.btn:active { transform: scale(0.97); transition-duration: var(--press-in); }
+
+/* ===== Píldoras de estado: .est y .dot de la app, sin cambios ===== */
+.est { display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px 4px 10px; border: 1px solid var(--divider);
+  border-radius: 999px; background: #fff; font-size: 14px; line-height: 20px; font-weight: 500; color: var(--text-primary); white-space: nowrap; }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.dot--revision { background: var(--dot-revision); }
+.dot--ok { background: var(--dot-ok); }
+
+/* ===== Cabecera ===== */
+.cabecera { position: sticky; top: 0; z-index: 20; }
+.cabecera::before { content: ""; position: absolute; inset: 0; z-index: -1; background: rgb(255 255 255 / 0.86);
+  border-bottom: 1px solid var(--divider); -webkit-backdrop-filter: saturate(1.4) blur(12px); backdrop-filter: saturate(1.4) blur(12px);
+  opacity: 0; transition: opacity 500ms var(--ease); }
+.cabecera.is-compacta::before, .no-js .cabecera::before { opacity: 1; }
+.cabecera .wrap { display: flex; align-items: center; gap: 24px; min-height: 76px; }
+.marca { display: inline-flex; align-items: center; min-height: 48px; font-size: 18px; font-weight: 700; color: var(--navy);
+  text-decoration: none; letter-spacing: -0.01em; transform-origin: left center; transition: transform 500ms var(--ease); }
+.cabecera.is-compacta .marca { transform: scale(0.94); }
+.menu { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+.menu a:not(.btn) { display: inline-flex; align-items: center; min-height: 48px; padding: 0 14px; border-radius: 999px;
+  color: var(--ink2); font-weight: 600; text-decoration: none; transition: background-color var(--t-short) ease, color var(--t-short) ease; }
+@media (hover: hover) and (pointer: fine) { .menu a:not(.btn):hover { background: var(--pri-50); color: var(--pri-d); } }
+.cabecera .btn { margin-left: 8px; }
+.menu-boton { display: none; }
+
+/* ===== Secciones ===== */
+/* Los enlaces de ancla dejan la sección debajo de la cabecera pegajosa, no tapada por ella. */
+main section[id], #contenido { scroll-margin-top: 88px; }
+.seccion { padding: 104px 0; }
+.seccion--borde { border-top: 1px solid var(--divider); }
+.antetitulo { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 16px; font-size: 14px; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--color-primary); }
+.titulo-seccion { max-width: 22ch; font-size: clamp(30px, 2.2vw + 18px, 44px); line-height: 1.15; font-weight: 700; letter-spacing: -0.02em; color: var(--navy); }
+.entradilla { max-width: 60ch; margin-top: 16px; font-size: 18px; line-height: 28px; color: var(--text-secondary); }
+
+/* ===== Hero ===== */
+.hero { padding: 72px 0 104px; }
+.hero .wrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 56px; align-items: center; }
+.hero h1 { font-size: clamp(38px, 3.6vw + 18px, 64px); line-height: 1.05; font-weight: 750; letter-spacing: -0.03em; color: var(--navy); }
+.hero h1 em { font-style: normal; color: var(--color-primary); }
+.hero .entradilla { font-size: 19px; line-height: 30px; }
+.botones { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
+.nota-hero { display: flex; align-items: center; gap: 8px; margin-top: 24px; font-size: 14px; color: var(--text-secondary); }
+.nota-hero .icon { width: 18px; height: 18px; color: var(--color-success); }
+
+/* El marco de la app: UI real reconstruida con datos ficticios */
+.marco { position: relative; border: 1px solid var(--divider); border-radius: var(--r-lg); background: #fff; box-shadow: 0 24px 60px -24px rgb(var(--shadow-rgb) / 0.28), var(--shadow); overflow: hidden; }
+.marco__barra { display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--divider); background: var(--surface-sunken); }
+.marco__barra b { color: var(--navy); font-size: 15px; }
+.marco__barra span { color: var(--text-secondary); font-size: 14px; }
+.ficticio { margin-left: auto; padding: 2px 10px; border-radius: var(--r-sm); background: var(--pri-50); border: 1px solid var(--pri-100); color: var(--pri-d); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.marco__cuerpo { padding: 20px 24px 24px; }
+.grafica { display: block; width: 100%; height: auto; }
+.grafica .rejilla { stroke: var(--divider); stroke-width: 1; }
+.grafica .eje { fill: var(--text-secondary); font: 600 12px system-ui, sans-serif; }
+.grafica .valor { fill: var(--navy); font: 700 13px system-ui, sans-serif; }
+.grafica .linea { fill: none; stroke: var(--color-primary); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.grafica .area { fill: var(--pri-50); }
+.grafica .punto { fill: #fff; stroke: var(--color-primary); stroke-width: 3; }
+.grafica .velo { fill: #fff; transform-box: fill-box; transform-origin: right center; transform: scaleX(0); }
+.grafica .ping { fill: var(--color-primary); transform-box: fill-box; transform-origin: center; opacity: 0; }
+.leyenda { margin-top: 14px; font-size: 14px; line-height: 22px; color: var(--ink2); }
+.leyenda b { color: var(--navy); }
+.estados { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--divider); }
+.estados__flecha { display: inline-flex; align-items: center; color: var(--field); }
+.estados__flecha .icon { width: 16px; height: 16px; }
+
+/* ===== Cómo funciona ===== */
+.pasos { position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; margin-top: 56px; }
+.pasos::before { content: ""; position: absolute; left: 28px; right: 28px; top: 27px; height: 2px; background: var(--pri-200); transform-origin: left center; }
+.paso { position: relative; }
+.paso__num { position: relative; display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%;
+  background: #fff; border: 2px solid var(--color-primary); color: var(--color-primary); font-size: 20px; font-weight: 700; }
+.paso h3 { margin-top: 20px; font-size: 19px; line-height: 26px; font-weight: 700; color: var(--navy); }
+.paso p { margin-top: 8px; color: var(--text-secondary); line-height: 24px; }
+.paso__quien { display: inline-block; margin-top: 12px; padding: 2px 10px; border-radius: var(--r-sm); background: var(--pri-50); color: var(--pri-d); font-size: 13px; font-weight: 600; }
+
+/* ===== Módulos ===== */
+.modulos .wrap > .cabeza { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 24px; }
+.interruptor { display: inline-flex; padding: 4px; border: 1px solid var(--field); border-radius: 999px; background: #fff; box-shadow: var(--shadow); }
+.interruptor button { min-height: 48px; padding: 0 22px; border: 0; border-radius: 999px; background: transparent; color: var(--ink2);
+  font: inherit; font-weight: 600; cursor: pointer; transition: background-color var(--t-short) ease, color var(--t-short) ease, transform var(--press-in) var(--ease); }
+.interruptor button[aria-selected="true"] { background: var(--color-primary); color: #fff; }
+@media (hover: hover) and (pointer: fine) { .interruptor button[aria-selected="false"]:hover { background: var(--pri-50); color: var(--pri-d); } }
+.interruptor button:active { transform: scale(0.97); }
+.panel { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); gap: 40px; align-items: start; margin-top: 40px; }
+.js .panel { transition: opacity var(--t-short) ease; }
+.js .panel.is-saliendo { opacity: 0; }
+.panel[hidden] { display: none; }
+.panel h3 { font-size: 24px; line-height: 32px; font-weight: 700; color: var(--navy); }
+.lista-check { margin-top: 20px; display: grid; gap: 14px; }
+.lista-check li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; align-items: start; line-height: 24px; color: var(--ink2); }
+.lista-check .icon { width: 24px; height: 24px; color: var(--color-primary); }
+.lista-check b { color: var(--navy); }
+.tabla { width: 100%; border-collapse: collapse; font-size: 15px; }
+.tabla th { padding: 12px 16px; text-align: left; font-size: 14px; font-weight: 600; color: var(--ink2); background: var(--surface-sunken); border-bottom: 1px solid var(--divider); }
+.tabla td { padding: 14px 16px; border-top: 1px solid var(--divider); vertical-align: middle; }
+.tabla tbody tr:first-child td { border-top: 0; }
+.tabla td b { color: var(--navy); }
+.tabla .cod { white-space: nowrap; }
+.tabla .sin { color: var(--text-secondary); }
+.marco--tabla .marco__cuerpo { padding: 0; }
+.aviso-campana { display: flex; align-items: center; gap: 12px; margin: 0 16px 16px; padding: 14px 18px; border: 1px solid var(--pri-200); border-radius: var(--r-md); background: var(--pri-50); font-size: 15px; }
+.aviso-campana .icon { color: var(--color-primary); }
+
+/* ===== Garantías ===== */
+.garantias { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; margin-top: 56px; }
+.garantia { padding: 28px; border: 1px solid var(--divider); border-radius: var(--r-lg); background: #fff; box-shadow: var(--shadow);
+  transition: transform 400ms var(--ease), box-shadow 400ms var(--ease); }
+@media (hover: hover) and (pointer: fine) { .garantia:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); } }
+.garantia__icono { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 14px; background: var(--pri-50); color: var(--color-primary); }
+.garantia__icono .icon { width: 26px; height: 26px; }
+.garantia h3 { margin-top: 20px; font-size: 20px; line-height: 28px; font-weight: 700; color: var(--navy); }
+.garantia p { margin-top: 10px; color: var(--text-secondary); line-height: 24px; }
+
+/* ===== Cifras (banda de contraste) ===== */
+.cifras { background: var(--navy); color: #fff; }
+.cifras .antetitulo { color: var(--pri-200); }
+.cifras .titulo-seccion { color: #fff; }
+.cifras .entradilla { color: var(--pri-100); }
+.cifras__lista { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; margin-top: 48px; }
+.cifra { padding: 28px; border: 1px solid rgb(255 255 255 / 0.18); border-radius: var(--r-lg); background: rgb(255 255 255 / 0.04); }
+.cifra__num { display: block; font-size: clamp(48px, 3vw + 28px, 72px); line-height: 1; font-weight: 750; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.cifra__txt { display: block; margin-top: 12px; color: var(--pri-100); font-size: 17px; line-height: 26px; }
+.cifras__nota { display: inline-flex; align-items: center; gap: 8px; margin-top: 28px; padding: 6px 14px; border-radius: 999px; border: 1px solid rgb(255 255 255 / 0.24); color: var(--pri-50); font-size: 14px; }
+
+/* ===== Franja de capacidades ===== */
+.franja { padding: 40px 0; border-bottom: 1px solid var(--divider); background: #fff; }
+.franja .wrap { display: flex; align-items: center; gap: 20px; }
+.franja__ventana { position: relative; flex: 1; min-width: 0; overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
+.franja__carril { display: flex; width: max-content; }
+.franja__grupo { display: flex; gap: 12px; padding-right: 12px; }
+.franja__grupo li { display: inline-flex; align-items: center; gap: 10px; padding: 10px 18px; border: 1px solid var(--divider); border-radius: 999px;
+  background: var(--surface-sunken); color: var(--navy); font-weight: 600; white-space: nowrap; }
+.franja__grupo .icon { color: var(--color-primary); }
+.js .franja__carril { animation: franja 48s linear infinite; }
+.js .franja.is-pausada .franja__carril { animation-play-state: paused; }
+@keyframes franja { to { transform: translateX(-50%); } }
+.pausa { flex: none; display: inline-grid; place-items: center; width: 48px; height: 48px; border: 1px solid var(--field); border-radius: 50%;
+  background: #fff; color: var(--ink2); cursor: pointer; transition: background-color var(--t-short) ease, transform var(--press-in) var(--ease); }
+@media (hover: hover) and (pointer: fine) { .pausa:hover { background: var(--pri-50); color: var(--color-primary); } }
+.pausa:active { transform: scale(0.95); }
+.pausa .i-play { display: none; }
+.pausa[aria-pressed="true"] .i-pausa { display: none; }
+.pausa[aria-pressed="true"] .i-play { display: block; }
+.no-js .pausa, .no-js .franja__grupo[aria-hidden] { display: none; }
+.no-js .franja__carril, .no-js .franja__grupo { flex-wrap: wrap; width: auto; }
+.no-js .franja__ventana { -webkit-mask-image: none; mask-image: none; }
+
+/* ===== Llamado final y pie ===== */
+.final { text-align: center; }
+.final .titulo-seccion, .final .entradilla { margin-left: auto; margin-right: auto; }
+.final .botones { justify-content: center; }
+.pie { padding: 32px 0 40px; border-top: 1px solid var(--divider); background: #fff; color: var(--text-secondary); font-size: 14px; line-height: 22px; }
+.pie .wrap { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; }
+.pie b { color: var(--navy); }
+
+/* ===== Movimiento ===== */
+/* Reveal al hacer scroll: solo con JS (.js); sin JS todo se ve. Solo transform y opacity. */
+.js [data-reveal] { opacity: 0; transform: translateY(34px); transition: opacity var(--t-long) var(--ease), transform var(--t-long) var(--ease); }
+.js [data-reveal="izq"] { transform: translateX(-40px); }
+.js [data-reveal="escala"] { transform: scale(0.94); }
+.js [data-reveal].is-in { opacity: 1; transform: none; }
+.js .pasos::before { transform: scaleX(0); transition: transform 1100ms var(--ease) 200ms; }
+.js .pasos.is-in::before { transform: scaleX(1); }
+
+/* Entrada del hero, una sola vez (~1,1 s): título, entradilla, botones, visual. Escalonado no uniforme. */
+.js [data-enter] { opacity: 0; transform: translateY(24px); animation: entra 800ms var(--ease) forwards; }
+.js [data-enter="1"] { animation-delay: 0ms; }
+.js [data-enter="2"] { animation-delay: 110ms; transform: translateY(16px); }
+.js [data-enter="3"] { animation-delay: 200ms; transform: translateY(12px); }
+.js [data-enter="4"] { animation-delay: 160ms; transform: translateY(28px) scale(0.98); animation-duration: 950ms; }
+@keyframes entra { to { opacity: 1; transform: none; } }
+/* La línea de evolución se descubre de izquierda a derecha: un velo blanco que se encoge (transform). */
+.js .grafica .velo { transform: scaleX(1); animation: descubre 1100ms var(--ease) 450ms forwards; }
+@keyframes descubre { to { transform: scaleX(0); } }
+.js .estados .est, .js .estados__flecha { opacity: 0; transform: translateY(8px); animation: entra 500ms var(--ease) forwards; }
+.js .estados > :nth-child(1) { animation-delay: 1000ms; }
+.js .estados > :nth-child(2) { animation-delay: 1060ms; }
+.js .estados > :nth-child(3) { animation-delay: 1110ms; }
+.js .estados > :nth-child(4) { animation-delay: 1150ms; }
+.js .estados > :nth-child(5) { animation-delay: 1180ms; }
+/* Ambiente lento: el punto de la semana más reciente late. */
+.js .grafica .ping { animation: ping 1.8s var(--ease) 1.6s infinite; }
+@keyframes ping { 0% { opacity: 0.45; transform: scale(1); } 100% { opacity: 0; transform: scale(2.6); } }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  :root { --lift-interactive: 0px; }
+  .js [data-reveal], .js [data-reveal].is-in { transform: none; transition: opacity 200ms ease; }
+  .js [data-enter], .js .estados .est, .js .estados__flecha { transform: none; animation: aparece 200ms ease forwards; animation-delay: 0ms; }
+  @keyframes aparece { to { opacity: 1; } }
+  .js .grafica .velo { animation: none; transform: scaleX(0); }
+  .js .grafica .ping { animation: none; }
+  .js .pasos::before { transform: none; transition: none; }
+  .js .franja__carril { animation: none; flex-wrap: wrap; width: auto; }
+  .js .franja__grupo { flex-wrap: wrap; }
+  .js .franja__grupo[aria-hidden] { display: none; }
+  .js .franja__ventana { -webkit-mask-image: none; mask-image: none; }
+  .pausa { display: none; }
+  .btn:hover, .btn:active, .garantia:hover, .interruptor button:active, .pausa:active { transform: none; }
+  .marca, .cabecera.is-compacta .marca { transform: none; }
+}
+
+/* ===== Adaptación ===== */
+@media (max-width: 1080px) {
+  .hero .wrap { grid-template-columns: minmax(0, 1fr); gap: 48px; }
+  .hero .texto { max-width: 680px; }
+  .pasos { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 40px; }
+  .pasos::before { display: none; }
+  .panel { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 860px) {
+  :root { --gutter: 24px; }
+  .menu-boton { display: inline-grid; place-items: center; width: 48px; height: 48px; margin-left: auto; border: 1px solid var(--field);
+    border-radius: 50%; background: #fff; color: var(--ink2); cursor: pointer; }
+  .menu { position: absolute; left: var(--gutter); right: var(--gutter); top: calc(100% - 4px); flex-direction: column; align-items: stretch; gap: 4px;
+    padding: 12px; border: 1px solid var(--divider); border-radius: var(--r-lg); background: #fff; box-shadow: var(--shadow-hover); margin: 0; }
+  .js .menu { opacity: 0; visibility: hidden; transform: translateY(-6px) scale(0.98); transform-origin: top right;
+    transition: opacity var(--t-short) var(--ease), transform var(--t-short) var(--ease), visibility 0s linear var(--t-short); }
+  .js .cabecera.is-abierta .menu { opacity: 1; visibility: visible; transform: none; transition: opacity var(--t-short) var(--ease), transform var(--t-short) var(--ease); }
+  .no-js .menu-boton { display: none; }
+  .no-js .menu { position: static; flex-direction: row; flex-wrap: wrap; border: 0; box-shadow: none; padding: 0; background: transparent; }
+  .menu a:not(.btn) { justify-content: flex-start; }
+  .cabecera .btn { margin: 4px 0 0; }
+  .garantias, .cifras__lista { grid-template-columns: minmax(0, 1fr); }
+  .seccion { padding: 80px 0; }
+}
+@media (max-width: 560px) {
+  :root { --gutter: 16px; }
+  .hero { padding: 40px 0 72px; }
+  .botones .btn { width: 100%; }
+  .pasos { grid-template-columns: minmax(0, 1fr); }
+  .interruptor { width: 100%; }
+  .interruptor button { flex: 1; padding: 0 12px; }
+  .marco__barra { flex-wrap: wrap; }
+  .ficticio { margin-left: 0; }
+  .marco__cuerpo { padding: 16px; }
+  .tabla th:nth-child(2), .tabla td:nth-child(2) { display: none; }
+  .tabla th, .tabla td { padding: 12px; }
+  .garantia, .cifra { padding: 22px; }
+  .franja .wrap { gap: 12px; }
+  .pie .wrap { flex-direction: column; align-items: flex-start; }
+}
+</style>
+</head>
+<body>
+<a class="saltar" href="#contenido">Saltar al contenido</a>
+
+<!-- Íconos de la app (frontend/src/app/core/icons.ts), mismo trazo -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="i-pacientes" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.2a6.5 6.5 0 0 1 3.5 5.8"/></symbol>
+  <symbol id="i-registro" viewBox="0 0 24 24"><path d="M5 3h10l4 4v14H5z"/><path d="M14 3v5h5"/><path d="M8.5 13h7M8.5 17h5"/></symbol>
+  <symbol id="i-informes" viewBox="0 0 24 24"><path d="M5 20V4"/><path d="M5 20h15"/><path d="M9 16v-4m4 4V8m4 8v-6"/></symbol>
+  <symbol id="i-aprobar" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/></symbol>
+  <symbol id="i-enviar" viewBox="0 0 24 24"><path d="M21 3 3 10.5l7.5 3 3 7.5z"/><path d="m10.5 13.5 5-5"/></symbol>
+  <symbol id="i-ia" viewBox="0 0 24 24"><path d="M11 4.5 12.6 9l4.4 1.5-4.4 1.5-1.6 4.5L9.4 12 5 10.5 9.4 9z"/><path d="M18 3v4m-2-2h4"/><path d="M5.5 16.5v3M4 18h3"/></symbol>
+  <symbol id="i-campana" viewBox="0 0 24 24"><path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 21h4"/></symbol>
+  <symbol id="i-buscar" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></symbol>
+  <symbol id="i-trazas" viewBox="0 0 24 24"><path d="M3 12h4l2.5-6 4 12 2.5-6H21"/></symbol>
+  <symbol id="i-microfono" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></symbol>
+  <symbol id="i-perfil" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="i-escudo" viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-flecha" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+  <symbol id="i-pausa" viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></symbol>
+</svg>
+
+<header class="cabecera" id="cabecera">
+  <div class="wrap">
+    <a class="marca" href="#contenido">Patient Progress Auditor</a>
+    <button class="menu-boton" type="button" aria-expanded="false" aria-controls="menu" aria-label="Abrir el menú">
+      <svg class="icon" aria-hidden="true"><use href="#i-menu"/></svg>
+    </button>
+    <nav class="menu" id="menu" aria-label="Secciones">
+      <a href="#como">Cómo funciona</a>
+      <a href="#modulos">Módulos</a>
+      <a href="#garantias">Garantías</a>
+      <a href="#cifras">Datos de prueba</a>
+      <a class="btn btn--primary" href="#entrar">Entrar</a>
+    </nav>
+  </div>
+</header>
+
+<main id="contenido" tabindex="-1">
+
+  <!-- 1. Hero -->
+  <section class="hero" aria-labelledby="h-hero">
+    <div class="wrap">
+      <div class="texto">
+        <p class="antetitulo" data-enter="1">Seguimiento documental de pacientes</p>
+        <h1 id="h-hero" data-enter="1">La IA redacta el informe. <em>Enfermería lo aprueba.</em></h1>
+        <p class="entradilla" data-enter="2">Cada día se registra en texto libre cómo está el paciente. Cada semana, un informe compara su evolución y cita los registros de donde sale cada frase. Nada llega al médico sin la revisión de enfermería.</p>
+        <div class="botones" data-enter="3">
+          <a class="btn btn--primary" href="../mockups-vC/mockups/auditor-vC.html#/enf/pacientes">
+            <svg class="icon" aria-hidden="true"><use href="#i-pacientes"/></svg>Entrar como Enfermería
+          </a>
+          <a class="btn btn--sec" href="../mockups-vC/mockups/auditor-vC.html#/med/pacientes">
+            <svg class="icon" aria-hidden="true"><use href="#i-perfil"/></svg>Entrar como Médico
+          </a>
+        </div>
+        <p class="nota-hero" data-enter="3"><svg class="icon" aria-hidden="true"><use href="#i-escudo"/></svg>Apoyo al seguimiento: no diagnostica ni receta.</p>
+      </div>
+
+      <figure class="marco" data-enter="4" aria-labelledby="h-grafica" style="margin:0">
+        <div class="marco__barra">
+          <b id="h-grafica">Evolución de cuatro semanas · P-014</b><span>Cama 204-A</span>
+          <span class="ficticio">Datos ficticios</span>
+        </div>
+        <div class="marco__cuerpo">
+          <svg class="grafica" viewBox="0 0 520 220" role="img" aria-label="Días con náuseas por semana de P-014: semana del 28 de septiembre, 0; del 5 de octubre, 3; del 12 de octubre, 0; del 19 de octubre, 4. Datos ficticios.">
+            <g aria-hidden="true">
+              <line class="rejilla" x1="40" y1="30" x2="500" y2="30"/>
+              <line class="rejilla" x1="40" y1="83" x2="500" y2="83"/>
+              <line class="rejilla" x1="40" y1="137" x2="500" y2="137"/>
+              <line class="rejilla" x1="40" y1="190" x2="500" y2="190"/>
+              <text class="eje" x="30" y="34" text-anchor="end">6</text>
+              <text class="eje" x="30" y="87" text-anchor="end">4</text>
+              <text class="eje" x="30" y="141" text-anchor="end">2</text>
+              <text class="eje" x="30" y="194" text-anchor="end">0</text>
+              <path class="area" d="M80 190 L220 110 L360 190 L480 83 L480 190 L80 190 Z"/>
+              <path class="linea" d="M80 190 L220 110 L360 190 L480 83"/>
+              <circle class="punto" cx="80" cy="190" r="6"/>
+              <circle class="punto" cx="220" cy="110" r="6"/>
+              <circle class="punto" cx="360" cy="190" r="6"/>
+              <circle class="punto" cx="480" cy="83" r="6"/>
+              <text class="valor" x="80" y="178" text-anchor="middle">0</text>
+              <text class="valor" x="220" y="98" text-anchor="middle">3</text>
+              <text class="valor" x="360" y="178" text-anchor="middle">0</text>
+              <text class="valor" x="480" y="71" text-anchor="middle">4</text>
+              <rect class="velo" x="62" y="40" width="430" height="160"/>
+              <circle class="ping" cx="480" cy="83" r="7"/>
+              <text class="eje" x="80" y="212" text-anchor="middle">28 sep</text>
+              <text class="eje" x="220" y="212" text-anchor="middle">5 oct</text>
+              <text class="eje" x="360" y="212" text-anchor="middle">12 oct</text>
+              <text class="eje" x="480" y="212" text-anchor="middle">19 oct</text>
+            </g>
+          </svg>
+          <p class="leyenda"><b>Días con náuseas por semana: reaparecen.</b> Las cifras las calcula el código a partir de los registros confirmados; el modelo solo redacta la comparación.</p>
+          <div class="estados" aria-label="Recorrido del informe">
+            <span class="est"><i class="dot dot--revision" aria-hidden="true"></i>En revisión</span>
+            <span class="estados__flecha" aria-hidden="true"><svg class="icon"><use href="#i-flecha"/></svg></span>
+            <span class="est"><i class="dot dot--ok" aria-hidden="true"></i>Aprobado</span>
+            <span class="estados__flecha" aria-hidden="true"><svg class="icon"><use href="#i-flecha"/></svg></span>
+            <span class="est"><i class="dot dot--ok" aria-hidden="true"></i>Enviado</span>
+          </div>
+        </div>
+      </figure>
+    </div>
+  </section>
+
+  <!-- 2. Cómo funciona -->
+  <section class="seccion seccion--borde" id="como" aria-labelledby="h-como">
+    <div class="wrap">
+      <p class="antetitulo" data-reveal>Cómo funciona</p>
+      <h2 class="titulo-seccion" id="h-como" data-reveal>Del registro del día al informe que lee el médico.</h2>
+      <ol class="pasos" data-reveal-grupo>
+        <li class="paso" data-reveal style="transition-delay:0ms">
+          <span class="paso__num" aria-hidden="true">1</span>
+          <h3>Se registra el día</h3>
+          <p>En texto libre o dictado, tal como lo diría quien atiende al paciente.</p>
+          <span class="paso__quien">Enfermería o médico</span>
+        </li>
+        <li class="paso" data-reveal style="transition-delay:80ms">
+          <span class="paso__num" aria-hidden="true">2</span>
+          <h3>La IA propone, una persona confirma</h3>
+          <p>Los síntomas, su intensidad y las veces. Nada se guarda sin confirmar.</p>
+          <span class="paso__quien">Quien registra</span>
+        </li>
+        <li class="paso" data-reveal style="transition-delay:150ms">
+          <span class="paso__num" aria-hidden="true">3</span>
+          <h3>Se genera el informe</h3>
+          <p>Semanal o mensual, con cada frase rastreada a su registro original.</p>
+          <span class="paso__quien">El agente, con límites</span>
+        </li>
+        <li class="paso" data-reveal style="transition-delay:210ms">
+          <span class="paso__num" aria-hidden="true">4</span>
+          <h3>Enfermería revisa y aprueba</h3>
+          <p>Corrige si hace falta, aprueba y lo envía. Recién entonces lo ve el médico.</p>
+          <span class="paso__quien">Enfermería</span>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 3. Módulos -->
+  <section class="seccion seccion--borde modulos" id="modulos" aria-labelledby="h-modulos">
+    <div class="wrap">
+      <div class="cabeza">
+        <div>
+          <p class="antetitulo" data-reveal>Dos módulos</p>
+          <h2 class="titulo-seccion" id="h-modulos" data-reveal>Cada rol ve lo que le toca.</h2>
+        </div>
+        <div class="interruptor" role="tablist" aria-label="Módulo" data-reveal>
+          <button type="button" role="tab" id="tab-enf" aria-selected="true" aria-controls="panel-enf">Enfermería</button>
+          <button type="button" role="tab" id="tab-med" aria-selected="false" aria-controls="panel-med" tabindex="-1">Médico</button>
+        </div>
+      </div>
+
+      <div class="panel" id="panel-enf" role="tabpanel" aria-labelledby="tab-enf" tabindex="0">
+        <div>
+          <h3>Enfermería registra, revisa y decide.</h3>
+          <ul class="lista-check">
+            <li><svg class="icon" aria-hidden="true"><use href="#i-registro"/></svg><span><b>Registro diario</b> en texto libre o por voz, con la vista previa de lo que la IA entendió.</span></li>
+            <li><svg class="icon" aria-hidden="true"><use href="#i-informes"/></svg><span><b>Informes semanales y mensuales</b> que se generan en segundo plano, con su progreso a la vista.</span></li>
+            <li><svg class="icon" aria-hidden="true"><use href="#i-aprobar"/></svg><span><b>Revisión con evidencia:</b> cada afirmación lleva a su registro, y se puede editar, aprobar o rechazar.</span></li>
+            <li><svg class="icon" aria-hidden="true"><use href="#i-enviar"/></svg><span><b>Envío al médico</b> solo de lo aprobado.</span></li>
+          </ul>
+        </div>
+        <div class="marco marco--tabla">
+          <div class="marco__barra"><b>Pacientes</b><span>5 en seguimiento</span><span class="ficticio">Datos ficticios</span></div>
+          <div class="marco__cuerpo">
+            <table class="tabla">
+              <thead><tr><th scope="col">Paciente</th><th scope="col">Cama</th><th scope="col">Informe</th></tr></thead>
+              <tbody>
+                <tr><td class="cod"><b>P-014</b></td><td>204-A</td><td><span class="est"><i class="dot dot--ok" aria-hidden="true"></i>Aprobado</span></td></tr>
+                <tr><td class="cod"><b>P-021</b></td><td>207-B</td><td><span class="est"><i class="dot dot--revision" aria-hidden="true"></i>En revisión</span></td></tr>
+                <tr><td class="cod"><b>P-007</b></td><td>215-A</td><td class="sin">Sin informe</td></tr>
+                <tr><td class="cod"><b>P-033</b></td><td>301-C</td><td class="sin">Sin informe</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" id="panel-med" role="tabpanel" aria-labelledby="tab-med" tabindex="0" hidden>
+        <div>
+          <h3>El médico recibe lo que enfermería aprobó.</h3>
+          <ul class="lista-check">
+            <li><svg class="icon" aria-hidden="true"><use href="#i-informes"/></svg><span><b>Informes recibidos:</b> solo los que enfermería aprobó y envió, nunca un borrador.</span></li>
+            <li><svg class="icon" aria-hidden="true"><use href="#i-campana"/></svg><span><b>Avisos</b> de un registro nuevo o de un informe enviado, sin texto clínico en el aviso.</span></li>
+            <li><svg class="icon" aria-hidden="true"><use href="#i-registro"/></svg><span><b>Nuevo registro</b> desde la ficha del paciente, con la misma vista previa.</span></li>
+            <li><svg class="icon" aria-hidden="true"><use href="#i-buscar"/></svg><span><b>Armar informe:</b> una consulta propia de un período, que no entra al historial.</span></li>
+          </ul>
+        </div>
+        <div class="marco marco--tabla">
+          <div class="marco__barra"><b>Informes recibidos</b><span>3 de P-014</span><span class="ficticio">Datos ficticios</span></div>
+          <div class="marco__cuerpo">
+            <table class="tabla">
+              <thead><tr><th scope="col">Paciente</th><th scope="col">Semana</th><th scope="col">Estado</th></tr></thead>
+              <tbody>
+                <tr><td class="cod"><b>P-014</b></td><td>5 al 11 oct</td><td><span class="est"><i class="dot dot--ok" aria-hidden="true"></i>Enviado</span></td></tr>
+                <tr><td class="cod"><b>P-014</b></td><td>28 sep al 4 oct</td><td><span class="est"><i class="dot dot--ok" aria-hidden="true"></i>Enviado</span></td></tr>
+                <tr><td class="cod"><b>P-014</b></td><td>21 al 27 sep</td><td><span class="est"><i class="dot dot--ok" aria-hidden="true"></i>Enviado</span></td></tr>
+              </tbody>
+            </table>
+            <p class="aviso-campana"><svg class="icon" aria-hidden="true"><use href="#i-campana"/></svg><span>Nuevo informe enviado de <b>P-014</b>.</span></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. Garantías -->
+  <section class="seccion seccion--borde" id="garantias" aria-labelledby="h-garantias">
+    <div class="wrap">
+      <p class="antetitulo" data-reveal>Garantías</p>
+      <h2 class="titulo-seccion" id="h-garantias" data-reveal>Las reglas las cumple el sistema, no la buena voluntad.</h2>
+      <div class="garantias">
+        <article class="garantia" data-reveal="escala" style="transition-delay:0ms">
+          <span class="garantia__icono" aria-hidden="true"><svg class="icon"><use href="#i-escudo"/></svg></span>
+          <h3>Sin diagnóstico ni tratamiento</h3>
+          <p>El informe describe la evolución documentada: qué cambió, qué reaparece y qué falta registrar. Nunca una dosis.</p>
+        </article>
+        <article class="garantia" data-reveal="escala" style="transition-delay:90ms">
+          <span class="garantia__icono" aria-hidden="true"><svg class="icon"><use href="#i-trazas"/></svg></span>
+          <h3>Cada frase, a su registro</h3>
+          <p>Toda afirmación del informe se rastrea al registro original, con su fecha y su texto, y muestra con qué se comparó.</p>
+        </article>
+        <article class="garantia" data-reveal="escala" style="transition-delay:160ms">
+          <span class="garantia__icono" aria-hidden="true"><svg class="icon"><use href="#i-aprobar"/></svg></span>
+          <h3>Enfermería aprueba primero</h3>
+          <p>Un informe solo llega al médico cuando enfermería lo aprobó y lo envió. El servidor lo exige.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. Cifras -->
+  <section class="seccion cifras" id="cifras" aria-labelledby="h-cifras">
+    <div class="wrap">
+      <p class="antetitulo" data-reveal>Datos de prueba</p>
+      <h2 class="titulo-seccion" id="h-cifras" data-reveal>Lista para probar desde el primer arranque.</h2>
+      <p class="entradilla" data-reveal>La aplicación abre con una semilla de demostración: pacientes, registros e informes ficticios, sin llamar al modelo.</p>
+      <dl class="cifras__lista">
+        <div class="cifra" data-reveal style="transition-delay:0ms">
+          <dt class="sr-only">Pacientes</dt>
+          <dd><span class="cifra__num" data-cuenta="5" aria-hidden="true">5</span><span class="sr-only">5</span><span class="cifra__txt">pacientes ficticios</span></dd>
+        </div>
+        <div class="cifra" data-reveal style="transition-delay:80ms">
+          <dt class="sr-only">Semanas-paciente</dt>
+          <dd><span class="cifra__num" data-cuenta="18" aria-hidden="true">18</span><span class="sr-only">18</span><span class="cifra__txt">semanas-paciente de seguimiento</span></dd>
+        </div>
+        <div class="cifra" data-reveal style="transition-delay:140ms">
+          <dt class="sr-only">Registros</dt>
+          <dd><span class="cifra__num" data-cuenta="119" aria-hidden="true">119</span><span class="sr-only">119</span><span class="cifra__txt">registros diarios con eventos confirmados</span></dd>
+        </div>
+      </dl>
+      <p class="cifras__nota" data-reveal>Datos ficticios de demostración. Ninguno corresponde a una persona real.</p>
+    </div>
+  </section>
+
+  <!-- 6. Franja de capacidades -->
+  <section class="franja" aria-label="Lo que hace la aplicación">
+    <div class="wrap">
+      <div class="franja__ventana">
+        <div class="franja__carril" id="carril">
+          <ul class="franja__grupo">
+            <li><svg class="icon" aria-hidden="true"><use href="#i-registro"/></svg>Registro diario</li>
+            <li><svg class="icon" aria-hidden="true"><use href="#i-microfono"/></svg>Dictado por voz</li>
+            <li><svg class="icon" aria-hidden="true"><use href="#i-ia"/></svg>Síntomas propuestos por la IA</li>
+            <li><svg class="icon" aria-hidden="true"><use href="#i-informes"/></svg>Informe semanal</li>
+            <li><svg class="icon" aria-hidden="true"><use href="#i-informes"/></svg>Informe mensual</li>
+            <li><svg class="icon" aria-hidden="true"><use href="#i-trazas"/></svg>Fuente visible</li>
+            <li><svg class="icon" aria-hidden="true"><use href="#i-aprobar"/></svg>Aprobación de enfermería</li>
+            <li><svg class="icon" aria-hidden="true"><use href="#i-campana"/></svg>Avisos al médico</li>
+            <li><svg class="icon" aria-hidden="true"><use href="#i-escudo"/></svg>Sin diagnóstico</li>
+          </ul>
+          <ul class="franja__grupo" aria-hidden="true">
+            <li><svg class="icon"><use href="#i-registro"/></svg>Registro diario</li>
+            <li><svg class="icon"><use href="#i-microfono"/></svg>Dictado por voz</li>
+            <li><svg class="icon"><use href="#i-ia"/></svg>Síntomas propuestos por la IA</li>
+            <li><svg class="icon"><use href="#i-informes"/></svg>Informe semanal</li>
+            <li><svg class="icon"><use href="#i-informes"/></svg>Informe mensual</li>
+            <li><svg class="icon"><use href="#i-trazas"/></svg>Fuente visible</li>
+            <li><svg class="icon"><use href="#i-aprobar"/></svg>Aprobación de enfermería</li>
+            <li><svg class="icon"><use href="#i-campana"/></svg>Avisos al médico</li>
+            <li><svg class="icon"><use href="#i-escudo"/></svg>Sin diagnóstico</li>
+          </ul>
+        </div>
+      </div>
+      <button class="pausa" type="button" id="pausa" aria-pressed="false" aria-controls="carril" aria-label="Pausar la franja">
+        <svg class="icon i-pausa" aria-hidden="true"><use href="#i-pausa"/></svg>
+        <svg class="icon i-play" aria-hidden="true"><use href="#i-play"/></svg>
+      </button>
+    </div>
+  </section>
+
+  <!-- 7. Llamado final -->
+  <section class="seccion final" id="entrar" aria-labelledby="h-entrar">
+    <div class="wrap">
+      <h2 class="titulo-seccion" id="h-entrar" data-reveal>Elija con qué módulo trabajar.</h2>
+      <p class="entradilla" data-reveal>Enfermería registra y aprueba; el médico recibe lo aprobado y consulta la evolución de sus pacientes.</p>
+      <div class="botones" data-reveal>
+        <a class="btn btn--primary" href="../mockups-vC/mockups/auditor-vC.html#/enf/pacientes">
+          <svg class="icon" aria-hidden="true"><use href="#i-pacientes"/></svg>Entrar como Enfermería
+        </a>
+        <a class="btn btn--sec" href="../mockups-vC/mockups/auditor-vC.html#/med/pacientes">
+          <svg class="icon" aria-hidden="true"><use href="#i-perfil"/></svg>Entrar como Médico
+        </a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="pie">
+  <div class="wrap">
+    <p><b>Patient Progress Auditor</b> · Proyecto académico con datos ficticios.</p>
+    <p>Este sistema no diagnostica ni prescribe. Toda decisión clínica es de las personas.</p>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+
+  // Reveal al hacer scroll (una vez por elemento). El escalonado va en el style de cada elemento.
+  const reveals = document.querySelectorAll('[data-reveal], [data-reveal-grupo]');
+  if ('IntersectionObserver' in window) {
+    // Un salto de scroll (tecla Fin, un enlace de ancla) puede pasar sobre un elemento sin que el observador avise:
+    // al revelar algo, también se revela lo pendiente que ya quedó por encima, para que nada quede oculto atrás.
+    const pendientes = new Set(reveals);
+    const revelar = (el) => { el.classList.add('is-in'); io.unobserve(el); pendientes.delete(el); };
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        if (!e.isIntersecting) continue;
+        revelar(e.target);
+        for (const el of [...pendientes]) { if (el.getBoundingClientRect().bottom < 0) revelar(el); }
+      }
+    }, { rootMargin: '0px 0px -10% 0px', threshold: 0.15 });
+    reveals.forEach((el) => io.observe(el));
+  } else {
+    reveals.forEach((el) => el.classList.add('is-in'));
+  }
+
+  // Cabecera: toma fondo y compacta la marca al bajar.
+  const cabecera = document.getElementById('cabecera');
+  let pendiente = false;
+  const alBajar = () => { pendiente = false; cabecera.classList.toggle('is-compacta', scrollY > 12); };
+  addEventListener('scroll', () => { if (!pendiente) { pendiente = true; requestAnimationFrame(alBajar); } }, { passive: true });
+  alBajar();
+
+  // Menú en pantallas angostas.
+  const menuBoton = cabecera.querySelector('.menu-boton');
+  const cerrarMenu = () => { cabecera.classList.remove('is-abierta'); menuBoton.setAttribute('aria-expanded', 'false'); menuBoton.setAttribute('aria-label', 'Abrir el menú'); };
+  menuBoton.addEventListener('click', () => {
+    const abrir = !cabecera.classList.contains('is-abierta');
+    cabecera.classList.toggle('is-abierta', abrir);
+    menuBoton.setAttribute('aria-expanded', String(abrir));
+    menuBoton.setAttribute('aria-label', abrir ? 'Cerrar el menú' : 'Abrir el menú');
+  });
+  document.getElementById('menu').addEventListener('click', (e) => { if (e.target.closest('a')) cerrarMenu(); });
+  addEventListener('keydown', (e) => { if (e.key === 'Escape' && cabecera.classList.contains('is-abierta')) { cerrarMenu(); menuBoton.focus(); } });
+
+  // Interruptor de módulo (pestañas): por clic o teclado, nunca por temporizador. Fundido corto.
+  const tabs = [...document.querySelectorAll('[role="tab"]')];
+  const elegir = (tab, enfocar) => {
+    const actual = tabs.find((t) => t.getAttribute('aria-selected') === 'true');
+    if (tab === actual) return;
+    const panelViejo = document.getElementById(actual.getAttribute('aria-controls'));
+    const panelNuevo = document.getElementById(tab.getAttribute('aria-controls'));
+    tabs.forEach((t) => { const si = t === tab; t.setAttribute('aria-selected', String(si)); t.tabIndex = si ? 0 : -1; });
+    if (enfocar) tab.focus();
+    const mostrar = () => {
+      panelViejo.hidden = true; panelViejo.classList.remove('is-saliendo');
+      panelNuevo.classList.add('is-saliendo'); panelNuevo.hidden = false;
+      requestAnimationFrame(() => requestAnimationFrame(() => panelNuevo.classList.remove('is-saliendo')));
+    };
+    if (reduce.matches) { mostrar(); return; }
+    panelViejo.classList.add('is-saliendo');
+    setTimeout(mostrar, 160);
+  };
+  tabs.forEach((tab, i) => {
+    tab.addEventListener('click', () => elegir(tab, false));
+    tab.addEventListener('keydown', (e) => {
+      const n = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+      if (!n) return;
+      e.preventDefault();
+      elegir(tabs[(i + n + tabs.length) % tabs.length], true);
+    });
+  });
+
+  // Contadores: al entrar a vista, 1,8 s con salida suave. El valor final ya está en el DOM (y en el texto oculto
+  // que lee el lector de pantalla); aquí solo se cuenta el número visible.
+  const contadores = document.querySelectorAll('[data-cuenta]');
+  const contar = (el) => {
+    const fin = Number(el.dataset.cuenta);
+    if (!Number.isFinite(fin)) return;
+    const inicio = performance.now();
+    const paso = (ahora) => {
+      const t = Math.min(1, (ahora - inicio) / 1800);
+      el.textContent = String(Math.round(fin * (1 - Math.pow(1 - t, 3))));
+      if (t < 1) requestAnimationFrame(paso);
+    };
+    el.textContent = '0';
+    requestAnimationFrame(paso);
+  };
+  if (!reduce.matches && 'IntersectionObserver' in window) {
+    const ioc = new IntersectionObserver((entries) => {
+      for (const e of entries) { if (e.isIntersecting) { contar(e.target); ioc.unobserve(e.target); } }
+    }, { threshold: 0.6 });
+    contadores.forEach((el) => ioc.observe(el));
+  }
+
+  // Franja continua: botón de pausa (WCAG 2.2.2); se pausa al pasar el ratón, con el foco dentro, fuera de pantalla
+  // y con la pestaña oculta.
+  const franja = document.querySelector('.franja');
+  const pausa = document.getElementById('pausa');
+  const razones = new Set();
+  const aplicar = () => franja.classList.toggle('is-pausada', razones.size > 0);
+  const motivo = (clave, activo) => { if (activo) razones.add(clave); else razones.delete(clave); aplicar(); };
+  pausa.addEventListener('click', () => {
+    const pausada = pausa.getAttribute('aria-pressed') !== 'true';
+    pausa.setAttribute('aria-pressed', String(pausada));
+    pausa.setAttribute('aria-label', pausada ? 'Reanudar la franja' : 'Pausar la franja');
+    motivo('boton', pausada);
+  });
+  const ventana = franja.querySelector('.franja__ventana');
+  ventana.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') motivo('raton', true); });
+  ventana.addEventListener('pointerleave', () => motivo('raton', false));
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(([e]) => motivo('fuera', !e.isIntersecting)).observe(franja);
+  }
+  document.addEventListener('visibilitychange', () => motivo('oculta', document.hidden));
+})();
+</script>
+</body>
+</html>
