@@ -1054,7 +1054,7 @@ function vistaPrevia(w, rol, r) {
   c.querySelector('[data-a="agregar"]').addEventListener('click', () => { const f = filaSintoma(); filas.append(f); f.querySelector('input').focus(); });
   c.querySelector('[data-a="descartar"]').addEventListener('click', () => c.remove());
   c.querySelector('[data-a="guardar"]').addEventListener('click', (e) => {
-    const texto = c.querySelector('[data-f="texto"]').value.trim(), pac = w.querySelector('#rn-pac').value, fecha = w.querySelector('#rn-fecha').value;
+    const texto = c.querySelector('[data-f="texto"]').value.trim(), pac = (DATOS.pacientes.find((p) => p.id === w.querySelector('#rn-pac').value) || {}).id, fecha = w.querySelector('#rn-fecha').value;
     const errT = c.querySelector('[data-e="texto"]'), errS = c.querySelector('[data-e="sint"]'), errF = w.querySelector('#rn-err');
     const nuevos = [], sintomas = [];
     filas.querySelectorAll('.fila-sint').forEach((f) => {
@@ -1325,19 +1325,22 @@ const $nav = document.getElementById('sb'), $vista = document.getElementById('vi
 let rolActual = null, menu = null;
 if (innerWidth < 760) $nav.dataset.collapsed = 'true';
 
-// Cada parte del # es un codigo simple (letras, numeros, guiones): lo demas se descarta antes de llegar a una plantilla
-// HTML o a VISTAS (CodeQL: js/xss, js/unvalidated-dynamic-method-call).
-const PARTE = /^[A-Za-z0-9-]+$/;
-const parte = (s) => (typeof s === 'string' && PARTE.test(s) ? s : undefined);
+// El texto del # nunca se usa tal cual: el rol y la vista se buscan entre las claves que el mockup conoce y se usa la
+// clave encontrada, no lo que vino en la URL; el id solo pasa si es un codigo simple (letras, numeros, guiones).
+// (CodeQL: js/xss, js/unvalidated-dynamic-method-call.)
+const ID_SIMPLE = /^[A-Za-z0-9-]+$/;
 
 function ruta() {
   const h = location.hash || '#/enf/pacientes';
-  const [, rol, mod, vista, id] = h.split('/').map((p, i) => (i === 0 ? p : parte(p)));
-  if (!Object.prototype.hasOwnProperty.call(ROLES, rol)) { location.hash = '#/enf/pacientes'; return; }
+  const [, rolPedido, mod, vista, idPedido] = h.split('/');
+  const rol = Object.keys(ROLES).find((k) => k === rolPedido);
+  if (!rol) { location.hash = '#/enf/pacientes'; return; }
   const m = mod || ROLES[rol].inicio, v = vista || VISTA_DEF[`${rol}/${m}`];
+  const id = typeof idPedido === 'string' && ID_SIMPLE.test(idPedido) ? idPedido : undefined;
   if (rol !== rolActual) { rolActual = rol; menu = menuLateral($nav, { ...ROLES[rol], actual: h }); $rol.value = rol; }
-  const clave = `${rol}/${m}/${v}`;
-  const fn = Object.prototype.hasOwnProperty.call(VISTAS, clave) && typeof VISTAS[clave] === 'function' ? VISTAS[clave] : null;
+  const pedida = `${rol}/${m}/${v}`;
+  const clave = Object.keys(VISTAS).find((k) => k === pedida);
+  const fn = clave ? VISTAS[clave] : null;
   const r = fn ? fn(id) : noEncontrado();
   $titulo.textContent = r.titulo;
   $vista.replaceChildren(r.nodo);
