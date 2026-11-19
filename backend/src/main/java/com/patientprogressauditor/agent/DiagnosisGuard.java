@@ -22,6 +22,9 @@ public final class DiagnosisGuard {
     private DiagnosisGuard() {
     }
 
+    // El grupo no es innecesario: `regex` trae alternativas (a|b|c) y el grupo hace que la condicion previa (no ir
+    // pegado a una letra) valga para todas. Qodana lo evalua con un valor de ejemplo sin alternativas.
+    //noinspection RegExpUnnecessaryNonCapturingGroup
     private static Pattern p(String regex) {
         return Pattern.compile("(?<![\\p{L}])(?:" + regex + ")", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     }

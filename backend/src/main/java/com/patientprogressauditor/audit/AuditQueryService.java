@@ -85,7 +85,8 @@ public class AuditQueryService {
             where.append(" AND a.action = ?");
             args.add(code);
         }
-        long total = jdbc.queryForObject("SELECT count(*) FROM audit_logs a" + where, Long.class, args.toArray());
+        Long counted = jdbc.queryForObject("SELECT count(*) FROM audit_logs a" + where, Long.class, args.toArray());
+        long total = counted == null ? 0 : counted;
         List<Object> pageArgs = new ArrayList<>(args);
         pageArgs.add(PAGE_SIZE);
         pageArgs.add((long) page * PAGE_SIZE);

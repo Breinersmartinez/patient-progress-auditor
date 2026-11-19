@@ -125,7 +125,7 @@ public class KeycloakAdminClient {
         List<Map<String, Object>> current = http.get().uri(admin("/users/" + id + "/role-mappings/realm"))
                 .headers(this::bearer).retrieve().body(new ParameterizedTypeReference<>() { });
         List<Map<String, Object>> toRemove = current == null ? List.of()
-                : current.stream().filter(r -> APP_ROLES.contains(r.get("name")) && !role.equals(r.get("name"))).toList();
+                : current.stream().filter(r -> r.get("name") instanceof String name && APP_ROLES.contains(name) && !role.equals(name)).toList();
         if (!toRemove.isEmpty()) {
             http.method(org.springframework.http.HttpMethod.DELETE).uri(admin("/users/" + id + "/role-mappings/realm"))
                     .headers(this::bearer).contentType(MediaType.APPLICATION_JSON).body(toRemove).retrieve().toBodilessEntity();
@@ -134,6 +134,9 @@ public class KeycloakAdminClient {
         if (!has) {
             Map<String, Object> representation = http.get().uri(admin("/roles/" + role)).headers(this::bearer)
                     .retrieve().body(new ParameterizedTypeReference<>() { });
+            if (representation == null) {
+                throw new KeycloakUnavailableException("Keycloak no devolvio el rol " + role + ".");
+            }
             http.post().uri(admin("/users/" + id + "/role-mappings/realm")).headers(this::bearer)
                     .contentType(MediaType.APPLICATION_JSON).body(List.of(representation)).retrieve().toBodilessEntity();
         }
@@ -172,8 +175,6 @@ public class KeycloakAdminClient {
     private <T> T call(java.util.function.Supplier<T> action, String subject) {
         try {
             return action.get();
-        } catch (KeycloakUnavailableException | KeycloakUserExistsException e) {
-            throw e;
         } catch (RestClientResponseException e) {
             HttpStatusCode status = e.getStatusCode();
             if (status.value() == 409) {

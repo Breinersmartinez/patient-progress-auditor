@@ -1325,13 +1325,19 @@ const $nav = document.getElementById('sb'), $vista = document.getElementById('vi
 let rolActual = null, menu = null;
 if (innerWidth < 760) $nav.dataset.collapsed = 'true';
 
+// Cada parte del # es un codigo simple (letras, numeros, guiones): lo demas se descarta antes de llegar a una plantilla
+// HTML o a VISTAS (CodeQL: js/xss, js/unvalidated-dynamic-method-call).
+const PARTE = /^[A-Za-z0-9-]+$/;
+const parte = (s) => (typeof s === 'string' && PARTE.test(s) ? s : undefined);
+
 function ruta() {
   const h = location.hash || '#/enf/pacientes';
-  const [, rol, mod, vista, id] = h.split('/');
-  if (!ROLES[rol]) { location.hash = '#/enf/pacientes'; return; }
+  const [, rol, mod, vista, id] = h.split('/').map((p, i) => (i === 0 ? p : parte(p)));
+  if (!Object.prototype.hasOwnProperty.call(ROLES, rol)) { location.hash = '#/enf/pacientes'; return; }
   const m = mod || ROLES[rol].inicio, v = vista || VISTA_DEF[`${rol}/${m}`];
   if (rol !== rolActual) { rolActual = rol; menu = menuLateral($nav, { ...ROLES[rol], actual: h }); $rol.value = rol; }
-  const fn = VISTAS[`${rol}/${m}/${v}`];
+  const clave = `${rol}/${m}/${v}`;
+  const fn = Object.prototype.hasOwnProperty.call(VISTAS, clave) && typeof VISTAS[clave] === 'function' ? VISTAS[clave] : null;
   const r = fn ? fn(id) : noEncontrado();
   $titulo.textContent = r.titulo;
   $vista.replaceChildren(r.nodo);

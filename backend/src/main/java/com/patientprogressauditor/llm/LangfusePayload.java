@@ -106,8 +106,8 @@ final class LangfusePayload {
             attrs.put("langfuse.observation.usage_details", "{\"input\":%d,\"output\":%d}".formatted(attempt.tokensIn(), attempt.tokensOut()));
             BigDecimal total = LlmPricing.cost(attempt.provider(), attempt.model(), attempt.tokensIn(), attempt.tokensOut());
             // Sin precio conocido no se manda costo: Langfuse lo muestra vacio, no en cero.
-            if (total != null) {
-                BigDecimal input = LlmPricing.inputCost(attempt.provider(), attempt.model(), attempt.tokensIn());
+            BigDecimal input = total == null ? null : LlmPricing.inputCost(attempt.provider(), attempt.model(), attempt.tokensIn());
+            if (total != null && input != null) {
                 attrs.put("langfuse.observation.cost_details", "{\"input\":%s,\"output\":%s,\"total\":%s}"
                         .formatted(input.toPlainString(), total.subtract(input).toPlainString(), total.toPlainString()));
             }

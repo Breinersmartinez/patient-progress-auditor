@@ -35,7 +35,7 @@ public class RunEventStreamer {
     // Mas que cualquier ejecucion posible; si el cliente sigue ahi, EventSource reconecta solo y reanuda.
     static final long STREAM_TIMEOUT_MILLIS = TimeUnit.MINUTES.toMillis(10);
 
-    private final class Stream {
+    private static final class Stream {
         final UUID runId;
         final SseEmitter emitter = new SseEmitter(STREAM_TIMEOUT_MILLIS);
         long lastId;
