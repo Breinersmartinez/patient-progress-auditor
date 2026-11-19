@@ -6,6 +6,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
+import java.io.OutputStream;
+import java.net.Socket;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -73,6 +75,24 @@ class DictationNoDiskTest {
         return HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
     }
 
+    // La respuesta HTTP hasta el final de su cuerpo JSON (el servidor no la cierra: ver arriba).
+    private static String readResponse(java.io.InputStream in) throws IOException {
+        java.io.ByteArrayOutputStream read = new java.io.ByteArrayOutputStream();
+        byte[] buffer = new byte[4096];
+        while (true) {
+            String text = read.toString(StandardCharsets.UTF_8);
+            int headerEnd = text.indexOf("\r\n\r\n");
+            if (headerEnd >= 0 && text.indexOf('}', headerEnd) >= 0) {
+                return text;
+            }
+            int n = in.read(buffer);
+            if (n < 0) {
+                return text;
+            }
+            read.write(buffer, 0, n);
+        }
+    }
+
     // Un audio de `size` bytes con la marca repetida: si quedara en un archivo, la marca aparece.
     private static byte[] audio(int size) {
         byte[] mark = MARK.getBytes(StandardCharsets.US_ASCII);
@@ -125,11 +145,32 @@ class DictationNoDiskTest {
         assertThat(filesWithTheMark(since)).isEmpty();
     }
 
+    // Se declara un Content-Length mayor que el tope y solo se envia el primer kilobyte: si el servidor respondiera despues
+    // de leer el cuerpo, esta prueba se quedaria esperando. Antes se subian los 5 MB enteros con HttpClient, y cuando el
+    // servidor respondia 413 y cerraba, el cliente seguia escribiendo: en CI fallaba con «Broken pipe» y en local pasaba,
+    // segun cuanto aceptara la red de golpe. Asi se prueba justo lo que dice el nombre, sin depender de la red.
     @Test
     void anAudioOverTheLimitIsRejectedByItsDeclaredLength() throws Exception {
-        HttpResponse<String> response = post(audio(DictationService.MAX_AUDIO_BYTES + 1024));
+        String head = "POST /api/patients/" + patient + "/entries/transcribe HTTP/1.1\r\n"
+                + "Host: localhost:" + port + "\r\n"
+                + "Authorization: " + TestAuth.bearer("camilo.torres@example.test", "ENFERMERIA") + "\r\n"
+                + "Content-Type: audio/webm;codecs=opus\r\n"
+                + "Content-Length: " + (DictationService.MAX_AUDIO_BYTES + 1024) + "\r\n"
+                + "Connection: close\r\n\r\n";
+        String response;
+        try (Socket socket = new Socket("localhost", port)) {
+            socket.setSoTimeout(15_000);
+            OutputStream out = socket.getOutputStream();
+            out.write(head.getBytes(StandardCharsets.US_ASCII));
+            out.write(audio(1024));
+            out.flush();
+            // Se lee hasta tener la respuesta entera, sin esperar el cierre: tras responder, Tomcat intenta descartar el
+            // resto del cuerpo declarado, que nunca llega, y la conexion queda abierta.
+            response = readResponse(socket.getInputStream());
+        }
 
-        assertThat(response.statusCode()).isEqualTo(413);
-        assertThat(mapper.readTree(response.body()).path("message").asText()).startsWith("El audio es demasiado grande");
+        assertThat(response).startsWith("HTTP/1.1 413");
+        String json = response.substring(response.indexOf('{'), response.lastIndexOf('}') + 1);
+        assertThat(mapper.readTree(json).path("message").asText()).startsWith("El audio es demasiado grande");
     }
 }

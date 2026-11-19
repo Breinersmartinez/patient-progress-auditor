@@ -109,7 +109,9 @@ public class DraftValidator {
                 UUID entry = context.entryOf(ref.asText(""));
                 if (entry == null) {
                     problems.add(at + ": la cita «" + ref.asText() + "» no existe. Solo puede citar alias que le devolvieron get_week_entries o get_symptom_history en esta tarea.");
-                } else if (cited.add(entry)) {
+                } else {
+                    // `cited` es una lista: una cita repetida se conserva repetida, como hasta ahora.
+                    cited.add(entry);
                     ids.add(entry.toString());
                 }
             }

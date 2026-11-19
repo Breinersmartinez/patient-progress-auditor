@@ -156,7 +156,7 @@ public class DictationService {
                 rows.add(step(run, seq++, AgentStep.Type.ESTADO, note, false, null));
             }
             if (error != null) {
-                rows.add(step(run, seq++, AgentStep.Type.ERROR, error, true, null));
+                rows.add(step(run, seq, AgentStep.Type.ERROR, error, true, null));
             }
             steps.saveAll(rows);
         } catch (RuntimeException e) {
