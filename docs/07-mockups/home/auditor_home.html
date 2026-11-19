@@ -44,7 +44,7 @@
 *, *::before, *::after { box-sizing: border-box; }
 html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 body { margin: 0; background: var(--bg); color: var(--text-primary);
-  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
   -webkit-tap-highlight-color: transparent; }
 h1, h2, h3, p, ul, ol, dl, dd { margin: 0; }
 ul, ol { padding: 0; list-style: none; }
@@ -77,9 +77,10 @@ a { color: inherit; }
 .btn:active { transform: scale(0.97); transition-duration: var(--press-in); }
 
 /* ===== Píldoras de estado: .est y .dot de la app, sin cambios ===== */
-.est { display: inline-flex; align-items: center; gap: 8px; padding: 4px 12px 4px 10px; border: 1px solid var(--divider);
-  border-radius: 999px; background: #fff; font-size: 14px; line-height: 20px; font-weight: 500; color: var(--text-primary); white-space: nowrap; }
-.dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.est { display: inline-flex; align-items: center; gap: 10px; font-weight: 500; color: var(--text-primary); white-space: nowrap; }
+.est--d { gap: 8px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.est--d .dot { width: 8px; height: 8px; }
 .dot--revision { background: var(--dot-revision); }
 .dot--ok { background: var(--dot-ok); }
 
@@ -113,15 +114,15 @@ main section[id], #contenido { scroll-margin-top: 88px; }
 /* ===== Hero ===== */
 .hero { padding: 72px 0 104px; }
 .hero .wrap { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 56px; align-items: center; }
-.hero h1 { font-size: clamp(38px, 3.6vw + 18px, 64px); line-height: 1.05; font-weight: 750; letter-spacing: -0.03em; color: var(--navy); }
+.hero h1 { font-size: clamp(38px, 3.6vw + 18px, 64px); line-height: 1.05; font-weight: 700; letter-spacing: -0.03em; color: var(--navy); }
 .hero h1 em { font-style: normal; color: var(--color-primary); }
-.hero .entradilla { font-size: 19px; line-height: 30px; }
+.hero .entradilla { font-size: 18px; line-height: 28px; }
 .botones { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
 .nota-hero { display: flex; align-items: center; gap: 8px; margin-top: 24px; font-size: 14px; color: var(--text-secondary); }
 .nota-hero .icon { width: 18px; height: 18px; color: var(--color-success); }
 
 /* El marco de la app: UI real reconstruida con datos ficticios */
-.marco { position: relative; border: 1px solid var(--divider); border-radius: var(--r-lg); background: #fff; box-shadow: 0 24px 60px -24px rgb(var(--shadow-rgb) / 0.28), var(--shadow); overflow: hidden; }
+.marco { position: relative; border: 1px solid var(--divider); border-radius: var(--r-lg); background: #fff; box-shadow: var(--shadow); overflow: hidden; }
 .marco__barra { display: flex; align-items: center; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--divider); background: var(--surface-sunken); }
 .marco__barra b { color: var(--navy); font-size: 15px; }
 .marco__barra span { color: var(--text-secondary); font-size: 14px; }
@@ -129,8 +130,8 @@ main section[id], #contenido { scroll-margin-top: 88px; }
 .marco__cuerpo { padding: 20px 24px 24px; }
 .grafica { display: block; width: 100%; height: auto; }
 .grafica .rejilla { stroke: var(--divider); stroke-width: 1; }
-.grafica .eje { fill: var(--text-secondary); font: 600 12px system-ui, sans-serif; }
-.grafica .valor { fill: var(--navy); font: 700 13px system-ui, sans-serif; }
+.grafica .eje { fill: var(--text-secondary); font: 600 12px system-ui, -apple-system, "Segoe UI", sans-serif; }
+.grafica .valor { fill: var(--navy); font: 700 13px system-ui, -apple-system, "Segoe UI", sans-serif; }
 .grafica .linea { fill: none; stroke: var(--color-primary); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
 .grafica .area { fill: var(--pri-50); }
 .grafica .punto { fill: #fff; stroke: var(--color-primary); stroke-width: 3; }
@@ -138,7 +139,7 @@ main section[id], #contenido { scroll-margin-top: 88px; }
 .grafica .ping { fill: var(--color-primary); transform-box: fill-box; transform-origin: center; opacity: 0; }
 .leyenda { margin-top: 14px; font-size: 14px; line-height: 22px; color: var(--ink2); }
 .leyenda b { color: var(--navy); }
-.estados { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--divider); }
+.estados { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--divider); }
 .estados__flecha { display: inline-flex; align-items: center; color: var(--field); }
 .estados__flecha .icon { width: 16px; height: 16px; }
 
@@ -148,7 +149,7 @@ main section[id], #contenido { scroll-margin-top: 88px; }
 .paso { position: relative; }
 .paso__num { position: relative; display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%;
   background: #fff; border: 2px solid var(--color-primary); color: var(--color-primary); font-size: 20px; font-weight: 700; }
-.paso h3 { margin-top: 20px; font-size: 19px; line-height: 26px; font-weight: 700; color: var(--navy); }
+.paso h3 { margin-top: 20px; font-size: 18px; line-height: 26px; font-weight: 600; color: var(--navy); }
 .paso p { margin-top: 8px; color: var(--text-secondary); line-height: 24px; }
 .paso__quien { display: inline-block; margin-top: 12px; padding: 2px 10px; border-radius: var(--r-sm); background: var(--pri-50); color: var(--pri-d); font-size: 13px; font-weight: 600; }
 
@@ -164,16 +165,16 @@ main section[id], #contenido { scroll-margin-top: 88px; }
 .js .panel { transition: opacity var(--t-short) ease; }
 .js .panel.is-saliendo { opacity: 0; }
 .panel[hidden] { display: none; }
-.panel h3 { font-size: 24px; line-height: 32px; font-weight: 700; color: var(--navy); }
+.panel h3 { font-size: 22px; line-height: 30px; font-weight: 700; color: var(--navy); }
 .lista-check { margin-top: 20px; display: grid; gap: 14px; }
 .lista-check li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; align-items: start; line-height: 24px; color: var(--ink2); }
 .lista-check .icon { width: 24px; height: 24px; color: var(--color-primary); }
 .lista-check b { color: var(--navy); }
-.tabla { width: 100%; border-collapse: collapse; font-size: 15px; }
+.tabla { width: 100%; border-collapse: collapse; }
 .tabla th { padding: 12px 16px; text-align: left; font-size: 14px; font-weight: 600; color: var(--ink2); background: var(--surface-sunken); border-bottom: 1px solid var(--divider); }
 .tabla td { padding: 14px 16px; border-top: 1px solid var(--divider); vertical-align: middle; }
 .tabla tbody tr:first-child td { border-top: 0; }
-.tabla td b { color: var(--navy); }
+.tabla td b { color: var(--navy); font-weight: 600; }
 .tabla .cod { white-space: nowrap; }
 .tabla .sin { color: var(--text-secondary); }
 .marco--tabla .marco__cuerpo { padding: 0; }
@@ -182,12 +183,12 @@ main section[id], #contenido { scroll-margin-top: 88px; }
 
 /* ===== Garantías ===== */
 .garantias { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; margin-top: 56px; }
-.garantia { padding: 28px; border: 1px solid var(--divider); border-radius: var(--r-lg); background: #fff; box-shadow: var(--shadow);
+.garantia { padding: 20px 24px; border: 1px solid var(--divider); border-radius: var(--r-lg); background: #fff; box-shadow: var(--shadow);
   transition: transform 400ms var(--ease), box-shadow 400ms var(--ease); }
 @media (hover: hover) and (pointer: fine) { .garantia:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); } }
 .garantia__icono { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 14px; background: var(--pri-50); color: var(--color-primary); }
 .garantia__icono .icon { width: 26px; height: 26px; }
-.garantia h3 { margin-top: 20px; font-size: 20px; line-height: 28px; font-weight: 700; color: var(--navy); }
+.garantia h3 { margin-top: 18px; font-size: 18px; line-height: 26px; font-weight: 600; color: var(--navy); }
 .garantia p { margin-top: 10px; color: var(--text-secondary); line-height: 24px; }
 
 /* ===== Cifras (banda de contraste) ===== */
@@ -196,8 +197,8 @@ main section[id], #contenido { scroll-margin-top: 88px; }
 .cifras .titulo-seccion { color: #fff; }
 .cifras .entradilla { color: var(--pri-100); }
 .cifras__lista { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; margin-top: 48px; }
-.cifra { padding: 28px; border: 1px solid rgb(255 255 255 / 0.18); border-radius: var(--r-lg); background: rgb(255 255 255 / 0.04); }
-.cifra__num { display: block; font-size: clamp(48px, 3vw + 28px, 72px); line-height: 1; font-weight: 750; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
+.cifra { padding: 20px 24px; border: 1px solid rgb(255 255 255 / 0.18); border-radius: var(--r-lg); background: rgb(255 255 255 / 0.04); }
+.cifra__num { display: block; font-size: clamp(48px, 3vw + 28px, 72px); line-height: 1; font-weight: 700; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; }
 .cifra__txt { display: block; margin-top: 12px; color: var(--pri-100); font-size: 17px; line-height: 26px; }
 .cifras__nota { display: inline-flex; align-items: center; gap: 8px; margin-top: 28px; padding: 6px 14px; border-radius: 999px; border: 1px solid rgb(255 255 255 / 0.24); color: var(--pri-50); font-size: 14px; }
 
@@ -316,7 +317,6 @@ main section[id], #contenido { scroll-margin-top: 88px; }
   .marco__cuerpo { padding: 16px; }
   .tabla th:nth-child(2), .tabla td:nth-child(2) { display: none; }
   .tabla th, .tabla td { padding: 12px; }
-  .garantia, .cifra { padding: 22px; }
   .franja .wrap { gap: 12px; }
   .pie .wrap { flex-direction: column; align-items: flex-start; }
 }
@@ -417,11 +417,11 @@ main section[id], #contenido { scroll-margin-top: 88px; }
           </svg>
           <p class="leyenda"><b>Días con náuseas por semana: reaparecen.</b> Las cifras las calcula el código a partir de los registros confirmados; el modelo solo redacta la comparación.</p>
           <div class="estados" aria-label="Recorrido del informe">
-            <span class="est"><i class="dot dot--revision" aria-hidden="true"></i>En revisión</span>
+            <span class="est est--d"><i class="dot dot--revision" aria-hidden="true"></i>En revisión</span>
             <span class="estados__flecha" aria-hidden="true"><svg class="icon"><use href="#i-flecha"/></svg></span>
-            <span class="est"><i class="dot dot--ok" aria-hidden="true"></i>Aprobado</span>
+            <span class="est est--d"><i class="dot dot--ok" aria-hidden="true"></i>Aprobado</span>
             <span class="estados__flecha" aria-hidden="true"><svg class="icon"><use href="#i-flecha"/></svg></span>
-            <span class="est"><i class="dot dot--ok" aria-hidden="true"></i>Enviado</span>
+            <span class="est est--d"><i class="dot dot--ok" aria-hidden="true"></i>Enviado</span>
           </div>
         </div>
       </figure>
@@ -492,8 +492,8 @@ main section[id], #contenido { scroll-margin-top: 88px; }
             <table class="tabla">
               <thead><tr><th scope="col">Paciente</th><th scope="col">Cama</th><th scope="col">Informe</th></tr></thead>
               <tbody>
-                <tr><td class="cod"><b>P-014</b></td><td>204-A</td><td><span class="est"><i class="dot dot--ok" aria-hidden="true"></i>Aprobado</span></td></tr>
-                <tr><td class="cod"><b>P-021</b></td><td>207-B</td><td><span class="est"><i class="dot dot--revision" aria-hidden="true"></i>En revisión</span></td></tr>
+                <tr><td class="cod"><b>P-014</b></td><td>204-A</td><td><span class="est est--d"><i class="dot dot--ok" aria-hidden="true"></i>Aprobado</span></td></tr>
+                <tr><td class="cod"><b>P-021</b></td><td>207-B</td><td><span class="est est--d"><i class="dot dot--revision" aria-hidden="true"></i>En revisión</span></td></tr>
                 <tr><td class="cod"><b>P-007</b></td><td>215-A</td><td class="sin">Sin informe</td></tr>
                 <tr><td class="cod"><b>P-033</b></td><td>301-C</td><td class="sin">Sin informe</td></tr>
               </tbody>
@@ -518,9 +518,9 @@ main section[id], #contenido { scroll-margin-top: 88px; }
             <table class="tabla">
               <thead><tr><th scope="col">Paciente</th><th scope="col">Semana</th><th scope="col">Estado</th></tr></thead>
               <tbody>
-                <tr><td class="cod"><b>P-014</b></td><td>5 al 11 oct</td><td><span class="est"><i class="dot dot--ok" aria-hidden="true"></i>Enviado</span></td></tr>
-                <tr><td class="cod"><b>P-014</b></td><td>28 sep al 4 oct</td><td><span class="est"><i class="dot dot--ok" aria-hidden="true"></i>Enviado</span></td></tr>
-                <tr><td class="cod"><b>P-014</b></td><td>21 al 27 sep</td><td><span class="est"><i class="dot dot--ok" aria-hidden="true"></i>Enviado</span></td></tr>
+                <tr><td class="cod"><b>P-014</b></td><td>5 al 11 oct</td><td><span class="est est--d"><i class="dot dot--ok" aria-hidden="true"></i>Enviado</span></td></tr>
+                <tr><td class="cod"><b>P-014</b></td><td>28 sep al 4 oct</td><td><span class="est est--d"><i class="dot dot--ok" aria-hidden="true"></i>Enviado</span></td></tr>
+                <tr><td class="cod"><b>P-014</b></td><td>21 al 27 sep</td><td><span class="est est--d"><i class="dot dot--ok" aria-hidden="true"></i>Enviado</span></td></tr>
               </tbody>
             </table>
             <p class="aviso-campana"><svg class="icon" aria-hidden="true"><use href="#i-campana"/></svg><span>Nuevo informe enviado de <b>P-014</b>.</span></p>
