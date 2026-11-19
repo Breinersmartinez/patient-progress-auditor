@@ -188,9 +188,20 @@ class AuditApiTest {
             list("?actorId=" + actor + "&page=199");
             last = Math.min(last, (System.nanoTime() - start) / 1_000_000);
         }
+        // La vista que el administrador abre primero: sin filtros, con toda la bitacora (estas 10 000 y lo que haya).
+        // Tambien el mejor de tres (validacion del 2026-11-19, hallazgo 3).
+        long unfiltered = Long.MAX_VALUE;
+        for (int i = 0; i < 3; i++) {
+            long start = System.nanoTime();
+            JsonNode body = list("");
+            unfiltered = Math.min(unfiltered, (System.nanoTime() - start) / 1_000_000);
+            assertThat(body.path("total").asLong()).isGreaterThanOrEqualTo(10_000L);
+            assertThat(body.path("items")).hasSize(50);
+        }
         System.out.println("[auditoria] 10000 anotaciones, 200 paginas: mediana " + median + " ms, maximo " + max
-                + " ms, ultima pagina " + last + " ms");
+                + " ms, ultima pagina " + last + " ms, primera sin filtros " + unfiltered + " ms");
         assertThat(median).as("mediana en ms").isLessThan(1000);
         assertThat(last).as("ultima pagina en ms").isLessThan(1000);
+        assertThat(unfiltered).as("primera pagina sin filtros en ms").isLessThan(1000);
     }
 }

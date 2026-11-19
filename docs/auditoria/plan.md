@@ -151,3 +151,31 @@ producción).
   declarados (la inmutabilidad la garantiza la base de datos pero no es una prueba forense; la bitácora no lleva texto
   clínico).
 - Sin commits ni push hechos por mí: el equipo los hace.
+
+## Correcciones tras la validación (2026-11-19)
+
+La validación (`valida-resultado`, sesión nueva, sobre `b174788`) dio **«sirve con reservas»**: las 10 condiciones se
+cumplen y 5 hallazgos. Cada uno vuelve al tramo que la validación indicó.
+
+- [x] C1. Hallazgo 1 (especificar): el riesgo de inmutabilidad estaba subestimado. `patient_auditor` es superusuario
+  (`rolsuper = t`, confirmado) y `SET LOCAL session_replication_role = replica` salta los triggers en una sentencia.
+  > Corregido en el encargo («Riesgos»), el reporte, D33 y `decisiones.md`. La defensa (usuarios separados para Flyway y
+  > para la aplicación) **no** se construye aquí: cambia el arranque y va en el hardening de `docs/seguridad.md`.
+- [x] C2. Hallazgo 3 (especificar): el estadístico del límite de 1 s se fijó después de medir y no se medía la vista
+  sin filtros.
+  > El encargo dice ahora qué se exige (mediana de las 200 páginas, última página y primera sin filtros, estas dos como
+  > el mejor de tres) y reconoce que se decidió después. `AuditApiTest` mide también la primera página sin filtros.
+- [x] C3. Hallazgos 4 y 5 (ejecutar): el reporte describía una base que ya se recreó; un comentario de
+  `UserAdminService` estaba fuera de lugar y decía mal lo del usuario desactivado; el resumen ejecutivo contaba RF-35
+  entre los M2-S.
+  > Sección del recorrido fechada y marcada como registro; comentario movido a `resendInvitation` y corregido (409);
+  > nota en el resumen.
+- [ ] C4. Hallazgo 2 (planear): `roleGuard` deja pasar cuando no hay sesión. **Propuesta, por aprobar** (toca un guard
+  compartido por todas las rutas):
+  - Qué: si no hay sesión, el guard **niega** la ruta (`false`) en vez de dejarla pasar. Como la sesión se carga antes de
+    la primera navegación (`provideAppInitializer` en `app.config.ts`), una sesión vacía al llegar al guard significa
+    que la carga falló; la persona sigue viendo el aviso de error y «Cerrar sesión», pero ninguna pantalla de rol.
+  - Comprobación: prueba nueva `role.guard.spec.ts` (sin sesión niega; rol correcto pasa; otro rol va a su inicio; rol
+    sin pantallas pasa para ver su aviso), `ng test` completo sin pérdidas (248 hoy) y, en vivo, que cada rol sigue
+    entrando a sus pantallas.
+  - Riesgo: alguna prueba de pantalla que hoy navega sin sesión dependería del paso libre; se nota porque falla.

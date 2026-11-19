@@ -147,12 +147,13 @@ public class UserAdminService {
         });
     }
 
-    // Reenviar deja sin efecto la invitacion anterior; un usuario desactivado primero se reactiva.
     // Lo que la bitacora guarda de un usuario: nombre, rol y estado. Nunca el correo ni credenciales.
     private static Map<String, Object> state(String name, String role, boolean active) {
         return Map.of("name", name, "role", role, "active", active);
     }
 
+    // Reenviar deja sin efecto la invitacion anterior. A un usuario desactivado no se le reenvia (409): primero hay que
+    // reactivarlo.
     public void resendInvitation(UUID id) {
         AppUser user = find(id);
         if (!user.isActive()) {
